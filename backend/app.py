@@ -21,6 +21,9 @@ app.register_blueprint(types_bp, url_prefix='/api/types')
 from api.graph import graph_bp
 app.register_blueprint(graph_bp, url_prefix='/api/graph')
 
+from api.project import project_bp
+app.register_blueprint(project_bp, url_prefix='/api/project')
+
 @app.route('/')
 def index():
     return send_from_directory(FRONTEND_DIST, 'index.html')
