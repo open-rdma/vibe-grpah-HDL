@@ -5,8 +5,18 @@ from flask_cors import CORS
 app = Flask(__name__, static_folder=None)
 CORS(app)
 
-# In production, serve the Vite build output
 FRONTEND_DIST = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'dist')
+
+from services.file_manager import FileManager
+
+@app.before_request
+def setup_fm():
+    project_root = app.config.get('PROJECT_ROOT', os.getcwd())
+    if 'FILE_MANAGER' not in app.config:
+        app.config['FILE_MANAGER'] = FileManager(project_root)
+
+from api.types import types_bp
+app.register_blueprint(types_bp, url_prefix='/api/types')
 
 @app.route('/')
 def index():
