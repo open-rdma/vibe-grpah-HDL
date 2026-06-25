@@ -27,6 +27,9 @@ app.register_blueprint(project_bp, url_prefix='/api/project')
 from api.git import git_bp
 app.register_blueprint(git_bp, url_prefix='/api/git')
 
+from api.build import build_bp
+app.register_blueprint(build_bp, url_prefix='/api/build')
+
 @app.route('/')
 def index():
     return send_from_directory(FRONTEND_DIST, 'index.html')
