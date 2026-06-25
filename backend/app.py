@@ -18,6 +18,9 @@ def setup_fm():
 from api.types import types_bp
 app.register_blueprint(types_bp, url_prefix='/api/types')
 
+from api.graph import graph_bp
+app.register_blueprint(graph_bp, url_prefix='/api/graph')
+
 @app.route('/')
 def index():
     return send_from_directory(FRONTEND_DIST, 'index.html')
