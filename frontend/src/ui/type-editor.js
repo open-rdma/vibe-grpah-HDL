@@ -1,3 +1,5 @@
+import { showToast } from './toast.js';
+
 class TypeEditor {
   constructor(typeSystem, onClose) {
     this._ts = typeSystem;

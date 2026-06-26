@@ -7,6 +7,7 @@ import { ProjectPanel } from './ui/project-panel.js';
 import { PropertyPanel } from './ui/property-panel.js';
 import { TypeEditor } from './ui/type-editor.js';
 import { showNewProjectDialog, showOpenProjectDialog, showBuildDialog } from './ui/dialogs.js';
+import { showToast } from './ui/toast.js';
 import { API } from './services/api.js';
 
 class App {
