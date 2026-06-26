@@ -95,8 +95,9 @@ hw-visual-design/
 **Project Tree Panel (left):**
 - Renders the project's directory/graph hierarchy
 - Supports multiple trees (e.g., `top/`, `library/`)
+- Click a tree name to expand/collapse: loads and lists actual `.yaml` graph files under that directory via `/api/graph/dir?path=treeName`
+- Click a `.yaml` file to open it in the editor
 - Drag a graph from the tree onto the canvas to instantiate it as a node
-- Double-click a graph to open it in the editor
 - Context menu: New Graph, Delete Graph, New Tree
 
 **LGraphCanvas (center):**
@@ -107,7 +108,8 @@ hw-visual-design/
 
 **Properties Panel (right):**
 - Context-sensitive to current selection
-- Node selected: name, description, test_method, properties key-value editor
+- Nothing selected: show current graph's top-level properties — name, description, test_method, and **ports list with add/delete**
+- Node selected: name, description, test_method, properties key-value editor (add and delete), plus graph-level ports list
 - Port selected: name, direction, category, type, clock/reset domain
 - Type selector populated from the type system registry
 
@@ -170,16 +172,30 @@ ports:                         # External ports
     category: "data"
     type: "logic[31:0]"
     clock_domain: "clk"
-nodes:                         # Internal module instances
+nodes:                         # Internal module instances (id must be unique within this graph)
   - id: "adder_inst"
     ref: "library/adder/adder.yaml"  # Reference to another graph
     description: "32-bit adder for accumulation"
+    pos_x: 200                    # Canvas X position (litegraph node.pos[0])
+    pos_y: 300                    # Canvas Y position (litegraph node.pos[1])
+    size_w: 160                   # Node width in pixels (litegraph node.size[0])
+    size_h: 40                    # Node height in pixels (litegraph node.size[1])
+    collapsed: false              # Whether node is visually collapsed
     properties: {}
   - id: "fifo_inst"
     ref: "library/fifo/fifo.yaml"
     description: "Input buffer FIFO, 8-deep"
+    pos_x: 500
+    pos_y: 300
+    size_w: 160
+    size_h: 60
+    collapsed: false
     properties:
       DEPTH: 8
+canvas:                         # Canvas viewport state (preserved across save/load)
+  offset_x: 0                    # Pan offset X
+  offset_y: 0                    # Pan offset Y
+  scale: 1.0                     # Zoom level
 connections:                   # Inter-module wiring
   - from: { node: "graph_input", port: "clk" }
     to: [{ node: "adder_inst", port: "clk" }, { node: "fifo_inst", port: "clk" }]
@@ -242,12 +258,57 @@ Each canvas node represents an RTL module instance. Extends `LGraphNode`:
 - Double-click on a subgraph node → `openSubgraph()` navigates into its internal graph
 - Right-click context menu: Edit Properties, Delete, Open Subgraph
 
+### Canvas Boundary Nodes: `graph_input` / `graph_output`
+
+Each graph canvas displays two special boundary nodes that represent the graph's external ports as visible wiring anchors. They are non-deletable and auto-managed — when ports are added, edited, or removed (via the Properties panel), the boundary nodes update automatically.
+
+**`graph_input` node** — positioned on the left side of the canvas. Has one **output** slot for each `input`-direction graph port. Internal wiring connects from `graph_input.<port>` to internal module inputs. For example, if the graph has an input port `clk`, the `graph_input` node has an output named `clk` that can be wired to `adder_inst.clk`.
+
+**`graph_output` node** — positioned on the right side of the canvas. Has one **input** slot for each `output`-direction graph port. Internal wiring connects from internal module outputs to `graph_output.<port>`. For example, an internal node output `adder_inst.sum` can be wired to `graph_output.data_out`.
+
+Visually, boundary nodes use a distinct style: different background color, thinner/smaller, with the direction arrow baked into the title (`←` for graph_input, `→` for graph_output).
+
+**Boundary node interactions:**
+- **Left-click** a boundary node: the Properties Panel switches to the Graph Properties View, showing the full port list with add/delete controls. This is the primary way users discover port management — the boundary nodes serve as visible "handles" for the graph's external interface.
+- **Right-click** a boundary node: context menu with "Add Input Port" (graph_input) or "Add Output Port" (graph_output) — opens a quick inline prompt to name the new port, then immediately shows the port in the boundary node and in the properties panel.
+- **Delete key** with a boundary node selected: blocked with toast "Boundary nodes are auto-managed and cannot be deleted". Boundary nodes are also excluded from the canvas-level delete-selected action.
+
 ### Graph Hierarchy
 
 The design is a **directed graph**, not a tree. A parent graph instantiates child modules (tree-like hierarchy), but those instances can wire to each other peer-to-peer at the same level (making it a graph). The hierarchy is:
 - Parent graph: contains module instances and their interconnections
 - Child graphs: the internal implementation of a module instance (entered via subgraph navigation)
 - Peer wiring: connections between sibling instances within the same parent
+
+### Node Naming Rules
+
+**Unique names at the same level:** Within a single graph, every node instance must have a unique `id`. Duplicate names at the same hierarchy level are prohibited. This is enforced:
+- **On instantiation** (drag from tree / context menu): auto-generate a unique suffix if the name already exists (e.g., `adder_inst` → `adder_inst_2`)
+- **On rename** (Properties panel): validate the new name against all sibling nodes in the current graph, reject if duplicate
+- **On save**: server-side validation rejects graphs with duplicate node IDs, returning a 400 error with the list of duplicates
+
+Different graphs can have nodes with the same name — uniqueness is scoped to the current graph only.
+
+### Cross-Graph Connections
+
+A signal can travel across graph boundaries. For example, a node in the parent graph drives a signal into a subgraph's internal node. This works by composing connections at each level:
+
+```
+Parent graph:  source_node.output → sub_instance.input_port
+Subgraph:      graph_input.input_port → internal_node.input
+```
+
+The parent graph wires `source_node` to `sub_instance`'s port. Inside the subgraph, the `graph_input` node exposes that port, and internal wiring carries it to `internal_node`. From the user's perspective: inside the subgraph, you see the `graph_input` node; in the parent, you see the subgraph instance node showing the same ports.
+
+**No skipping levels:** A signal crossing graph boundaries must pass through explicit ports at **every** level of hierarchy. Given `top → sub_a → sub_b → target`:
+
+```
+top:     source → sub_a.port_x       # port_x enters sub_a
+sub_a:   graph_input.port_x → sub_b.port_x   # passes through sub_a to sub_b
+sub_b:   graph_input.port_x → target.input   # arrives at target
+```
+
+It is NOT valid for `top` to wire directly into `sub_b`'s internal node — `sub_a` must declare `port_x` and route it through. This enforces modularity: each graph's ports are its explicit contract with the outside world.
 
 ### Connection Validation (Real-Time)
 
@@ -266,10 +327,105 @@ Invalid connections are rejected with a notification explaining why.
 
 ### Properties Panel
 
-- Context-sensitive to the current selection
-- Node selected: shows name, description, test_method, properties key-value editor
-- Port selected: shows name, direction, category, type, clock/reset domain
+Three main views, context-sensitive to the current selection:
+
+**1. Graph Properties View** (nothing selected, or clicking a boundary node):
+- Shows graph name, description, test_method
+- **Ports section** — the most prominent section, always visible:
+  - Lists all graph ports with category/direction/type summary
+  - Each port row is clickable → inline port editor (name, direction, category, type, clock/reset domain)
+  - Each port row has a ✕ delete button
+  - If no ports exist: shows a prominent call-to-action — "No ports defined" with a clear [+ Add Port] button at the top of the section
+  - [+ Add Port] button at the bottom of the port list, styled to stand out (full width, accent color)
+
+**2. Node Properties View** (node selected):
+- Name (validated for uniqueness at current graph level), description, test_method
+- Ref path (which subgraph this instance points to)
+- Custom properties key-value editor (add/delete rows)
+- Ports list (read-only summary — click to drill into individual port properties)
+
+**3. Port Properties View** (port selected from node):
+- Name, direction, category, type, clock/reset domain
+- Reset type selector (when category is "reset")
 - Type selector dropdown populated from the type system registry
+
+### Graph State Cache (Dirty Tracking & Safe Graph Switching)
+
+The canvas holds a single `LGraph` instance. Users freely switch between graphs in the project tree without losing unsaved work. Unsaved changes are held in memory until the user explicitly saves or closes the browser.
+
+**Core mechanism — state cache in GraphManager:**
+
+- `_dirty: boolean` — tracks whether the currently displayed graph has unsaved mutations.
+- `_stateCache: Map<string, GraphData>` — stores serialized graph state keyed by path. When the user switches away from a dirty graph, its current state is snapshotted (via `toYAML()`) and stored in the cache before loading the target graph.
+
+**Switching graphs (`openGraph`):**
+
+1. If the current graph is dirty, serialize it to the state cache: `_stateCache.set(currentPath, toYAML())`.
+2. Check the state cache for the target path. If found (i.e., the user previously had unsaved work on that graph), load from cache instead of from disk.
+3. If not cached, load from disk as normal.
+4. Clear the dirty flag after restoring a cached state or loading from disk.
+
+**Saving (`saveGraph`):**
+
+1. Write current state to disk.
+2. Remove the path from the state cache.
+3. Clear the dirty flag.
+
+**No confirmation dialog on graph switch** — switching graphs is lossless. The user's unsaved state persists in the cache until saved or until the browser tab closes.
+
+**Browser close guard (`beforeunload`):**
+
+- If any entry exists in the state cache, OR the current graph is dirty: block the browser close with the standard `beforeunload` dialog.
+- The message is browser-default (e.g., "Changes you made may not be saved.").
+
+**Status bar indicator:**
+
+- A yellow `●` appears next to the graph path when the current graph is dirty.
+- A gray `●` appears when the current graph is clean but other cached graphs have unsaved changes.
+
+**Mutations that mark dirty:**
+
+- Any property panel field change (name, description, test_method, properties, port edits)
+- Adding/deleting ports
+- Adding/deleting nodes
+- Creating/removing connections
+- Moving nodes on canvas (captured via `LGraph.onAfterChange`)
+
+### Project-Gated Features
+
+When no project is open, all editing and navigation features are disabled. Only project creation/opening remains active. This prevents confusion and errors from interacting with an uninitialized workspace.
+
+**Toolbar — button tracking:**
+All state-gated buttons must be stored as class fields so `_updateButtonStates()` can toggle their `disabled` property. Currently only Save/Add/Delete/Build are tracked — Zoom In, Zoom Out, Fit, and Types must also become fields.
+
+**Toolbar state (no project):**
+- **Enabled:** New, Open
+- **Disabled:** Save, Add Subgraph, Delete, Zoom In, Zoom Out, Fit, Build, Types
+- `_updateButtonStates()` gates Zoom In/Out/Fit/Types on `hasProject` (not `hasGraph`) — navigation controls should be available any time a project is open even if no graph is loaded yet.
+- Save and Add Subgraph gate on `hasGraph` (project must be open AND a graph loaded).
+- Delete gates on `hasSelection`.
+- Build gates on `hasGraph`.
+
+**Canvas state (no project):**
+- No `LGraphCanvas` instance exists. The canvas container shows a centered placeholder message: "Open or create a project to begin."
+- `App._ensureCanvas()` (new method) lazily creates the litegraph canvas on first project open. Called from both `showNewProjectDialog` and `showOpenProjectDialog` success paths.
+- `App._ensureCanvas()` is idempotent — if canvas already exists, it's a no-op.
+- Drag-and-drop from the project tree is ignored when no project is open (the drop handler already depends on `_graphManager._graph` which is null until canvas is created).
+
+**Property panel state (no project):**
+- Shows a placeholder: "No project open." with subtext "Use New or Open to get started."
+- `PropertyPanel.clear()` checks `_app._project.isOpen()` first, shows placeholder if false.
+
+**Project panel state (no project):**
+- Shows a placeholder: "No project open." with subtext "Use New or Open to get started."
+- `ProjectPanel.refresh()` checks project state, shows placeholder if no project open.
+
+**Transitions:**
+- **Startup → no project:** All panels show their no-project placeholders. Toolbar buttons are gated per the table above. `_initLiteGraph()` is NOT called during construction — only layout placeholders are rendered.
+- **Project opened (New or Open):** `_ensureCanvas()` creates the litegraph graph+canvas. `_initComponents()` registers the `onAfterChange` hook. All panels refresh with real content. Toolbar calls `refresh()` → `_updateButtonStates()` to re-evaluate.
+- **No "close project" action exists**, so the no-project state only occurs at startup before the first project is opened. Once a project is open, the workspace stays initialized.
+
+---
 
 ## Backend Architecture
 
@@ -288,6 +444,7 @@ GRAPH OPERATIONS
   POST   /api/graph/save              Save a graph YAML file
   POST   /api/graph/validate          Validate graph integrity (refs, types, connections)
   DELETE /api/graph/delete?path=...   Delete a graph
+  GET    /api/graph/dir?path=...      List graph files under a directory
 
 TYPE SYSTEM
   GET    /api/types/list              List all type definitions
