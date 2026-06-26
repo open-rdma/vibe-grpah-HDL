@@ -1,14 +1,14 @@
 @echo off
 chcp 65001 >nul
 echo ============================================
-echo   RTL Blueprint — Server Startup
+echo   RTL Blueprint -- Server Startup
 echo ============================================
 echo.
 
 cd /d "%~dp0"
 
 :: ---- Backend ----
-echo [1/4] Installing backend dependencies...
+echo [1/3] Installing backend dependencies...
 cd backend
 python -m pip install -r requirements.txt -q
 if %errorlevel% neq 0 (
@@ -16,13 +16,10 @@ if %errorlevel% neq 0 (
     pause
     exit /b 1
 )
-
-echo [2/4] Starting backend server (port 5000)...
-start "RTL Blueprint Backend" cmd /c "python app.py"
 cd ..
 
-:: ---- Frontend ----
-echo [3/4] Installing frontend dependencies...
+:: ---- Frontend build ----
+echo [2/3] Installing frontend dependencies and building...
 cd frontend
 call npm install --silent
 if %errorlevel% neq 0 (
@@ -30,17 +27,22 @@ if %errorlevel% neq 0 (
     pause
     exit /b 1
 )
-
-echo [4/4] Starting frontend dev server (port 5173)...
-start "RTL Blueprint Frontend" cmd /c "npm run dev"
+call npx vite build
+if %errorlevel% neq 0 (
+    echo ERROR: Frontend build failed.
+    pause
+    exit /b 1
+)
 cd ..
 
+:: ---- Start backend only ----
+echo [3/3] Starting backend server (port 5000)...
 echo.
 echo ============================================
-echo   Both servers are starting!
-echo.
-echo   Backend:  http://localhost:5000
-echo   Frontend: http://localhost:5173
+echo   Backend serving at http://localhost:5000
+echo   Frontend built to frontend/dist/
 echo ============================================
 echo.
+cd backend
+python app.py
 pause
