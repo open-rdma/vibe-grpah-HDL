@@ -11,6 +11,7 @@ class GraphManager {
   }
 
   newGraph(name) {
+    if (!this._graph) return null;
     this._graph.clear();
     this._graph.extra = { name: name };
     if (this._canvas) {
@@ -30,7 +31,7 @@ class GraphManager {
     const nodes = data.nodes || [];
     const nodeMap = {};
     for (const n of nodes) {
-      const node = this._createNodeFromData(n);
+      const node = await this._createNodeFromData(n);
       nodeMap[n.id] = node;
     }
 
@@ -54,16 +55,16 @@ class GraphManager {
     return this._graph;
   }
 
-  _createNodeFromData(nodeData) {
+  async _createNodeFromData(nodeData) {
     const node = LiteGraph.createNode('rtl/module');
     node.title = nodeData.id;
     node._module_ref = nodeData.ref || '';
     node._module_data = nodeData;
     node.properties = nodeData.properties || {};
 
-    // Load ref module's port list if available (async, but we do best-effort)
+    // Load ref module's port list if available
     if (nodeData.ref) {
-      this._loadRefPorts(node, nodeData.ref);
+      await this._loadRefPorts(node, nodeData.ref);
     }
 
     this._graph.add(node);
@@ -120,6 +121,9 @@ class GraphManager {
   }
 
   toYAML() {
+    if (!this._graph) {
+      return { meta: {}, properties: {}, ports: [], nodes: [], connections: [] };
+    }
     const data = {
       meta: this._graph.extra.meta || { name: '', description: '', test_method: '' },
       properties: this._graph.extra.properties || {},
