@@ -423,7 +423,36 @@ All state-gated buttons must be stored as class fields so `_updateButtonStates()
 **Transitions:**
 - **Startup → no project:** All panels show their no-project placeholders. Toolbar buttons are gated per the table above. `_initLiteGraph()` is NOT called during construction — only layout placeholders are rendered.
 - **Project opened (New or Open):** `_ensureCanvas()` creates the litegraph graph+canvas. `_initComponents()` registers the `onAfterChange` hook. All panels refresh with real content. Toolbar calls `refresh()` → `_updateButtonStates()` to re-evaluate.
-- **No "close project" action exists**, so the no-project state only occurs at startup before the first project is opened. Once a project is open, the workspace stays initialized.
+- **Close Project action** returns the workspace to the no-project state. All panels show their placeholders, the canvas is destroyed, toolbar buttons return to gated states. The backend resets its FileManager to the base project directory.
+
+### Close Project
+
+Closing a project returns both frontend and backend to their initial (no-project) state. This enables switching between projects and fixes a path resolution bug where opening a second project incorrectly resolved paths relative to the first project's directory.
+
+**Backend (`POST /api/project/close`):**
+- Resets `PROJECT_ROOT` to the original working directory
+- Re-creates `FILE_MANAGER` pointing to the base directory
+- Returns `{ok: true}`
+
+**Backend fix (`open_project` path resolution):**
+- `open_project` now resolves `project_path` relative to `PROJECTS_BASE` (the original working directory), not relative to the current `FileManager.project_root`
+- `PROJECTS_BASE` is captured at startup in `app.py` before any project is opened
+- This fixes the bug where opening a second project would resolve `/proj1/proj2` instead of `/proj2`
+
+**Frontend — `Project.close()`:**
+- New method on the `Project` class that calls `POST /api/project/close`
+- Clears internal `_config` and `_trees` on success
+
+**Frontend — `App.closeProject()`:**
+- Calls `_project.close()` via API
+- Clears canvas state: removes the litegraph canvas element, nulls out `_canvas`
+- Resets `_graphManager` internal state (null graph, clear cache, reset dirty flag)
+- Shows canvas placeholder
+- Refreshes all panels and toolbar to no-project state
+- The Close button is in the Toolbar, gated on `hasProject` (always enabled when a project is open)
+
+**Transition (Close Project):**
+- Project closed → canvas destroyed → canvas placeholder shown → all panels show no-project placeholders → toolbar buttons gated to no-project state
 
 ### Recent Projects
 

@@ -3,6 +3,7 @@ import type { App } from '../app';
 class Toolbar {
   _app: App;
   _el: HTMLElement | null;
+  _closeBtn: HTMLButtonElement | null = null;
   _saveBtn: HTMLButtonElement | null = null;
   _addBtn: HTMLButtonElement | null = null;
   _deleteBtn: HTMLButtonElement | null = null;
@@ -22,6 +23,7 @@ class Toolbar {
 
     this._addButton('New', () => this._app.showNewProjectDialog());
     this._addButton('Open', () => this._app.showOpenProjectDialog());
+    this._closeBtn = this._addButton('Close', () => this._app.closeProject());
     this._saveBtn = this._addButton('Save', () => this._app.saveCurrentGraph());
     this._addSeparator();
     this._addBtn = this._addButton('Add Subgraph', () => this._app.addSubgraphNode());
@@ -56,6 +58,7 @@ class Toolbar {
     const hasSelection = hasGraph && this._app._canvas &&
       Object.keys(this._app._canvas.selected_nodes || {}).length > 0;
 
+    if (this._closeBtn) this._closeBtn.disabled = !hasProject;
     if (this._saveBtn) this._saveBtn.disabled = !hasGraph;
     if (this._addBtn) this._addBtn.disabled = !hasGraph;
     if (this._deleteBtn) this._deleteBtn.disabled = !hasSelection;

@@ -222,6 +222,40 @@ class App {
     });
   }
 
+  async closeProject(): Promise<void> {
+    if (!this._project.isOpen()) {
+      showToast('No project open', 'error');
+      return;
+    }
+    try {
+      await this._project.close();
+      this._destroyCanvas();
+      this._graphManager.reset();
+      this._showCanvasPlaceholder();
+      this._updateStatus();
+      this._toolbar.refresh();
+      this._projectPanel.refresh([]);
+      this._propertyPanel.clear();
+      showToast('Project closed');
+    } catch (e: any) {
+      showToast('Close failed: ' + e.message, 'error');
+    }
+  }
+
+  _destroyCanvas(): void {
+    if (!this._canvas) return;
+    const graph = this._graphManager._graph;
+    if (graph) graph.onAfterChange = null;
+    if (this._canvas) {
+      this._canvas.onNodeSelected = null;
+      this._canvas.onNodeDeselected = null;
+    }
+    this._canvas = undefined as any;
+    this._graphManager.setCanvas(null as any);
+    const container = document.getElementById('canvas-container');
+    if (container) container.innerHTML = '';
+  }
+
   async saveCurrentGraph(): Promise<void> {
     if (!this._project.isOpen()) {
       showToast('No project open', 'error');

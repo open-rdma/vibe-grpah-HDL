@@ -10,6 +10,12 @@ CORS(app)
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), '..', 'frontend')
 FRONTEND_DIST = os.path.join(FRONTEND_DIR, 'dist')
 
+# Snapshot the original working directory as the projects base before any
+# project open replaces PROJECT_ROOT.  Used by open_project to resolve
+# relative paths consistently regardless of which project is currently open.
+PROJECTS_BASE = os.getcwd()
+app.config['PROJECTS_BASE'] = PROJECTS_BASE
+
 
 def build_frontend():
     """Run `npm run build` to produce frontend/dist. Skip if node is unavailable."""

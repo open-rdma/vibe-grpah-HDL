@@ -19,6 +19,12 @@ class Project {
     this._trees = data.trees;
   }
 
+  async close(): Promise<void> {
+    await API.closeProject();
+    this._config = null;
+    this._trees = [];
+  }
+
   async save(): Promise<void> {
     if (!this._config) throw new Error('No project open');
     await API.saveProject(this._config);

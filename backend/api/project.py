@@ -35,8 +35,8 @@ def create_project():
     if not project_path:
         return jsonify({'error': 'path required'}), 400
 
-    fm = _fm()
-    project_root = os.path.abspath(os.path.join(fm.project_root, project_path))
+    base = current_app.config['PROJECTS_BASE']
+    project_root = os.path.abspath(os.path.join(base, project_path))
     os.makedirs(project_root, exist_ok=True)
 
     app = current_app
@@ -72,8 +72,8 @@ def open_project():
     if not project_path:
         return jsonify({'error': 'path required'}), 400
 
-    fm = _fm()
-    project_root = os.path.abspath(os.path.join(fm.project_root, project_path))
+    base = current_app.config['PROJECTS_BASE']
+    project_root = os.path.abspath(os.path.join(base, project_path))
     if not os.path.exists(os.path.join(project_root, 'project.yaml')):
         return jsonify({'error': 'Not a valid project'}), 400
 
@@ -83,6 +83,14 @@ def open_project():
 
     config = fm.read_yaml('project.yaml')
     return jsonify({'ok': True, 'project': config, 'trees': config.get('trees', [])})
+
+@project_bp.route('/close', methods=['POST'])
+def close_project():
+    """Reset project state to base (no project open)."""
+    base = current_app.config['PROJECTS_BASE']
+    current_app.config['PROJECT_ROOT'] = base
+    current_app.config['FILE_MANAGER'] = __import__('services.file_manager', fromlist=['FileManager']).FileManager(base)
+    return jsonify({'ok': True})
 
 @project_bp.route('/save', methods=['POST'])
 def save_project():

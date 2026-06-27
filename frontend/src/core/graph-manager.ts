@@ -47,8 +47,15 @@ class GraphManager {
 
   setCanvas(canvas: LGraphCanvas): void {
     this._canvas = canvas;
-    this._graph = canvas.graph;
-    this._installDeleteGuard(this._graph);
+    this._graph = canvas ? canvas.graph : null;
+    if (this._graph) this._installDeleteGuard(this._graph);
+  }
+
+  reset(): void {
+    this._stateCache.clear();
+    this._dirty = false;
+    this._graph = null;
+    this._canvas = null;
   }
 
   private _requireGraph(): LGraph {

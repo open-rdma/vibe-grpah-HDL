@@ -11,6 +11,9 @@ const API = {
   saveProject(config: Record<string, any>): Promise<APIResponse> {
     return this._post('/api/project/save', { config });
   },
+  closeProject(): Promise<APIResponse> {
+    return this._post('/api/project/close', {});
+  },
   createTree(name: string): Promise<APIResponse> {
     return this._post('/api/project/tree/create', { name });
   },
