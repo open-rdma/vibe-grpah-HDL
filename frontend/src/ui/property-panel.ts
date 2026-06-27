@@ -1,6 +1,7 @@
 import type { App } from '../app';
 import type { PortData } from '../types/graph-types';
 import { showToast } from './toast';
+import { KnowledgePreview } from './knowledge-preview';
 import { createDefaultPort } from '../constants';
 
 class PropertyPanel {
@@ -44,6 +45,66 @@ class PropertyPanel {
     this._addField('Name', meta.name || '', (v: string) => { meta.name = v; });
     this._addTextarea('Description', meta.description || '', (v: string) => { meta.description = v; });
     this._addTextarea('Test Method', meta.test_method || '', (v: string) => { meta.test_method = v; });
+
+    // Knowledge section
+    this._addHeading('Knowledge');
+    const metaKnowledge = meta.knowledge || '';
+    const knowledgeHeading = this._el!.lastElementChild as HTMLElement;
+    if (knowledgeHeading) {
+      knowledgeHeading.textContent = 'Knowledge' + (metaKnowledge.trim() ? ' [\u270E]' : '');
+      knowledgeHeading.style.cursor = 'pointer';
+      const knowledgeContainer = document.createElement('div');
+      let knowledgeCollapsed = false;
+      knowledgeHeading.addEventListener('click', () => {
+        knowledgeCollapsed = !knowledgeCollapsed;
+        knowledgeContainer.style.display = knowledgeCollapsed ? 'none' : '';
+      });
+      this._el!.appendChild(knowledgeContainer);
+
+      const ta = document.createElement('textarea');
+      ta.value = metaKnowledge;
+      ta.placeholder = 'Markdown knowledge for this module. Use {{name}}, {{direction}}, {{category}}, {{type}}, {{properties.FOO}}, {{description}} for interpolation.';
+      ta.addEventListener('input', () => {
+        meta.knowledge = ta.value;
+        this._app._graphManager.markDirty();
+      });
+      knowledgeContainer.appendChild(ta);
+
+      const previewBtn = document.createElement('button');
+      previewBtn.textContent = 'Preview';
+      previewBtn.style.cssText = 'margin-top:4px; width:100%;';
+      previewBtn.addEventListener('click', () => {
+        const merger = this._app._knowledgeMerger;
+        if (!merger) {
+          showToast('Knowledge system not available', 'error');
+          return;
+        }
+        const graph = this._app._graphManager._graph;
+        if (!graph) return;
+        const levels: (string | undefined)[] = [
+          this._app.getSystemKnowledge(),
+          this._app.getProjectKnowledge(),
+          meta.knowledge
+        ];
+        const merged = merger.merge(levels, { entity: { ...meta, properties: graph.extra.properties || {} } });
+        KnowledgePreview.show('Graph \u00b7 ' + (meta.name || 'unnamed'), merged);
+      });
+      knowledgeContainer.appendChild(previewBtn);
+
+      // Knowledge Template
+      const tmplLabel = document.createElement('label');
+      tmplLabel.textContent = 'Knowledge Template';
+      tmplLabel.style.cssText = 'display:block; margin-top:8px; font-size:10px; color:var(--text-dim); text-transform:uppercase;';
+      knowledgeContainer.appendChild(tmplLabel);
+      const tmplTa = document.createElement('textarea');
+      tmplTa.value = graph.extra.knowledge_template || '';
+      tmplTa.placeholder = 'Use {{children}} as placeholder for sub-level content.';
+      tmplTa.addEventListener('input', () => {
+        graph.extra.knowledge_template = tmplTa.value;
+        this._app._graphManager.markDirty();
+      });
+      knowledgeContainer.appendChild(tmplTa);
+    }
   }
 
   _renderPortsSection(graph: LGraph): void {
@@ -199,6 +260,55 @@ class PropertyPanel {
       row.addEventListener('click', () => this.showPortProperties(node, p.dir, p.idx));
       this._el!.appendChild(row);
     }
+
+    this._addHeading('Knowledge');
+    const nodeKnowledge = data.knowledge || '';
+    const nkHeading = this._el!.lastElementChild as HTMLElement;
+    if (nkHeading) {
+      nkHeading.textContent = 'Knowledge' + (nodeKnowledge.trim() ? ' [\u270E]' : '');
+      nkHeading.style.cursor = 'pointer';
+      const nkContainer = document.createElement('div');
+      let nkCollapsed = false;
+      nkHeading.addEventListener('click', () => {
+        nkCollapsed = !nkCollapsed;
+        nkContainer.style.display = nkCollapsed ? 'none' : '';
+      });
+      this._el!.appendChild(nkContainer);
+
+      const ta = document.createElement('textarea');
+      ta.value = nodeKnowledge;
+      ta.placeholder = 'Markdown knowledge for this node instance.';
+      ta.addEventListener('input', () => {
+        data.knowledge = ta.value;
+        node._module_data = data;
+        this._app._graphManager.markDirty();
+      });
+      nkContainer.appendChild(ta);
+
+      const previewBtn = document.createElement('button');
+      previewBtn.textContent = 'Preview';
+      previewBtn.style.cssText = 'margin-top:4px; width:100%;';
+      previewBtn.addEventListener('click', () => {
+        const merger = this._app._knowledgeMerger;
+        if (!merger) {
+          showToast('Knowledge system not available', 'error');
+          return;
+        }
+        const graph = this._app._graphManager._graph;
+        if (!graph) return;
+        const graphMeta = (graph && graph.extra && graph.extra.meta) || {};
+        const levels: (string | undefined)[] = [
+          this._app.getSystemKnowledge(),
+          this._app.getProjectKnowledge(),
+          graphMeta.knowledge,
+          data.knowledge
+        ];
+        const template = graph.extra.knowledge_template || graphMeta.knowledge_template || undefined;
+        const merged = merger.merge(levels, { entity: { name: node.title, properties: node.properties || {}, description: data.description } }, template);
+        KnowledgePreview.show('Node \u00b7 ' + (node.title || 'unnamed'), merged);
+      });
+      nkContainer.appendChild(previewBtn);
+    }
   }
 
   showPortProperties(node: LGraphNode, direction: string, slotIdx: number): void {
@@ -235,6 +345,64 @@ class PropertyPanel {
     }
     if (cat === 'data' && portData.clock_domain) {
       this._addCheckbox('Allow Cross-Domain Connection', !!portData.allow_cross_domain, (v: boolean) => { portData.allow_cross_domain = v; slot._port_data = portData; });
+    }
+
+    this._addHeading('Knowledge');
+    const portKnowledge = portData.knowledge || '';
+    const pkHeading = this._el!.lastElementChild as HTMLElement;
+    if (pkHeading) {
+      pkHeading.textContent = 'Knowledge' + (portKnowledge.trim() ? ' [\u270E]' : '');
+      pkHeading.style.cursor = 'pointer';
+      const pkContainer = document.createElement('div');
+      let pkCollapsed = false;
+      pkHeading.addEventListener('click', () => {
+        pkCollapsed = !pkCollapsed;
+        pkContainer.style.display = pkCollapsed ? 'none' : '';
+      });
+      this._el!.appendChild(pkContainer);
+
+      const ta = document.createElement('textarea');
+      ta.value = portKnowledge;
+      ta.placeholder = 'Markdown knowledge for this port. Use {{name}}, {{direction}}, {{category}}, {{type}} for interpolation.';
+      ta.addEventListener('input', () => {
+        portData.knowledge = ta.value;
+        slot._port_data = portData;
+        this._app._graphManager.markDirty();
+      });
+      pkContainer.appendChild(ta);
+
+      const previewBtn = document.createElement('button');
+      previewBtn.textContent = 'Preview';
+      previewBtn.style.cssText = 'margin-top:4px; width:100%;';
+      previewBtn.addEventListener('click', () => {
+        const merger = this._app._knowledgeMerger;
+        if (!merger) {
+          showToast('Knowledge system not available', 'error');
+          return;
+        }
+        const graph = this._app._graphManager._graph;
+        if (!graph) return;
+        const graphMeta = (graph && graph.extra && graph.extra.meta) || {};
+        const nodeData = node._module_data || {};
+        const levels: (string | undefined)[] = [
+          this._app.getSystemKnowledge(),
+          this._app.getProjectKnowledge(),
+          graphMeta.knowledge,
+          nodeData.knowledge,
+          portData.knowledge
+        ];
+        const entity: Record<string, any> = {
+          name: slot.name,
+          direction: direction,
+          category: portData.category,
+          type: portData.type || '',
+          properties: node.properties || {}
+        };
+        const template = graph.extra.knowledge_template || graphMeta.knowledge_template || undefined;
+        const merged = merger.merge(levels, { entity }, template);
+        KnowledgePreview.show('Port \u00b7 ' + slot.name + ' \u00b7 ' + (node.title || 'unnamed'), merged);
+      });
+      pkContainer.appendChild(previewBtn);
     }
 
     this._addButton('\u2190 Back to Node', () => this.showNodeProperties(node));

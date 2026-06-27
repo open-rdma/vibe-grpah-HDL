@@ -22,6 +22,9 @@ class App {
   _toolbar!: Toolbar;
   _projectPanel!: ProjectPanel;
   _propertyPanel!: PropertyPanel;
+  _knowledgeMerger: any = null;
+  getSystemKnowledge(): string { return ''; }
+  getProjectKnowledge(): string { return ''; }
 
   constructor() {
     this._typeSystem = new TypeSystem();
