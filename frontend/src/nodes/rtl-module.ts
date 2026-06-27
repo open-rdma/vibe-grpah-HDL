@@ -78,9 +78,15 @@ proto.onDblClick = function(
     return false;
   }
 
-  // Lazy-build subgraph from _subgraph_data
+  // Refresh _subgraph_data from cache/API, then build subgraph
   const refPath = this._module_ref || '';
-  app._graphManager.buildSubgraphFromData(this._subgraph_data, refPath)
+  app._graphManager._loadRefPorts(this, refPath)
+    .then(() => {
+      if (!this._subgraph_data) {
+        throw new Error('module data not loaded');
+      }
+      return app._graphManager.buildSubgraphFromData(this._subgraph_data, refPath);
+    })
     .then((subgraph: LGraph) => {
       subgraph._subgraph_node = this;
       this._subgraph = subgraph;
@@ -139,7 +145,13 @@ proto.getExtraMenuOptions = function(canvas: LGraphCanvas, _options: any[]): any
           return;
         }
         const refPath = self._module_ref || '';
-        app._graphManager.buildSubgraphFromData(self._subgraph_data, refPath)
+        app._graphManager._loadRefPorts(self, refPath)
+          .then(() => {
+            if (!self._subgraph_data) {
+              throw new Error('module data not loaded');
+            }
+            return app._graphManager.buildSubgraphFromData(self._subgraph_data, refPath);
+          })
           .then((subgraph: LGraph) => {
             subgraph._subgraph_node = self;
             self._subgraph = subgraph;
