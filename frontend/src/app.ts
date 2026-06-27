@@ -26,8 +26,8 @@ class App {
   constructor() {
     this._typeSystem = new TypeSystem();
     this._connectionValidator = new ConnectionValidator(this._typeSystem);
-    (window as any).__connectionValidator = this._connectionValidator;
-    (window as any).__app = this;
+    window.__connectionValidator = this._connectionValidator;
+    window.__app = this;
 
     this._project = new Project();
     this._graphManager = new GraphManager(this._typeSystem);
@@ -251,7 +251,7 @@ class App {
       this._canvas.onNodeDeselected = null;
     }
     this._canvas = undefined as any;
-    this._graphManager.setCanvas(null as any);
+    this._graphManager.setCanvas(null);
     const container = document.getElementById('canvas-container');
     if (container) container.innerHTML = '';
   }

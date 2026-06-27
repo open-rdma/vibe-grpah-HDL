@@ -2,10 +2,13 @@ import type { PortData, GraphData } from '../types/graph-types';
 import { getPortColor } from '../constants';
 import { showToast } from '../ui/toast';
 
-/**
- * RTL Module Node — represents a module instance on the canvas.
- * Subclassed via litegraph.js prototype copying system.
- */
+// ---------- typed prototype boundary ----------
+// litegraph.js registerNodeType copies from classObj.prototype, so the
+// prototype is the single source of truth for method assignments.  We cast
+// it ONCE to LGraphNode; every method assignment after that point is fully
+// type-checked (parameter names, types, and return values) against the
+// declared signatures in litegraph.d.ts.
+
 function RTLModuleNode(this: LGraphNode) {
   this.inputs = [];
   this.outputs = [];
@@ -18,13 +21,15 @@ function RTLModuleNode(this: LGraphNode) {
 RTLModuleNode.title = 'RTL Module';
 RTLModuleNode.desc = 'An RTL module instance';
 
-(RTLModuleNode as any).prototype.getPortColor = getPortColor;
+const proto = RTLModuleNode.prototype as LGraphNode;
+
+proto.getPortColor = getPortColor;
 
 function validateConnection(
   sourceNode: LGraphNode, sourceSlot: number,
   targetNode: LGraphNode, targetSlot: number
 ): boolean {
-  const validator = (window as any).__connectionValidator;
+  const validator = window.__connectionValidator;
   if (!validator) return true;
   const result = validator.validate(sourceNode, sourceSlot, targetNode, targetSlot);
   if (!result.allowed) {
@@ -34,20 +39,20 @@ function validateConnection(
   return true;
 }
 
-(RTLModuleNode as any).prototype.onConnectInput = function(
+proto.onConnectInput = function(
   target_slot: number, _type: string, _output_slot: object, output_node: LGraphNode, output_slot: number
 ): boolean {
   return validateConnection(output_node, output_slot, this, target_slot);
 };
 
-(RTLModuleNode as any).prototype.onConnectOutput = function(
+proto.onConnectOutput = function(
   output_slot: number, _type: string, _input_slot: object, input_node: LGraphNode, input_slot: number
 ): boolean {
   return validateConnection(this, output_slot, input_node, input_slot);
 };
 
-(RTLModuleNode as any).prototype.onDblClick = function(
-  e: MouseEvent, pos: number[], graphcanvas: LGraphCanvas
+proto.onDblClick = function(
+  _e: MouseEvent, _pos: number[], graphcanvas: LGraphCanvas
 ): boolean {
   if (this._subgraph) {
     graphcanvas.openSubgraph(this._subgraph);
@@ -56,13 +61,13 @@ function validateConnection(
   return false;
 };
 
-(RTLModuleNode as any).prototype.getExtraMenuOptions = function(canvas: LGraphCanvas, options: any[]): any[] {
+proto.getExtraMenuOptions = function(canvas: LGraphCanvas, _options: any[]): any[] {
   const self = this;
   const menuOptions: any[] = [
     {
       content: 'Edit Properties',
       callback: () => {
-        const app = (window as any).__app;
+        const app = window.__app;
         if (app) {
           canvas.selectNode(self);
           app._propertyPanel.showNodeProperties(self);
@@ -86,7 +91,7 @@ function validateConnection(
         if (self._subgraph) {
           canvas.openSubgraph(self._subgraph);
         } else if (self._module_ref) {
-          const app = (window as any).__app;
+          const app = window.__app;
           if (app) {
             app.openGraph(self._module_ref);
           }
@@ -97,14 +102,14 @@ function validateConnection(
   return menuOptions;
 };
 
-(RTLModuleNode as any).prototype.setPortsFromData = function(moduleData: GraphData): void {
+proto.setPortsFromData = function(moduleData: GraphData): void {
   this.inputs.length = 0;
   this.outputs.length = 0;
 
   const ports = moduleData.ports || [];
   for (let i = 0; i < ports.length; i++) {
     const p: PortData = ports[i];
-    const color = this.getPortColor(p.category);
+    const color = this.getPortColor!(p.category);
     if (p.direction === 'input') {
       this.addInput(p.name, p.type || p.category || 'data');
       const idx = this.inputs.length - 1;

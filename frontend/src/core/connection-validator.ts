@@ -16,8 +16,8 @@ class ConnectionValidator {
       return { allowed: false, reason: 'Invalid slot' };
     }
 
-    const outPort = outSlot._port_data || {};
-    const inPort = inSlot._port_data || {};
+    const outPort = (outSlot._port_data || {}) as import('../types/graph-types').PortData;
+    const inPort = (inSlot._port_data || {}) as import('../types/graph-types').PortData;
 
     const outCat = outPort.category || 'data';
     const inCat = inPort.category || 'data';

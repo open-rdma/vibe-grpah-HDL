@@ -45,7 +45,7 @@ class GraphManager {
     return this._dirty || this._stateCache.size > 0;
   }
 
-  setCanvas(canvas: LGraphCanvas): void {
+  setCanvas(canvas: LGraphCanvas | null): void {
     this._canvas = canvas;
     this._graph = canvas ? canvas.graph : null;
     if (this._graph) this._installDeleteGuard(this._graph);
@@ -255,14 +255,14 @@ class GraphManager {
       inputNode.pos = [40, 100];
       graph.add(inputNode);
     }
-    (inputNode as any).syncWithGraphPorts(graph);
+    inputNode.syncWithGraphPorts?.(graph);
 
     if (!outputNode) {
       outputNode = LiteGraph.createNode('rtl/graph_output');
       outputNode.pos = [600, 100];
       graph.add(outputNode);
     }
-    (outputNode as any).syncWithGraphPorts(graph);
+    outputNode.syncWithGraphPorts?.(graph);
   }
 
   /**

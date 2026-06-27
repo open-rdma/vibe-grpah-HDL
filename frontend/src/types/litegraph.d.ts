@@ -1,4 +1,4 @@
-// Minimal type declarations for litegraph.js (loaded globally via <script> tag)
+// Type declarations for litegraph.js (loaded globally via <script> tag)
 
 /// <reference path="./graph-types.ts" />
 
@@ -8,7 +8,8 @@ declare class LiteGraph {
   static LGraph: typeof LGraph;
   static LGraphCanvas: typeof LGraphCanvas;
   static createNode(type: string): LGraphNode;
-  static registerNodeType(type: string, classObj: any): void;
+  static registerNodeType(type: string, classObj: { prototype: Partial<LGraphNode> }): void;
+  static isValidConnection(typeA: string, typeB: string): boolean;
 }
 
 declare class LGraph {
@@ -19,6 +20,8 @@ declare class LGraph {
   add(node: LGraphNode): void;
   remove(node: LGraphNode): void;
   clear(): void;
+  beforeChange(): void;
+  connectionChange(node: LGraphNode, linkInfo: unknown): void;
 }
 
 declare class LGraphCanvas {
@@ -38,6 +41,7 @@ declare class LGraphCanvas {
   zoomToFit(): void;
   selectNode(node: LGraphNode): void;
   openSubgraph(graph: LGraph): void;
+  setDirtyCanvas(fg: boolean, bg: boolean): void;
 }
 
 interface LLink {
@@ -50,7 +54,8 @@ interface LGraphNodePort {
   type?: string;
   color_on?: string;
   link?: number;
-  _port_data?: PortData;
+  links?: number[];
+  _port_data?: import('./graph-types').PortData;
 }
 
 declare class LGraphNode {
@@ -72,12 +77,40 @@ declare class LGraphNode {
   _is_boundary?: boolean;
   _module_ref?: string;
   _module_data?: Record<string, any>;
-  _subgraph_data?: GraphData;
+  _subgraph_data?: import('./graph-types').GraphData;
   _subgraph?: LGraph;
 
   addInput(name: string, type: string): void;
   addOutput(name: string, type: string): void;
   connect(slot: number, targetNode: LGraphNode, targetSlot: number): void;
-  getPortColor(category: string): string;
-  setPortsFromData(moduleData: GraphData): void;
+  disconnectInput(slot: number, opts?: { doProcessChange: boolean }): void;
+
+  // litegraph lifecycle callbacks — exact signatures from src/litegraph.js
+  /**
+   * Called when an input connection is attempted on this node.
+   * @returns false to block the connection.
+   * @param targetSlot  - input slot index on this node
+   * @param type        - output slot type string
+   * @param output      - output slot *object* on the source node
+   * @param outputNode  - source node
+   * @param outputSlot  - output slot index on the source node
+   */
+  onConnectInput?(targetSlot: number, type: string, output: LGraphNodePort, outputNode: LGraphNode, outputSlot: number): boolean;
+
+  /**
+   * Called when an output connection is attempted from this node.
+   * @returns false to block the connection.
+   * @param outputSlot  - output slot index on this node
+   * @param type        - input slot type string
+   * @param input       - input slot *object* on the target node
+   * @param inputNode   - target node
+   * @param inputSlot   - input slot index on the target node
+   */
+  onConnectOutput?(outputSlot: number, type: string, input: LGraphNodePort, inputNode: LGraphNode, inputSlot: number): boolean;
+
+  onDblClick?(e: MouseEvent, pos: number[], graphcanvas: LGraphCanvas): boolean;
+  getExtraMenuOptions?(canvas: LGraphCanvas, options: any[]): any[];
+  getPortColor?(category: string): string;
+  setPortsFromData?(moduleData: import('./graph-types').GraphData): void;
+  syncWithGraphPorts?(graph: LGraph): void;
 }

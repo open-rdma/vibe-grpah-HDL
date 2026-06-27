@@ -185,11 +185,11 @@ class PropertyPanel {
     const ports: { dir: string; idx: number; name: string; data: PortData }[] = [];
     for (let i = 0; i < (node.inputs || []).length; i++) {
       const p = node.inputs[i];
-      ports.push({ dir: 'input', idx: i, name: p.name, data: p._port_data || {} });
+      ports.push({ dir: 'input', idx: i, name: p.name, data: (p._port_data || {}) as PortData });
     }
     for (let i = 0; i < (node.outputs || []).length; i++) {
       const p = node.outputs[i];
-      ports.push({ dir: 'output', idx: i, name: p.name, data: p._port_data || {} });
+      ports.push({ dir: 'output', idx: i, name: p.name, data: (p._port_data || {}) as PortData });
     }
     for (const p of ports) {
       const row = document.createElement('div');
@@ -207,13 +207,13 @@ class PropertyPanel {
 
     const slots: LGraphNodePort[] = direction === 'input' ? node.inputs : node.outputs;
     const slot = slots[slotIdx];
-    const portData = slot._port_data || {};
+    const portData = (slot._port_data || {}) as PortData;
 
     this._addField('Name', slot.name, (v: string) => { slot.name = v; });
     this._addSelect('Category', ['clock', 'reset', 'data'], portData.category || 'data', (v: string) => {
-      portData.category = v;
+      portData.category = v as PortData['category'];
       slot._port_data = portData;
-      const color = node.getPortColor(v);
+      const color = node.getPortColor!(v);
       slot.color_on = color;
       this._app.redraw();
       this.showPortProperties(node, direction, slotIdx);
@@ -231,10 +231,10 @@ class PropertyPanel {
       this._addField('Reset Domain', portData.reset_domain || '', (v: string) => { portData.reset_domain = v; slot._port_data = portData; });
     }
     if (cat === 'reset') {
-      this._addSelect('Reset Type', ['async', 'sync'], portData.reset_type || 'async', (v: string) => { portData.reset_type = v; slot._port_data = portData; });
+      this._addSelect('Reset Type', ['async', 'sync'], portData.reset_type || 'async', (v: string) => { portData.reset_type = v as PortData['reset_type']; slot._port_data = portData; });
     }
     if (cat === 'data' && portData.clock_domain) {
-      this._addCheckbox('Allow Cross-Domain Connection', !!(portData as PortData).allow_cross_domain, (v: boolean) => { (portData as PortData).allow_cross_domain = v; slot._port_data = portData; });
+      this._addCheckbox('Allow Cross-Domain Connection', !!portData.allow_cross_domain, (v: boolean) => { portData.allow_cross_domain = v; slot._port_data = portData; });
     }
 
     this._addButton('\u2190 Back to Node', () => this.showNodeProperties(node));
