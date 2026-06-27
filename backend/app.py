@@ -1,11 +1,28 @@
 import os
+import subprocess
+import sys
 from flask import Flask, send_from_directory
 from flask_cors import CORS
 
 app = Flask(__name__, static_folder=None)
 CORS(app)
 
-FRONTEND_DIST = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'dist')
+FRONTEND_DIR = os.path.join(os.path.dirname(__file__), '..', 'frontend')
+FRONTEND_DIST = os.path.join(FRONTEND_DIR, 'dist')
+
+
+def build_frontend():
+    """Run `npm run build` to produce frontend/dist. Skip if node is unavailable."""
+    npm = 'npm.cmd' if sys.platform == 'win32' else 'npm'
+    try:
+        subprocess.run([npm, 'run', 'build'], cwd=FRONTEND_DIR, check=True, timeout=120)
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        print(f'[warn] Frontend build skipped: {e}', flush=True)
+    except subprocess.TimeoutExpired:
+        print('[warn] Frontend build timed out', flush=True)
+
+
+build_frontend()
 
 from services.file_manager import FileManager
 
@@ -37,6 +54,10 @@ def index():
 @app.route('/assets/<path:filename>')
 def serve_assets(filename):
     return send_from_directory(os.path.join(FRONTEND_DIST, 'assets'), filename)
+
+@app.route('/vendor/<path:filename>')
+def serve_vendor(filename):
+    return send_from_directory(os.path.join(FRONTEND_DIST, 'vendor'), filename)
 
 @app.route('/src/<path:filename>')
 def serve_src(filename):

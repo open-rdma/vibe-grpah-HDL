@@ -23,6 +23,22 @@ def save_graph():
     data = body.get('data', {})
     if not path:
         return jsonify({'error': 'path required'}), 400
+
+    # Validate: no duplicate node IDs
+    nodes = data.get('nodes', [])
+    seen = {}
+    duplicates = []
+    for node in nodes:
+        nid = node.get('id', '')
+        if nid:
+            if nid in seen:
+                if nid not in duplicates:
+                    duplicates.append(nid)
+            else:
+                seen[nid] = True
+    if duplicates:
+        return jsonify({'error': f'Duplicate node IDs: {", ".join(duplicates)}'}), 400
+
     _fm().write_yaml(path, data)
     return jsonify({'ok': True})
 
@@ -56,6 +72,15 @@ def validate_graph():
             errors.append(f"Node '{node['id']}' ref '{node['ref']}' not found")
 
     return jsonify({'valid': len(errors) == 0, 'errors': errors})
+
+@graph_bp.route('/dir', methods=['GET'])
+def list_dir():
+    path = request.args.get('path', '')
+    if not path:
+        return jsonify({'error': 'path required'}), 400
+    fm = _fm()
+    entries = fm.list_dir(path)
+    return jsonify({'path': path, 'entries': entries})
 
 @graph_bp.route('/delete', methods=['DELETE'])
 def delete_graph():
