@@ -138,6 +138,25 @@ class App {
         this._instantiateFromRef(refPath, e.clientX, e.clientY);
       }
     });
+
+    // Wrap openSubgraph/closeSubgraph to keep GraphManager state synced
+    const canvas = this._canvas;
+    const origOpenSubgraph = canvas.openSubgraph.bind(canvas);
+    const origCloseSubgraph = canvas.closeSubgraph.bind(canvas);
+
+    canvas.openSubgraph = (graph: LGraph) => {
+      origOpenSubgraph(graph);
+      // After attachCanvas, canvas.graph has changed to the subgraph
+      this._graphManager._syncFromCanvas();
+    };
+
+    canvas.closeSubgraph = () => {
+      // Cache subgraph state before popping the stack
+      this._graphManager._cacheCurrentState();
+      origCloseSubgraph();
+      // After attachCanvas, canvas.graph is back to parent
+      this._graphManager._syncFromCanvas();
+    };
   }
 
   _instantiateFromRef(refPath: string, clientX: number, clientY: number): void {
