@@ -45,6 +45,14 @@ class GraphManager {
     return this._dirty || this._stateCache.size > 0;
   }
 
+  /** True if the graph at the given path has unsaved changes. */
+  isGraphDirty(path: string): boolean {
+    if (this._stateCache.has(path)) return true;
+    const currentPath = this._graph?.extra?.path;
+    if (currentPath === path && this._dirty) return true;
+    return false;
+  }
+
   setCanvas(canvas: LGraphCanvas | null): void {
     this._canvas = canvas;
     this._graph = canvas ? canvas.graph : null;
@@ -89,7 +97,7 @@ class GraphManager {
     };
   }
 
-  private _cacheCurrentState(): void {
+  _cacheCurrentState(): void {
     const graph = this._graph;
     if (!graph || !this._dirty) return;
     const path = graph.extra?.path;

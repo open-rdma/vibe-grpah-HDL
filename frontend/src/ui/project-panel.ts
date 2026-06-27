@@ -95,7 +95,11 @@ class ProjectPanel {
         if (entry.is_graph || entry.name.endsWith('.yaml')) {
           const item = document.createElement('div');
           item.className = 'tree-item';
-          item.textContent = entry.name;
+          const isDirty = this._app._graphManager.isGraphDirty(entry.path);
+          item.textContent = entry.name + (isDirty ? ' *' : '');
+          if (isDirty) {
+            item.style.color = 'var(--warning, #e0a000)';
+          }
           item.draggable = true;
           item.addEventListener('dragstart', (e: DragEvent) => {
             e.dataTransfer!.setData('text/plain', entry.path);
