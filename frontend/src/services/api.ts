@@ -38,8 +38,8 @@ const API = {
   },
 
   // Build
-  startBuild(targetNode: string, scope: string, mode: string, includeTestbench: boolean): Promise<{ task_id: string }> {
-    return this._post('/api/build', { target_node: targetNode, scope, mode, include_testbench: includeTestbench });
+  startBuild(targetNode: string, scope: string, mode: string, includeTestbench: boolean, knowledge: string): Promise<{ task_id: string }> {
+    return this._post('/api/build', { target_node: targetNode, scope, mode, include_testbench: includeTestbench, knowledge });
   },
   getBuildStatus(taskId: string): Promise<{ status: string; error?: string }> {
     return this._get(`/api/build/status/${taskId}`);

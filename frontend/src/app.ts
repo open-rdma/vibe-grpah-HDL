@@ -388,15 +388,27 @@ class App {
   showBuildDialog(): void {
     const graph = this._graphManager._graph;
     const currentPath = (graph ? graph.extra.path : null) || 'top/top.yaml';
+
+    // Compute graph-level knowledge
+    const graphMeta = (graph && graph.extra && (graph.extra as any).meta) || {};
+    const graphKnowledge = this._knowledgeMerger.merge(
+      [
+        this.getSystemKnowledge(),
+        this.getProjectKnowledge(),
+        graphMeta.knowledge
+      ],
+      { entity: graphMeta }
+    );
+
     showBuildDialog(async (opts: BuildDialogOptions) => {
       try {
-        const resp = await API.startBuild(currentPath, opts.scope, opts.mode, opts.includeTestbench);
+        const resp = await API.startBuild(currentPath, opts.scope, opts.mode, opts.includeTestbench, opts.knowledge);
         showToast('Build started: ' + resp.task_id);
         this._pollBuild(resp.task_id);
       } catch (e: any) {
         showToast('Build failed: ' + e.message, 'error');
       }
-    });
+    }, graphKnowledge);
   }
 
   async _pollBuild(taskId: string): Promise<void> {

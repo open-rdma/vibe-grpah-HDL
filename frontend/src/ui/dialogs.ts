@@ -101,9 +101,10 @@ interface BuildDialogOptions {
   scope: string;
   mode: string;
   includeTestbench: boolean;
+  knowledge: string;
 }
 
-function showBuildDialog(onBuild: (opts: BuildDialogOptions) => void): void {
+function showBuildDialog(onBuild: (opts: BuildDialogOptions) => void, knowledge: string): void {
   showDialog('Build Configuration',
     '<div class="property-group"><label>Scope</label><select id="build-scope">' +
       '<option value="this">This module only</option>' +
@@ -126,7 +127,8 @@ function showBuildDialog(onBuild: (opts: BuildDialogOptions) => void): void {
           onBuild({
             scope: (body.querySelector('#build-scope') as HTMLSelectElement).value,
             mode: (body.querySelector('#build-mode') as HTMLSelectElement).value,
-            includeTestbench: (body.querySelector('#build-tb') as HTMLInputElement).checked
+            includeTestbench: (body.querySelector('#build-tb') as HTMLInputElement).checked,
+            knowledge: knowledge
           });
         }
       }
