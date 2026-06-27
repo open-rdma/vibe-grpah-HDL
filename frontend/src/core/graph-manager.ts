@@ -168,7 +168,9 @@ class GraphManager {
     // Set path first so _populateGraph can extend graph.extra
     graph.extra = { path: refPath };
 
-    await this._populateGraph(graph, data);
+    // Check state cache first — cached edits take precedence over original data
+    const cached = this._stateCache.get(refPath);
+    await this._populateGraph(graph, cached || data);
 
     // Wire dirty tracking for edits inside the subgraph
     graph.onAfterChange = () => {
