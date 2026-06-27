@@ -54,11 +54,44 @@ proto.onConnectOutput = function(
 proto.onDblClick = function(
   _e: MouseEvent, _pos: number[], graphcanvas: LGraphCanvas
 ): boolean {
+  // Already built and cached — open immediately
   if (this._subgraph) {
     graphcanvas.openSubgraph(this._subgraph);
     return true;
   }
-  return false;
+
+  // No data to build from
+  if (!this._subgraph_data) {
+    showToast('Cannot open: module data not loaded', 'error');
+    return false;
+  }
+
+  // Self-reference guard
+  const parentPath = graphcanvas.graph?.extra?.path;
+  if (this._module_ref && parentPath && this._module_ref === parentPath) {
+    showToast('Cannot drill into self-referencing module', 'error');
+    return false;
+  }
+
+  const app = window.__app;
+  if (!app || !app._graphManager) {
+    showToast('Cannot open: app not available', 'error');
+    return false;
+  }
+
+  // Lazy-build subgraph from _subgraph_data
+  const refPath = this._module_ref || '';
+  app._graphManager.buildSubgraphFromData(this._subgraph_data, refPath)
+    .then((subgraph: LGraph) => {
+      subgraph._subgraph_node = this;
+      this._subgraph = subgraph;
+      graphcanvas.openSubgraph(subgraph);
+    })
+    .catch((e: Error) => {
+      showToast('Failed to build subgraph: ' + e.message, 'error');
+    });
+
+  return true;
 };
 
 proto.getExtraMenuOptions = function(canvas: LGraphCanvas, _options: any[]): any[] {
@@ -90,12 +123,32 @@ proto.getExtraMenuOptions = function(canvas: LGraphCanvas, _options: any[]): any
       callback: () => {
         if (self._subgraph) {
           canvas.openSubgraph(self._subgraph);
-        } else if (self._module_ref) {
-          const app = window.__app;
-          if (app) {
-            app.openGraph(self._module_ref);
-          }
+          return;
         }
+        if (!self._subgraph_data) {
+          showToast('Cannot open: module data not loaded', 'error');
+          return;
+        }
+        const parentPath = canvas.graph?.extra?.path;
+        if (self._module_ref && parentPath && self._module_ref === parentPath) {
+          showToast('Cannot drill into self-referencing module', 'error');
+          return;
+        }
+        const app = window.__app;
+        if (!app || !app._graphManager) {
+          showToast('Cannot open: app not available', 'error');
+          return;
+        }
+        const refPath = self._module_ref || '';
+        app._graphManager.buildSubgraphFromData(self._subgraph_data, refPath)
+          .then((subgraph: LGraph) => {
+            subgraph._subgraph_node = self;
+            self._subgraph = subgraph;
+            canvas.openSubgraph(subgraph);
+          })
+          .catch((e: Error) => {
+            showToast('Failed to build subgraph: ' + e.message, 'error');
+          });
       }
     });
   }

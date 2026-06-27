@@ -16,6 +16,8 @@ declare class LGraph {
   _nodes: LGraphNode[];
   links: Record<string, LLink>;
   extra: Record<string, any>;
+  _subgraph_node?: LGraphNode;
+  _is_subgraph?: boolean;
   onAfterChange: (() => void) | null;
   add(node: LGraphNode): void;
   remove(node: LGraphNode): void;
@@ -41,6 +43,7 @@ declare class LGraphCanvas {
   zoomToFit(): void;
   selectNode(node: LGraphNode): void;
   openSubgraph(graph: LGraph): void;
+  closeSubgraph(): void;
   setDirtyCanvas(fg: boolean, bg: boolean): void;
 }
 
