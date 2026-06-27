@@ -1,5 +1,5 @@
 import type { PortData, GraphData } from '../types/graph-types';
-import { getPortColor } from '../constants';
+import { getPortColor, SUBGRAPH_MAX_DEPTH } from '../constants';
 import { showToast } from '../ui/toast';
 
 // ---------- typed prototype boundary ----------
@@ -66,10 +66,9 @@ proto.onDblClick = function(
     return false;
   }
 
-  // Self-reference guard
-  const parentPath = graphcanvas.graph?.extra?.path;
-  if (this._module_ref && parentPath && this._module_ref === parentPath) {
-    showToast('Cannot drill into self-referencing module', 'error');
+  // Recursion depth guard
+  if (graphcanvas._graph_stack && graphcanvas._graph_stack.length >= SUBGRAPH_MAX_DEPTH) {
+    showToast(`Cannot drill deeper: max depth ${SUBGRAPH_MAX_DEPTH} reached`, 'error');
     return false;
   }
 
@@ -129,9 +128,9 @@ proto.getExtraMenuOptions = function(canvas: LGraphCanvas, _options: any[]): any
           showToast('Cannot open: module data not loaded', 'error');
           return;
         }
-        const parentPath = canvas.graph?.extra?.path;
-        if (self._module_ref && parentPath && self._module_ref === parentPath) {
-          showToast('Cannot drill into self-referencing module', 'error');
+        // Recursion depth guard
+        if (canvas._graph_stack && canvas._graph_stack.length >= SUBGRAPH_MAX_DEPTH) {
+          showToast(`Cannot drill deeper: max depth ${SUBGRAPH_MAX_DEPTH} reached`, 'error');
           return;
         }
         const app = window.__app;

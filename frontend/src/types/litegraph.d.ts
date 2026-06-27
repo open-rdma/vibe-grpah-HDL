@@ -30,6 +30,7 @@ declare class LGraphCanvas {
   constructor(canvas: HTMLCanvasElement, graph: LGraph);
   graph: LGraph;
   canvas: HTMLCanvasElement;
+  _graph_stack?: LGraph[];
   background_image: string;
   render_links_border: boolean;
   links_render_mode: number;
