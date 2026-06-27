@@ -9,12 +9,15 @@ export interface PortData {
   reset_domain?: string;
   reset_type?: 'async' | 'sync';
   allow_cross_domain?: boolean;
+  knowledge?: string;
 }
 
 export interface GraphMeta {
   name: string;
   description?: string;
   test_method?: string;
+  knowledge?: string;
+  knowledge_template?: string;
 }
 
 export interface CanvasViewport {
@@ -34,6 +37,7 @@ export interface GraphNodeData {
   size_h?: number;
   collapsed?: boolean;
   properties: Record<string, string>;
+  knowledge?: string;
 }
 
 export interface ConnectionTarget {
@@ -46,6 +50,7 @@ export interface Connection {
   to: ConnectionTarget[];
   allow_cross_domain?: boolean;
   description?: string;
+  knowledge?: string;
 }
 
 export interface GraphData {
@@ -55,6 +60,7 @@ export interface GraphData {
   nodes: GraphNodeData[];
   connections: Connection[];
   canvas?: CanvasViewport;
+  knowledge_template?: string;
 }
 
 export interface BuildOptions {
