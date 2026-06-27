@@ -11,6 +11,8 @@ import type { BuildDialogOptions } from './ui/dialogs';
 import { showToast } from './ui/toast';
 import { API } from './services/api';
 import { RecentProjects } from './services/recent-projects';
+import { KnowledgeMerger } from './core/knowledge-merger';
+import { SYSTEM_KNOWLEDGE } from './constants';
 import './nodes/boundary-nodes';
 
 class App {
@@ -22,9 +24,23 @@ class App {
   _toolbar!: Toolbar;
   _projectPanel!: ProjectPanel;
   _propertyPanel!: PropertyPanel;
-  _knowledgeMerger: any = null;
-  getSystemKnowledge(): string { return ''; }
-  getProjectKnowledge(): string { return ''; }
+  _knowledgeMerger: KnowledgeMerger;
+
+  get _targetLanguage(): string {
+    const config = this._project.getConfig();
+    const target = config?.properties?.target || 'bluespec';
+    return target;
+  }
+
+  getSystemKnowledge(): string {
+    return SYSTEM_KNOWLEDGE[this._targetLanguage] || SYSTEM_KNOWLEDGE.bluespec;
+  }
+
+  getProjectKnowledge(): string {
+    // Project-level knowledge storage (project.yaml) not yet implemented.
+    // Returns empty string for now.
+    return '';
+  }
 
   constructor() {
     this._typeSystem = new TypeSystem();
@@ -34,6 +50,7 @@ class App {
 
     this._project = new Project();
     this._graphManager = new GraphManager(this._typeSystem);
+    this._knowledgeMerger = new KnowledgeMerger();
 
     this._initLayout();
     // Canvas is lazy-created on first project open
