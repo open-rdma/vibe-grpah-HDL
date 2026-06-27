@@ -184,6 +184,15 @@ class App {
 
     canvas.closeSubgraph = () => {
       this._graphManager._cacheCurrentState();
+
+      // Invalidate subgraph cache on the owning node so the next
+      // double-click rebuilds from fresh data (including any edits
+      // just cached to _stateCache).
+      const closingGraph = canvas.graph;
+      if (closingGraph && (closingGraph as any)._subgraph_node) {
+        (closingGraph as any)._subgraph_node._subgraph = undefined;
+      }
+
       origCloseSubgraph();
       this._graphManager._syncFromCanvas();
 
@@ -491,6 +500,13 @@ class App {
     // Use the unwrapped origCloseSubgraph to avoid double-popping breadcrumb state.
     while (this._breadcrumbPath.length - 1 > index) {
       this._graphManager._cacheCurrentState();
+
+      // Invalidate subgraph cache on the owning node (same as closeSubgraph wrapper)
+      const closingGraph = this._canvas?.graph;
+      if (closingGraph && (closingGraph as any)._subgraph_node) {
+        (closingGraph as any)._subgraph_node._subgraph = undefined;
+      }
+
       if (this._origCloseSubgraph) this._origCloseSubgraph();
       this._graphManager._syncFromCanvas();
       this._breadcrumbPath.pop();

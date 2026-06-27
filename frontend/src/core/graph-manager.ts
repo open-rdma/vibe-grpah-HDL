@@ -250,7 +250,15 @@ class GraphManager {
 
   async _loadRefPorts(node: LGraphNode, refPath: string): Promise<void> {
     try {
-      const { data } = await API.loadGraph(refPath);
+      // Check state cache first — unsaved edits take precedence over on-disk data
+      let data: GraphData;
+      const cached = this._stateCache.get(refPath);
+      if (cached) {
+        data = cached;
+      } else {
+        const resp = await API.loadGraph(refPath);
+        data = resp.data;
+      }
       node._subgraph_data = data;
       if (node.setPortsFromData) {
         node.setPortsFromData(data);
