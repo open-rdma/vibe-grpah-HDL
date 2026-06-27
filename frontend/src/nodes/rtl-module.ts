@@ -60,8 +60,10 @@ proto.onDblClick = function(
     return true;
   }
 
-  // No data to build from
-  if (!this._subgraph_data) {
+  const refPath: string = this._module_ref || '';
+
+  // Can't open only if there's no ref to load from AND no preloaded data
+  if (!refPath && !this._subgraph_data) {
     showToast('Cannot open: module data not loaded', 'error');
     return false;
   }
@@ -78,13 +80,18 @@ proto.onDblClick = function(
     return false;
   }
 
-  // Refresh _subgraph_data from cache/API, then build subgraph
-  const refPath = this._module_ref || '';
+  // Always refresh _subgraph_data from cache/API (or load for the first time),
+  // then build subgraph.  This handles the race where _instantiateFromRef
+  // hasn't finished loading yet, and the stale-cache case where the
+  // referenced graph was edited in another subgraph session.
+  console.log('[onDblClick] refPath=' + refPath + ' hasData=' + !!this._subgraph_data);
   app._graphManager._loadRefPorts(this, refPath)
     .then(() => {
       if (!this._subgraph_data) {
         throw new Error('module data not loaded');
       }
+      console.log('[onDblClick] _subgraph_data loaded, nodes=' +
+        (this._subgraph_data.nodes || []).length);
       return app._graphManager.buildSubgraphFromData(this._subgraph_data, refPath);
     })
     .then((subgraph: LGraph) => {
@@ -93,6 +100,7 @@ proto.onDblClick = function(
       graphcanvas.openSubgraph(subgraph);
     })
     .catch((e: Error) => {
+      console.error('[onDblClick] failed:', e.message);
       showToast('Failed to build subgraph: ' + e.message, 'error');
     });
 
@@ -130,7 +138,9 @@ proto.getExtraMenuOptions = function(canvas: LGraphCanvas, _options: any[]): any
           canvas.openSubgraph(self._subgraph);
           return;
         }
-        if (!self._subgraph_data) {
+        const refPath: string = self._module_ref || '';
+        // Can't open only if there's no ref to load from AND no preloaded data
+        if (!refPath && !self._subgraph_data) {
           showToast('Cannot open: module data not loaded', 'error');
           return;
         }
@@ -144,12 +154,14 @@ proto.getExtraMenuOptions = function(canvas: LGraphCanvas, _options: any[]): any
           showToast('Cannot open: app not available', 'error');
           return;
         }
-        const refPath = self._module_ref || '';
+        console.log('[ctx OpenSubgraph] refPath=' + refPath + ' hasData=' + !!self._subgraph_data);
         app._graphManager._loadRefPorts(self, refPath)
           .then(() => {
             if (!self._subgraph_data) {
               throw new Error('module data not loaded');
             }
+            console.log('[ctx OpenSubgraph] _subgraph_data loaded, nodes=' +
+              (self._subgraph_data.nodes || []).length);
             return app._graphManager.buildSubgraphFromData(self._subgraph_data, refPath);
           })
           .then((subgraph: LGraph) => {
@@ -158,6 +170,7 @@ proto.getExtraMenuOptions = function(canvas: LGraphCanvas, _options: any[]): any
             canvas.openSubgraph(subgraph);
           })
           .catch((e: Error) => {
+            console.error('[ctx OpenSubgraph] failed:', e.message);
             showToast('Failed to build subgraph: ' + e.message, 'error');
           });
       }

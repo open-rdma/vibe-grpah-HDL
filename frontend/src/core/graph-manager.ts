@@ -99,10 +99,15 @@ class GraphManager {
 
   _cacheCurrentState(): void {
     const graph = this._graph;
+    console.log('[GraphManager._cacheCurrentState] dirty=' + this._dirty +
+      ' hasGraph=' + !!graph + ' path=' + (graph && graph.extra ? graph.extra.path : '(none)'));
     if (!graph || !this._dirty) return;
     const path = graph.extra?.path;
     if (!path) return;
-    this._stateCache.set(path, this.toYAML());
+    const yaml = this.toYAML();
+    console.log('[GraphManager._cacheCurrentState] caching to _stateCache[' + path +
+      '] nodes=' + (yaml.nodes || []).length);
+    this._stateCache.set(path, yaml);
   }
 
   newGraph(name: string): LGraph {
@@ -170,10 +175,14 @@ class GraphManager {
 
     // Check state cache first — cached edits take precedence over original data
     const cached = this._stateCache.get(refPath);
-    await this._populateGraph(graph, cached || data);
+    const source = cached || data;
+    console.log('[GraphManager.buildSubgraphFromData] refPath=' + refPath +
+      ' fromCache=' + !!cached + ' nodes=' + (source.nodes || []).length);
+    await this._populateGraph(graph, source);
 
     // Wire dirty tracking for edits inside the subgraph
     graph.onAfterChange = () => {
+      console.log('[subgraph onAfterChange] marking dirty, path=' + refPath);
       this.markDirty();
     };
 
@@ -253,11 +262,17 @@ class GraphManager {
       // Check state cache first — unsaved edits take precedence over on-disk data
       let data: GraphData;
       const cached = this._stateCache.get(refPath);
+      console.log('[GraphManager._loadRefPorts] refPath=' + refPath +
+        ' hasCached=' + !!cached + ' cacheSize=' + this._stateCache.size);
       if (cached) {
         data = cached;
+        console.log('[GraphManager._loadRefPorts] using cached data, nodes=' +
+          (data.nodes || []).length);
       } else {
         const resp = await API.loadGraph(refPath);
         data = resp.data;
+        console.log('[GraphManager._loadRefPorts] loaded from API, nodes=' +
+          (data.nodes || []).length);
       }
       node._subgraph_data = data;
       if (node.setPortsFromData) {
@@ -267,6 +282,7 @@ class GraphManager {
         this._canvas.draw(true, true);
       }
     } catch (e: any) {
+      console.error('[GraphManager._loadRefPorts] failed for ' + refPath + ':', e.message || e);
       showToast('Failed to load ports for ' + refPath + ': ' + (e.message || 'unknown error'), 'error');
     }
   }

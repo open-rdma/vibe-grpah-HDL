@@ -204,7 +204,7 @@ class App {
     };
   }
 
-  _instantiateFromRef(refPath: string, clientX: number, clientY: number): void {
+  async _instantiateFromRef(refPath: string, clientX: number, clientY: number): Promise<void> {
     if (!this._graphManager._graph) return;
     const parts = refPath.replace(/\\/g, '/').split('/');
     const fileName = parts[parts.length - 1].replace(/\.yaml$/, '');
@@ -225,7 +225,7 @@ class App {
 
     this._graphManager._graph!.add(node);
     this._graphManager.markDirty();
-    this._graphManager._loadRefPorts(node, refPath);
+    await this._graphManager._loadRefPorts(node, refPath);
     if (this._canvas) this._canvas.draw(true, true);
   }
 
