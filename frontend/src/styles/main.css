@@ -2,6 +2,7 @@
 
 :root {
   --toolbar-height: 40px;
+  --breadcrumb-height: 26px;
   --statusbar-height: 24px;
   --panel-bg: #1e1e1e;
   --panel-border: #333;
@@ -45,9 +46,39 @@ html, body, #app {
 #toolbar button:disabled { opacity: 0.4; cursor: default; }
 #toolbar .separator { width: 1px; height: 24px; background: #444; margin: 0 4px; }
 
+#breadcrumb-bar {
+  height: var(--breadcrumb-height);
+  background: #252526;
+  border-bottom: 1px solid var(--panel-border);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  gap: 2px;
+  font-size: 12px;
+}
+#breadcrumb-bar .crumb {
+  color: var(--accent);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+  user-select: none;
+}
+#breadcrumb-bar .crumb:hover { background: #3a3a3a; }
+#breadcrumb-bar .crumb.current {
+  color: var(--text-color);
+  cursor: default;
+  font-weight: bold;
+}
+#breadcrumb-bar .crumb.current:hover { background: transparent; }
+#breadcrumb-bar .crumb-sep {
+  color: var(--text-dim);
+  user-select: none;
+  padding: 0 1px;
+}
+
 #main-area {
   display: flex;
-  height: calc(100% - var(--toolbar-height) - var(--statusbar-height));
+  height: calc(100% - var(--toolbar-height) - var(--breadcrumb-height) - var(--statusbar-height));
 }
 
 #project-panel {

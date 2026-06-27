@@ -25,6 +25,8 @@ class App {
   _projectPanel!: ProjectPanel;
   _propertyPanel!: PropertyPanel;
   _knowledgeMerger: KnowledgeMerger;
+  _breadcrumbPath: { path: string; label: string }[];
+  _origCloseSubgraph: (() => void) | null;
 
   get _targetLanguage(): string {
     const config = this._project.getConfig();
@@ -51,6 +53,8 @@ class App {
     this._project = new Project();
     this._graphManager = new GraphManager(this._typeSystem);
     this._knowledgeMerger = new KnowledgeMerger();
+    this._breadcrumbPath = [];
+    this._origCloseSubgraph = null;
 
     this._initLayout();
     // Canvas is lazy-created on first project open
@@ -62,6 +66,7 @@ class App {
     const app = document.getElementById('app')!;
     app.innerHTML = `
       <div id="toolbar"></div>
+      <div id="breadcrumb-bar"></div>
       <div id="main-area">
         <div id="project-panel"></div>
         <div id="canvas-container"></div>
@@ -163,19 +168,30 @@ class App {
     const canvas = this._canvas;
     const origOpenSubgraph = canvas.openSubgraph.bind(canvas);
     const origCloseSubgraph = canvas.closeSubgraph.bind(canvas);
+    this._origCloseSubgraph = origCloseSubgraph;
 
     canvas.openSubgraph = (graph: LGraph) => {
       origOpenSubgraph(graph);
-      // After attachCanvas, canvas.graph has changed to the subgraph
       this._graphManager._syncFromCanvas();
+
+      // Push breadcrumb entry for the subgraph
+      const subNode = (graph as any)._subgraph_node;
+      const subPath = graph.extra?.path || (subNode ? subNode._module_ref : '');
+      const subLabel = subNode ? subNode.title : (subPath || 'subgraph');
+      this._breadcrumbPath.push({ path: subPath || '', label: subLabel });
+      this._renderBreadcrumb();
     };
 
     canvas.closeSubgraph = () => {
-      // Cache subgraph state before popping the stack
       this._graphManager._cacheCurrentState();
       origCloseSubgraph();
-      // After attachCanvas, canvas.graph is back to parent
       this._graphManager._syncFromCanvas();
+
+      // Pop breadcrumb back to parent
+      if (this._breadcrumbPath.length > 0) {
+        this._breadcrumbPath.pop();
+      }
+      this._renderBreadcrumb();
     };
   }
 
@@ -291,6 +307,8 @@ class App {
     }
     this._canvas = undefined as any;
     this._graphManager.setCanvas(null);
+    this._breadcrumbPath = [];
+    this._renderBreadcrumb();
     const container = document.getElementById('canvas-container');
     if (container) container.innerHTML = '';
   }
@@ -323,6 +341,9 @@ class App {
   async openGraph(path: string): Promise<void> {
     try {
       await this._graphManager.loadGraph(path);
+      // Reset breadcrumb to just this graph
+      this._breadcrumbPath = [{ path, label: path }];
+      this._renderBreadcrumb();
       this._updateStatus();
       this._toolbar.refresh();
       this._propertyPanel.clear();
@@ -437,6 +458,44 @@ class App {
 
   redraw(): void {
     if (this._canvas) this._canvas.draw(true, true);
+  }
+
+  _renderBreadcrumb(): void {
+    const bar = document.getElementById('breadcrumb-bar');
+    if (!bar) return;
+    bar.innerHTML = '';
+
+    const path = this._breadcrumbPath;
+    if (path.length === 0) return;
+
+    for (let i = 0; i < path.length; i++) {
+      if (i > 0) {
+        const sep = document.createElement('span');
+        sep.className = 'crumb-sep';
+        sep.textContent = '\u203A'; // ›
+        bar.appendChild(sep);
+      }
+      const crumb = document.createElement('span');
+      const isLast = i === path.length - 1;
+      crumb.className = 'crumb' + (isLast ? ' current' : '');
+      crumb.textContent = path[i].label;
+      if (!isLast) {
+        crumb.addEventListener('click', () => this._navigateBreadcrumb(i));
+      }
+      bar.appendChild(crumb);
+    }
+  }
+
+  _navigateBreadcrumb(index: number): void {
+    // Close subgraphs until we reach the target depth.
+    // Use the unwrapped origCloseSubgraph to avoid double-popping breadcrumb state.
+    while (this._breadcrumbPath.length - 1 > index) {
+      this._graphManager._cacheCurrentState();
+      if (this._origCloseSubgraph) this._origCloseSubgraph();
+      this._graphManager._syncFromCanvas();
+      this._breadcrumbPath.pop();
+    }
+    this._renderBreadcrumb();
   }
 
   _updateStatus(): void {
