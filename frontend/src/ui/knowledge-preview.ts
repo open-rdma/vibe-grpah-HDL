@@ -74,15 +74,17 @@ export class KnowledgePreview {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         KnowledgePreview._close(overlay);
-        document.removeEventListener('keydown', onKey);
       }
     };
+    (overlay as any).__onKey = onKey;
     document.addEventListener('keydown', onKey);
 
     document.body.appendChild(overlay);
   }
 
   private static _close(overlay: HTMLDivElement): void {
+    const onKey = (overlay as any).__onKey;
+    if (onKey) document.removeEventListener('keydown', onKey);
     overlay.remove();
   }
 }
