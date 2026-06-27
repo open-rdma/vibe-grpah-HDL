@@ -35,13 +35,13 @@ function validateConnection(
 }
 
 (RTLModuleNode as any).prototype.onConnectInput = function(
-  target_slot: number, _type: string, output_slot: number, output_node: LGraphNode
+  target_slot: number, _type: string, _output_slot: object, output_node: LGraphNode, output_slot: number
 ): boolean {
   return validateConnection(output_node, output_slot, this, target_slot);
 };
 
 (RTLModuleNode as any).prototype.onConnectOutput = function(
-  output_slot: number, _type: string, input_slot: number, input_node: LGraphNode
+  output_slot: number, _type: string, _input_slot: object, input_node: LGraphNode, input_slot: number
 ): boolean {
   return validateConnection(this, output_slot, input_node, input_slot);
 };
