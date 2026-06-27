@@ -1,4 +1,5 @@
 import { showToast } from './toast';
+import { RecentProjects } from '../services/recent-projects';
 
 function showDialog(title: string, contentHtml: string, buttons?: { label: string; onClick: (body: HTMLDivElement) => boolean | void }[]): { overlay: HTMLDivElement; body: HTMLDivElement } {
   const overlay = document.createElement('div');
@@ -53,8 +54,20 @@ function showNewProjectDialog(onCreate: (path: string, name: string) => void): v
 }
 
 function showOpenProjectDialog(onOpen: (path: string) => void): void {
-  showDialog('Open Project',
-    '<div class="property-group"><label>Project Path</label><input id="proj-path-open" placeholder="path/to/project"/></div>',
+  const recentList = RecentProjects.getRecentProjects();
+
+  let recentHtml = '';
+  if (recentList.length > 0) {
+    recentHtml = '<div style="margin-top:12px;border-top:1px solid #444;padding-top:8px;">' +
+      '<div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;margin-bottom:4px;">Recent Projects</div>';
+    for (const p of recentList) {
+      recentHtml += `<div class="recent-project-item" data-path="${p}" style="padding:4px 6px;cursor:pointer;font-size:12px;border-radius:3px;" onmouseover="this.style.background='#3a3a3a'" onmouseout="this.style.background=''">${p}</div>`;
+    }
+    recentHtml += '</div>';
+  }
+
+  const { overlay, body } = showDialog('Open Project',
+    '<div class="property-group"><label>Project Path</label><input id="proj-path-open" placeholder="path/to/project"/></div>' + recentHtml,
     [{
       label: 'Cancel',
       onClick: () => {}
@@ -67,6 +80,21 @@ function showOpenProjectDialog(onOpen: (path: string) => void): void {
       }
     }]
   );
+
+  // Wire recent-project clicks: single click fills input, double-click opens directly
+  const items = body.querySelectorAll('.recent-project-item');
+  items.forEach((item) => {
+    const el = item as HTMLElement;
+    const path = el.dataset.path || '';
+    el.addEventListener('click', () => {
+      const input = body.querySelector('#proj-path-open') as HTMLInputElement;
+      if (input) input.value = path;
+    });
+    el.addEventListener('dblclick', () => {
+      overlay.remove();
+      onOpen(path);
+    });
+  });
 }
 
 interface BuildDialogOptions {

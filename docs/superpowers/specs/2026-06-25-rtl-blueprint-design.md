@@ -425,6 +425,32 @@ All state-gated buttons must be stored as class fields so `_updateButtonStates()
 - **Project opened (New or Open):** `_ensureCanvas()` creates the litegraph graph+canvas. `_initComponents()` registers the `onAfterChange` hook. All panels refresh with real content. Toolbar calls `refresh()` → `_updateButtonStates()` to re-evaluate.
 - **No "close project" action exists**, so the no-project state only occurs at startup before the first project is opened. Once a project is open, the workspace stays initialized.
 
+### Recent Projects
+
+When opening a project, a list of recently opened projects is displayed for quick access. This eliminates the need to re-type or re-navigate to frequently used project paths.
+
+**Storage:**
+- Uses `localStorage` under key `recent-projects`
+- Stores an array of project path strings, most recent first
+- Maximum 10 entries; duplicates are moved to the top on re-open
+- Read/written by a new service module `src/services/recent-projects.ts`
+
+**Service API (`RecentProjects`):**
+- `getRecentProjects(): string[]` — returns the current list from localStorage
+- `addRecentProject(path: string): void` — adds a path, deduplicates, trims to 10, persists
+
+**Dialog integration (`showOpenProjectDialog`):**
+- Below the path input, a "Recent Projects" list is shown
+- Each item is a clickable row showing the project path
+- Clicking a recent project fills the path input with that path
+- Double-clicking a recent project opens it directly (calls `onOpen(path)` immediately)
+- If the recent list is empty, the section is not shown
+
+**Recording:**
+- `App.showOpenProjectDialog()` success callback calls `RecentProjects.addRecentProject(path)`
+- `App.showNewProjectDialog()` success callback calls `RecentProjects.addRecentProject(path)`
+- Recording happens after successful open/create, not before
+
 ---
 
 ## Backend Architecture

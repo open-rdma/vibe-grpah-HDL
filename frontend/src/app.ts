@@ -10,6 +10,7 @@ import { showNewProjectDialog, showOpenProjectDialog, showBuildDialog } from './
 import type { BuildDialogOptions } from './ui/dialogs';
 import { showToast } from './ui/toast';
 import { API } from './services/api';
+import { RecentProjects } from './services/recent-projects';
 import './nodes/boundary-nodes';
 
 class App {
@@ -191,6 +192,7 @@ class App {
     showNewProjectDialog(async (path: string, name: string) => {
       try {
         await this._project.create(path, name);
+        RecentProjects.addRecentProject(path);
         this._ensureCanvas();
         this._updateStatus();
         this._toolbar.refresh();
@@ -207,6 +209,7 @@ class App {
     showOpenProjectDialog(async (path: string) => {
       try {
         await this._project.open(path);
+        RecentProjects.addRecentProject(path);
         this._ensureCanvas();
         this._updateStatus();
         this._toolbar.refresh();
