@@ -51,6 +51,21 @@ class GraphManager {
     if (this._graph) this._installDeleteGuard(this._graph);
   }
 
+  /**
+   * Re-sync _graph from the canvas. Call after openSubgraph/closeSubgraph,
+   * which change canvas.graph via attachCanvas without going through setCanvas.
+   */
+  _syncFromCanvas(): void {
+    if (!this._canvas) {
+      this._graph = null;
+      return;
+    }
+    this._graph = this._canvas.graph;
+    if (this._graph) {
+      this._installDeleteGuard(this._graph);
+    }
+  }
+
   reset(): void {
     this._stateCache.clear();
     this._dirty = false;
@@ -95,6 +110,66 @@ class GraphManager {
     return graph;
   }
 
+  /**
+   * Populate an existing LGraph from GraphData.
+   * Sets graph.extra, creates boundary nodes, module nodes, and connections.
+   * Does NOT set graph.extra.path — the caller must set it before or after.
+   * Does NOT restore canvas viewport — caller handles that if needed.
+   * Does NOT call graph.clear() — caller must clear the graph first.
+   */
+  private async _populateGraph(graph: LGraph, data: GraphData): Promise<void> {
+    graph.extra = {
+      ...graph.extra,
+      meta: data.meta || {},
+      properties: data.properties || {},
+      ports: data.ports || []
+    };
+
+    const nodeMap: Record<string, LGraphNode> = {};
+
+    // Ensure boundary nodes exist BEFORE module nodes and connections
+    this._ensureBoundaryNodes(graph);
+    for (const node of graph._nodes) {
+      if (node._is_boundary) {
+        nodeMap[node.title] = node;
+      }
+    }
+
+    // Add module instance nodes
+    const nodes = data.nodes || [];
+    for (const n of nodes) {
+      const node = await this._createNodeFromDataForGraph(n, graph);
+      nodeMap[n.id] = node;
+    }
+
+    // Add connections (boundary nodes now exist in nodeMap)
+    const connections = data.connections || [];
+    for (const conn of connections) {
+      this._addConnection(conn, nodeMap);
+    }
+  }
+
+  /**
+   * Build a subgraph LGraph from in-memory GraphData (already fetched via _loadRefPorts).
+   * The returned graph has onAfterChange wired for dirty tracking.
+   * Caller must set graph._subgraph_node = node before calling openSubgraph.
+   */
+  async buildSubgraphFromData(data: GraphData, refPath: string): Promise<LGraph> {
+    const graph = new LiteGraph.LGraph();
+
+    // Set path first so _populateGraph can extend graph.extra
+    graph.extra = { path: refPath };
+
+    await this._populateGraph(graph, data);
+
+    // Wire dirty tracking for edits inside the subgraph
+    graph.onAfterChange = () => {
+      this.markDirty();
+    };
+
+    return graph;
+  }
+
   async loadGraph(path: string): Promise<LGraph> {
     // Cache current unsaved state before switching
     this._cacheCurrentState();
@@ -114,37 +189,10 @@ class GraphManager {
     const graph = this._requireGraph();
     graph.clear();
 
-    // Set graph metadata FIRST so boundary nodes can read ports from graph.extra
-    graph.extra = {
-      path: path,
-      meta: data.meta || {},
-      properties: data.properties || {},
-      ports: data.ports || []
-    };
+    // Set path before populate so boundary nodes can read ports from graph.extra
+    graph.extra = { path: path };
 
-    const nodeMap: Record<string, LGraphNode> = {};
-
-    // Ensure boundary nodes exist BEFORE module nodes and connections,
-    // so connections referencing graph_input/graph_output can resolve.
-    this._ensureBoundaryNodes(graph);
-    for (const node of graph._nodes) {
-      if (node._is_boundary) {
-        nodeMap[node.title] = node;
-      }
-    }
-
-    // Add module instance nodes
-    const nodes = data.nodes || [];
-    for (const n of nodes) {
-      const node = await this._createNodeFromData(n);
-      nodeMap[n.id] = node;
-    }
-
-    // Add connections (boundary nodes now exist in nodeMap)
-    const connections = data.connections || [];
-    for (const conn of connections) {
-      this._addConnection(conn, nodeMap);
-    }
+    await this._populateGraph(graph, data);
 
     // Restore canvas viewport
     if (this._canvas && data.canvas) {
@@ -165,6 +213,10 @@ class GraphManager {
   }
 
   async _createNodeFromData(nodeData: any): Promise<LGraphNode> {
+    return this._createNodeFromDataForGraph(nodeData, this._requireGraph());
+  }
+
+  private async _createNodeFromDataForGraph(nodeData: any, graph: LGraph): Promise<LGraphNode> {
     const node = LiteGraph.createNode('rtl/module');
     node.title = nodeData.id;
     node.pos = [nodeData.pos_x || 0, nodeData.pos_y || 0];
@@ -178,12 +230,11 @@ class GraphManager {
     node._module_data = nodeData;
     node.properties = nodeData.properties || {};
 
-    // Load ref module's port list if available
     if (nodeData.ref) {
       await this._loadRefPorts(node, nodeData.ref);
     }
 
-    this._requireGraph().add(node);
+    graph.add(node);
     return node;
   }
 
