@@ -1,12 +1,21 @@
-import { showToast } from './toast.js';
+import { showToast } from './toast';
+import { API } from '../services/api';
+import type { TypeSystem } from '../core/type-system';
 
 class TypeEditor {
-  constructor(typeSystem, onClose) {
+  _ts: TypeSystem;
+  _onClose: (() => void) | null;
+  _overlay: HTMLDivElement | null;
+  _dirty: boolean;
+
+  constructor(typeSystem: TypeSystem, onClose?: () => void) {
     this._ts = typeSystem;
-    this._onClose = onClose;
+    this._onClose = onClose || null;
+    this._overlay = null;
+    this._dirty = false;
   }
 
-  show() {
+  show(): void {
     this._overlay = document.createElement('div');
     this._overlay.className = 'dialog-overlay';
 
@@ -16,41 +25,27 @@ class TypeEditor {
     dialog.innerHTML = '<h3>Type Definitions</h3>';
 
     const list = document.createElement('div');
-    list.style.cssText = 'max-height:300px; overflow-y:auto; margin:8px 0;';
-
-    const types = this._ts.getTypes();
-    for (const [name, def] of Object.entries(types)) {
-      const row = document.createElement('div');
-      row.style.cssText = 'display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #333;';
-      row.innerHTML = `<span><strong>${name}</strong> \u2014 ${def.description || ''}</span>`;
-      const delBtn = document.createElement('button');
-      delBtn.textContent = '\u00d7';
-      delBtn.style.cssText = 'background:#a33; border:none; color:#fff; padding:2px 6px; cursor:pointer; border-radius:2px;';
-      delBtn.addEventListener('click', () => {
-        this._ts.removeType(name);
-        dialog.remove();
-        this.show();
-      });
-      row.appendChild(delBtn);
-      list.appendChild(row);
-    }
+    list.className = 'type-editor-list';
+    this._renderList(list);
     dialog.appendChild(list);
 
     const addForm = document.createElement('div');
-    addForm.style.cssText = 'margin-top:8px; display:flex; gap:4px;';
+    addForm.className = 'type-editor-add-form';
     const nameInput = document.createElement('input');
     nameInput.placeholder = 'Type name';
-    nameInput.style.cssText = 'flex:1; background:#2d2d2d; border:1px solid #444; color:#ccc; padding:4px;';
+    nameInput.className = 'type-editor-input';
     const descInput = document.createElement('input');
     descInput.placeholder = 'Description';
-    descInput.style.cssText = 'flex:1; background:#2d2d2d; border:1px solid #444; color:#ccc; padding:4px;';
+    descInput.className = 'type-editor-input';
     const addBtn = document.createElement('button');
     addBtn.textContent = 'Add';
     addBtn.addEventListener('click', () => {
       if (nameInput.value) {
         this._ts.addType(nameInput.value, { description: descInput.value, category: 'user' });
-        dialog.remove();
-        this.show();
+        nameInput.value = '';
+        descInput.value = '';
+        this._dirty = true;
+        this._renderList(list);
       }
     });
     addForm.appendChild(nameInput);
@@ -64,6 +59,7 @@ class TypeEditor {
     saveBtn.textContent = 'Save';
     saveBtn.addEventListener('click', async () => {
       await this._save();
+      this._dirty = false;
       this._close();
     });
     const closeBtn = document.createElement('button');
@@ -77,20 +73,38 @@ class TypeEditor {
     document.body.appendChild(this._overlay);
   }
 
-  async _save() {
-    try {
-      await fetch('/api/types/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ types: this._ts.getTypes() })
+  _renderList(list: HTMLElement): void {
+    list.innerHTML = '';
+    const types = this._ts.getTypes();
+    for (const [name, def] of Object.entries(types)) {
+      const row = document.createElement('div');
+      row.className = 'type-editor-row';
+      row.innerHTML = `<span><strong>${name}</strong> \u2014 ${def.description || ''}</span>`;
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '\u00d7';
+      delBtn.className = 'type-editor-delete-btn';
+      delBtn.addEventListener('click', () => {
+        if (!confirm(`Delete type "${name}"?`)) return;
+        this._ts.removeType(name);
+        this._dirty = true;
+        this._renderList(list);
       });
+      row.appendChild(delBtn);
+      list.appendChild(row);
+    }
+  }
+
+  async _save(): Promise<void> {
+    try {
+      await API.saveTypes(this._ts.getTypes());
       showToast('Types saved');
-    } catch (e) {
+    } catch (e: any) {
       showToast('Failed to save types: ' + e.message, 'error');
     }
   }
 
-  _close() {
+  _close(): void {
+    if (this._dirty && !confirm('You have unsaved changes. Discard them?')) return;
     if (this._overlay) this._overlay.remove();
     if (this._onClose) this._onClose();
   }

@@ -1,9 +1,14 @@
+import type { ValidationResult } from '../types/graph-types';
+import { TypeSystem } from './type-system';
+
 class ConnectionValidator {
-  constructor(typeSystem) {
+  private _typeSystem: TypeSystem;
+
+  constructor(typeSystem: TypeSystem) {
     this._typeSystem = typeSystem;
   }
 
-  validate(outputNode, outputSlotIdx, inputNode, inputSlotIdx) {
+  validate(outputNode: LGraphNode, outputSlotIdx: number, inputNode: LGraphNode, inputSlotIdx: number): ValidationResult {
     const outSlot = outputNode.outputs[outputSlotIdx];
     const inSlot = inputNode.inputs[inputSlotIdx];
 
@@ -35,7 +40,9 @@ class ConnectionValidator {
     const outDomain = outPort.clock_domain || '';
     const inDomain = inPort.clock_domain || '';
     if (outCat === 'data' && inCat === 'data' && outDomain && inDomain && outDomain !== inDomain) {
-      return { allowed: false, reason: `Cross-domain connection blocked (${outDomain} → ${inDomain}). Set allow_cross_domain to override.` };
+      if (!outPort.allow_cross_domain && !inPort.allow_cross_domain) {
+        return { allowed: false, reason: `Cross-domain connection blocked (${outDomain} → ${inDomain}). Enable "Allow Cross-Domain" on either port to override.` };
+      }
     }
 
     return { allowed: true, reason: '' };

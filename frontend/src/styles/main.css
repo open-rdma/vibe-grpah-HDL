@@ -8,8 +8,8 @@
   --text-color: #ccc;
   --text-dim: #888;
   --accent: #4a9eff;
-  --clock-color: #0af;
-  --reset-color: #f80;
+  --error: #e33;
+  --warning: #f80;
 }
 
 html, body, #app {
@@ -42,6 +42,7 @@ html, body, #app {
 }
 #toolbar button:hover { background: #4a4a4a; }
 #toolbar button:active { background: #505050; }
+#toolbar button:disabled { opacity: 0.4; cursor: default; }
 #toolbar .separator { width: 1px; height: 24px; background: #444; margin: 0 4px; }
 
 #main-area {
@@ -141,6 +142,63 @@ html, body, #app {
   margin-top: 12px; display: flex; justify-content: flex-end; gap: 6px;
 }
 
+.context-menu {
+  position: fixed;
+  background: #2d2d2d;
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 4px 0;
+  z-index: 1500;
+  min-width: 140px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+.context-menu-item {
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-color);
+  user-select: none;
+}
+.context-menu-item:hover { background: #3a6; }
+
+.type-editor-list {
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 8px 0;
+}
+.type-editor-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  border-bottom: 1px solid #333;
+  align-items: center;
+}
+.type-editor-delete-btn {
+  background: #a33;
+  border: none;
+  color: #fff;
+  padding: 2px 8px;
+  cursor: pointer;
+  border-radius: 2px;
+  font-size: 13px;
+  line-height: 1;
+}
+.type-editor-delete-btn:hover { background: #c44; }
+.type-editor-add-form {
+  margin-top: 8px;
+  display: flex;
+  gap: 4px;
+}
+.type-editor-input {
+  flex: 1;
+  background: #2d2d2d;
+  border: 1px solid #444;
+  color: #ccc;
+  padding: 4px;
+  border-radius: 2px;
+  font-size: 12px;
+}
+
 .toast {
   position: fixed; bottom: 40px; right: 16px;
   background: #333; color: #fff;
@@ -149,4 +207,5 @@ html, body, #app {
   animation: fadeIn 0.2s ease;
 }
 .toast.error { background: #a33; }
+.toast.warning { background: #a60; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
