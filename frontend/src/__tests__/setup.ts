@@ -11,9 +11,9 @@
 (globalThis as any).CanvasRenderingContext2D = class {};
 
 // ---------------------------------------------------------------------------
-// LLink — lightweight link pair
+// _LLink — lightweight link pair
 // ---------------------------------------------------------------------------
-class LLink {
+class _LLink {
   origin_id: number;
   origin_slot: number;
   target_id: number;
@@ -28,23 +28,16 @@ class LLink {
 
 // ---------------------------------------------------------------------------
 // LGraphNodePort — minimal port/slot
+// (interface declared globally in litegraph.d.ts; makePort returns a plain object)
 // ---------------------------------------------------------------------------
-interface LGraphNodePort {
-  name: string;
-  type: string;
-  link: number | null;
-  color_on: string;
-  _port_data: any;
-}
-
-function makePort(name: string, type: string): LGraphNodePort {
+function makePort(name: string, type: string): any {
   return { name, type, link: null, color_on: '#AAA', _port_data: null };
 }
 
 // ---------------------------------------------------------------------------
-// LGraphNode — base node class
+// _LGraphNode — base node class
 // ---------------------------------------------------------------------------
-class LGraphNode {
+class _LGraphNode {
   id: number;
   type: string | null;
   title: string;
@@ -57,16 +50,16 @@ class LGraphNode {
   boxcolor: string;
   shape: string | number;
   properties: Record<string, any>;
-  inputs: LGraphNodePort[];
-  outputs: LGraphNodePort[];
-  graph: LGraph | null;
+  inputs: any[];
+  outputs: any[];
+  graph: _LGraph | null;
 
   // Application-defined extensions
   _is_boundary: boolean;
   _module_ref: string | undefined;
   _module_data: any;
   _subgraph_data: any;
-  _subgraph: LGraph | undefined;
+  _subgraph: _LGraph | undefined;
 
   // Callback slots (set by node registration or app code)
   onConnectInput?: Function;
@@ -78,7 +71,7 @@ class LGraphNode {
   getPortColor?: Function;
 
   constructor() {
-    this.id = ++LGraphNode._nextId;
+    this.id = ++_LGraphNode._nextId;
     this.type = null;
     this.title = '';
     this.desc = '';
@@ -108,8 +101,8 @@ class LGraphNode {
     this.outputs.push(makePort(name, type));
   }
 
-  connect(slot: number, targetNode: LGraphNode, targetSlot: number): number {
-    const link = new LLink(this.id, slot, targetNode.id, targetSlot);
+  connect(slot: number, targetNode: _LGraphNode, targetSlot: number): number {
+    const link = new _LLink(this.id, slot, targetNode.id, targetSlot);
     const linkId = this.graph ? this.graph._links.length : 0;
     this.outputs[slot].link = linkId;
     (targetNode.inputs[targetSlot] as any).link = linkId;
@@ -124,14 +117,14 @@ class LGraphNode {
 }
 
 // ---------------------------------------------------------------------------
-// LGraph
+// _LGraph
 // ---------------------------------------------------------------------------
-class LGraph {
-  _nodes: LGraphNode[];
-  _links: LLink[];
-  links: Record<string, LLink>;
+class _LGraph {
+  _nodes: _LGraphNode[];
+  _links: _LLink[];
+  links: Record<string, _LLink>;
   extra: any;
-  _subgraph_node: LGraphNode | null;
+  _subgraph_node: _LGraphNode | null;
   _is_subgraph: boolean;
   onAfterChange: (() => void) | null;
   _onAfterChange: (() => void) | null;
@@ -147,12 +140,12 @@ class LGraph {
     this._onAfterChange = null;
   }
 
-  add(node: LGraphNode): void {
+  add(node: _LGraphNode): void {
     node.graph = this;
     this._nodes.push(node);
   }
 
-  remove(node: LGraphNode): void {
+  remove(node: _LGraphNode): void {
     const idx = this._nodes.indexOf(node);
     if (idx >= 0) {
       this._nodes.splice(idx, 1);
@@ -171,21 +164,21 @@ class LGraph {
 }
 
 // ---------------------------------------------------------------------------
-// LGraphCanvas — minimal stub
+// _LGraphCanvas — minimal stub
 // ---------------------------------------------------------------------------
-class LGraphCanvas {
-  graph: LGraph | null;
+class _LGraphCanvas {
+  graph: _LGraph | null;
   canvas: any;
   ds: { offset: [number, number]; scale: number };
   background_image: string;
   render_links_border: boolean;
   links_render_mode: number;
-  selected_nodes: Record<string, LGraphNode>;
+  selected_nodes: Record<string, _LGraphNode>;
   onNodeSelected: Function | null;
   onNodeDeselected: Function | null;
-  _graph_stack: LGraph[];
+  _graph_stack: _LGraph[];
 
-  constructor(_el: any, graph?: LGraph) {
+  constructor(_el: any, graph?: _LGraph) {
     this.graph = graph || null;
     this.canvas = { width: 800, height: 600 };
     this.ds = { offset: [0, 0], scale: 1 };
@@ -199,12 +192,12 @@ class LGraphCanvas {
   }
 
   draw(_fg?: boolean, _bg?: boolean): void {}
-  selectNode(_node: LGraphNode): void {}
+  selectNode(_node: _LGraphNode): void {}
   deselectAllNodes(): void {}
   zoom(_factor: number, _center?: [number, number]): void {}
   zoomToFit(): void {}
 
-  openSubgraph(graph: LGraph): void {
+  openSubgraph(graph: _LGraph): void {
     if (this.graph) {
       this._graph_stack.push(this.graph);
     }
@@ -221,7 +214,7 @@ class LGraphCanvas {
 // ---------------------------------------------------------------------------
 // LiteGraph — global namespace (the part our app code uses)
 // ---------------------------------------------------------------------------
-const _nodeTypes: Record<string, { new (): LGraphNode }> = {};
+const _nodeTypes: Record<string, { new (): _LGraphNode }> = {};
 
 const LiteGraphStub = {
   VERSION: 0.4,
@@ -231,27 +224,27 @@ const LiteGraphStub = {
   BOX_SHAPE: 'box',
 
   // Class refs (our code does `new LiteGraph.LGraph()` etc.)
-  LGraph,
-  LGraphCanvas,
-  LLink,
-  LGraphNode,
+  LGraph: _LGraph,
+  LGraphCanvas: _LGraphCanvas,
+  LLink: _LLink,
+  LGraphNode: _LGraphNode,
 
   // Node registry (used at module load time by node definition files)
-  registerNodeType(type: string, base_class: { new (): LGraphNode } & { title?: string; desc?: string }): void {
-    // Copy LGraphNode.prototype methods onto the registered class's prototype,
+  registerNodeType(type: string, base_class: { new (): _LGraphNode } & { title?: string; desc?: string }): void {
+    // Copy _LGraphNode.prototype methods onto the registered class's prototype,
     // matching the real litegraph.js behaviour (lines 177-181).  Our node
     // constructors are plain functions, not subclasses, so addInput/addOutput/
     // connect would otherwise be missing.
-    for (const key of Object.getOwnPropertyNames(LGraphNode.prototype)) {
+    for (const key of Object.getOwnPropertyNames(_LGraphNode.prototype)) {
       if (key === 'constructor') continue;
       if (!(key in base_class.prototype)) {
-        (base_class.prototype as any)[key] = (LGraphNode.prototype as any)[key];
+        (base_class.prototype as any)[key] = (_LGraphNode.prototype as any)[key];
       }
     }
     _nodeTypes[type] = base_class;
   },
 
-  createNode(type: string): LGraphNode {
+  createNode(type: string): _LGraphNode {
     const Ctor = _nodeTypes[type];
     if (!Ctor) {
       throw new Error(`LiteGraph.createNode: unknown node type "${type}"`);
@@ -267,7 +260,7 @@ const LiteGraphStub = {
 
 // Install on globalThis so module-level LiteGraph.* calls work
 (globalThis as any).LiteGraph = LiteGraphStub;
-(globalThis as any).LGraph = LGraph;
-(globalThis as any).LGraphCanvas = LGraphCanvas;
-(globalThis as any).LLink = LLink;
-(globalThis as any).LGraphNode = LGraphNode;
+(globalThis as any).LGraph = _LGraph;
+(globalThis as any).LGraphCanvas = _LGraphCanvas;
+(globalThis as any).LLink = _LLink;
+(globalThis as any).LGraphNode = _LGraphNode;
