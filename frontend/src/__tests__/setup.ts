@@ -108,13 +108,16 @@ class LGraphNode {
     this.outputs.push(makePort(name, type));
   }
 
-  connect(slot: number, targetNode: LGraphNode, targetSlot: number): void {
+  connect(slot: number, targetNode: LGraphNode, targetSlot: number): number {
     const link = new LLink(this.id, slot, targetNode.id, targetSlot);
-    this.outputs[slot].link = link as any;
-    (targetNode.inputs[targetSlot] as any).link = link as any;
+    const linkId = this.graph ? this.graph._links.length : 0;
+    this.outputs[slot].link = linkId;
+    (targetNode.inputs[targetSlot] as any).link = linkId;
     if (this.graph) {
       this.graph._links.push(link);
+      this.graph.links[String(linkId)] = link;
     }
+    return linkId;
   }
 
   static _nextId = 1;
