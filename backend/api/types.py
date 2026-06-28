@@ -45,8 +45,8 @@ def check_types():
         return jsonify({'compatible': False, 'reason': f"Base types differ: {fp.get('base')} vs {tp.get('base')}"})
 
     if 'msb' in fp and 'msb' in tp:
-        fw = fp['msb'] - fp['lsb'] + 1
-        tw = tp['msb'] - tp['lsb'] + 1
+        fw = abs(fp['msb'] - fp['lsb']) + 1
+        tw = abs(tp['msb'] - tp['lsb']) + 1
         if fw != tw:
             return jsonify({'compatible': False, 'reason': f"Width mismatch: {fw} vs {tw}"})
 
