@@ -139,8 +139,13 @@ class App {
       if (resizeTimer) clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
         const container = document.getElementById('canvas-container')!;
-        canvasEl.width = container.clientWidth;
-        canvasEl.height = container.clientHeight;
+        const dpr = window.devicePixelRatio || 1;
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        canvasEl.width = w * dpr;
+        canvasEl.height = h * dpr;
+        canvasEl.style.width = w + 'px';
+        canvasEl.style.height = h + 'px';
         if (this._canvas) this._canvas.draw(true, true);
       }, 150);
     };
