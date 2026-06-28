@@ -1,5 +1,6 @@
 import os
 from flask import Blueprint, request, jsonify, current_app
+from services.file_manager import FileManager
 
 project_bp = Blueprint('project', __name__)
 
@@ -41,7 +42,7 @@ def create_project():
 
     app = current_app
     app.config['PROJECT_ROOT'] = project_root
-    app.config['FILE_MANAGER'] = __import__('services.file_manager', fromlist=['FileManager']).FileManager(project_root)
+    app.config['FILE_MANAGER'] = FileManager(project_root)
     fm = app.config['FILE_MANAGER']
 
     proj_config = dict(DEFAULT_PROJECT_YAML)
@@ -78,7 +79,7 @@ def open_project():
         return jsonify({'error': 'Not a valid project'}), 400
 
     current_app.config['PROJECT_ROOT'] = project_root
-    current_app.config['FILE_MANAGER'] = __import__('services.file_manager', fromlist=['FileManager']).FileManager(project_root)
+    current_app.config['FILE_MANAGER'] = FileManager(project_root)
     fm = current_app.config['FILE_MANAGER']
 
     config = fm.read_yaml('project.yaml')
@@ -89,7 +90,7 @@ def close_project():
     """Reset project state to base (no project open)."""
     base = current_app.config['PROJECTS_BASE']
     current_app.config['PROJECT_ROOT'] = base
-    current_app.config['FILE_MANAGER'] = __import__('services.file_manager', fromlist=['FileManager']).FileManager(base)
+    current_app.config['FILE_MANAGER'] = FileManager(base)
     return jsonify({'ok': True})
 
 @project_bp.route('/save', methods=['POST'])
