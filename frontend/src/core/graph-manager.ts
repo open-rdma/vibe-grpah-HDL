@@ -372,6 +372,17 @@ class GraphManager {
     return this._graph?.extra?.path || null;
   }
 
+  removeNode(node: LGraphNode): boolean {
+    if (node._is_boundary) {
+      showToast('Boundary nodes are auto-managed and cannot be deleted', 'warning');
+      return false;
+    }
+    const graph = node.graph;
+    if (!graph) return false;
+    graph.remove(node);
+    return true;
+  }
+
   uniqueNodeName(baseName: string): string {
     if (!this._graph) return baseName;
     const existing = new Set<string>();

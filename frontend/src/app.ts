@@ -388,11 +388,7 @@ class App {
     const selected = this._canvas.selected_nodes || {};
     for (const id of Object.keys(selected)) {
       const node = selected[id];
-      if (node._is_boundary) {
-        showToast('Boundary nodes are auto-managed and cannot be deleted', 'warning');
-        continue;
-      }
-      node.graph?.remove(node);
+      this._graphManager.removeNode(node);
     }
     this._canvas.deselectAllNodes();
     this._graphManager.markDirty();
