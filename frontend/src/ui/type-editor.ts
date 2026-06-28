@@ -79,7 +79,12 @@ class TypeEditor {
     for (const [name, def] of Object.entries(types)) {
       const row = document.createElement('div');
       row.className = 'type-editor-row';
-      row.innerHTML = `<span><strong>${name}</strong> \u2014 ${def.description || ''}</span>`;
+      const strong = document.createElement('strong');
+      strong.textContent = name;
+      const span = document.createElement('span');
+      span.appendChild(strong);
+      span.appendChild(document.createTextNode(' \u2014 ' + (def.description || '')));
+      row.appendChild(span);
       const delBtn = document.createElement('button');
       delBtn.textContent = '\u00d7';
       delBtn.className = 'type-editor-delete-btn';
