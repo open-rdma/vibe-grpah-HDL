@@ -294,18 +294,22 @@ class GraphManager {
       return;
     }
     const fromPort = this._findPortIndex(fromNode, 'outputs', conn.from.port);
-    if (fromPort >= 0) {
-      for (const to of conn.to) {
-        const toNode = nodeMap[to.node];
-        if (!toNode) {
-          console.warn('Connection target references missing node:', to.node);
-          continue;
-        }
-        const toPort = this._findPortIndex(toNode, 'inputs', to.port);
-        if (toPort >= 0) {
-          fromNode.connect(fromPort, toNode, toPort);
-        }
+    if (fromPort < 0) {
+      console.warn('Connection source port not found:', conn.from.port, 'on node', conn.from.node);
+      return;
+    }
+    for (const to of conn.to) {
+      const toNode = nodeMap[to.node];
+      if (!toNode) {
+        console.warn('Connection target references missing node:', to.node);
+        continue;
       }
+      const toPort = this._findPortIndex(toNode, 'inputs', to.port);
+      if (toPort < 0) {
+        console.warn('Connection target port not found:', to.port, 'on node', to.node);
+        continue;
+      }
+      fromNode.connect(fromPort, toNode, toPort);
     }
   }
 
