@@ -341,7 +341,7 @@ class App {
       showToast('No graph loaded', 'error');
       return;
     }
-    const path = graph.extra.path;
+    const path = this._graphManager.getCurrentGraphPath();
     if (!path) {
       showToast('No graph loaded', 'error');
       return;
@@ -426,7 +426,7 @@ class App {
 
   showBuildDialog(): void {
     const graph = this._graphManager._graph;
-    const currentPath = (graph ? graph.extra.path : null) || 'top/top.yaml';
+    const currentPath = this._graphManager.getCurrentGraphPath() || 'top/top.yaml';
 
     // Compute graph-level knowledge
     const graphMeta = (graph && graph.extra && (graph.extra as any).meta) || {};

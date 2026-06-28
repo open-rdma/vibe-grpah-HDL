@@ -367,6 +367,11 @@ class GraphManager {
   /**
    * Generate a unique node name at the current graph level.
    */
+  /** Returns the path of the currently loaded graph, or null. */
+  getCurrentGraphPath(): string | null {
+    return this._graph?.extra?.path || null;
+  }
+
   uniqueNodeName(baseName: string): string {
     if (!this._graph) return baseName;
     const existing = new Set<string>();
