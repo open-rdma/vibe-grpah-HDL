@@ -1,10 +1,22 @@
 import uuid
+import time
 import threading
 from flask import Blueprint, request, jsonify, current_app
 
 build_bp = Blueprint('build', __name__)
 
 _tasks = {}
+_TASK_TTL_SECONDS = 3600  # 1 hour
+
+
+def _cleanup_old_tasks():
+    """Remove completed/failed tasks older than TTL."""
+    now = time.time()
+    stale = [tid for tid, t in _tasks.items()
+             if t['status'] in ('done', 'failed')
+             and now - t.get('_created', 0) > _TASK_TTL_SECONDS]
+    for tid in stale:
+        del _tasks[tid]
 
 def _fm():
     return current_app.config['FILE_MANAGER']
@@ -45,6 +57,7 @@ def _run_build(task_id, target_node, scope, mode, include_testbench):
 @build_bp.route('', methods=['POST'])
 def start_build():
     body = request.get_json()
+    _cleanup_old_tasks()
     task_id = str(uuid.uuid4())[:8]
     _tasks[task_id] = {
         'id': task_id,
@@ -53,7 +66,8 @@ def start_build():
         'scope': body.get('scope', 'this'),
         'mode': body.get('mode', 'fresh'),
         'include_testbench': body.get('include_testbench', False),
-        'progress': {}
+        'progress': {},
+        '_created': time.time()
     }
 
     thread = threading.Thread(
