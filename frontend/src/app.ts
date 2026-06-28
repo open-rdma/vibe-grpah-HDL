@@ -156,11 +156,15 @@ class App {
       e.preventDefault();
       if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
     });
-    canvasContainer.addEventListener('drop', (e: DragEvent) => {
+    canvasContainer.addEventListener('drop', async (e: DragEvent) => {
       e.preventDefault();
       const refPath = e.dataTransfer!.getData('text/plain');
       if (refPath) {
-        this._instantiateFromRef(refPath, e.clientX, e.clientY);
+        try {
+          await this._instantiateFromRef(refPath, e.clientX, e.clientY);
+        } catch (err: any) {
+          console.error('[drop] _instantiateFromRef failed:', err.message || err);
+        }
       }
     });
 
@@ -172,6 +176,7 @@ class App {
 
     canvas.openSubgraph = (graph: LGraph) => {
       origOpenSubgraph(graph);
+      this._canvas.draw(true, true);
       this._graphManager._syncFromCanvas();
 
       // Push breadcrumb entry for the subgraph
