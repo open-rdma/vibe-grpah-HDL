@@ -86,6 +86,16 @@ class GraphManager {
     return this._graph;
   }
 
+  /** Adapter over litegraph.js internal _nodes array. */
+  private _getNodes(graph?: LGraph): LGraphNode[] {
+    return (graph || this._requireGraph())._nodes || [];
+  }
+
+  /** Adapter over litegraph.js internal node lookup by id. */
+  private _findNodeById(id: string, graph?: LGraph): LGraphNode | undefined {
+    return this._getNodes(graph).find((n: LGraphNode) => String(n.id) === id);
+  }
+
   _installDeleteGuard(graph: LGraph): void {
     const originalRemove = graph.remove.bind(graph);
     graph.remove = function(node: LGraphNode) {
@@ -142,7 +152,7 @@ class GraphManager {
 
     // Ensure boundary nodes exist BEFORE module nodes and connections
     this._ensureBoundaryNodes(graph);
-    for (const node of graph._nodes) {
+    for (const node of this._getNodes(graph)) {
       if (node._is_boundary) {
         nodeMap[node.title] = node;
       }
@@ -328,7 +338,7 @@ class GraphManager {
   _ensureBoundaryNodes(graph: LGraph): void {
     if (!graph) return;
 
-    const nodes: LGraphNode[] = graph._nodes || [];
+    const nodes: LGraphNode[] = this._getNodes(graph);
     let inputNode: LGraphNode | null = null;
     let outputNode: LGraphNode | null = null;
 
@@ -386,7 +396,7 @@ class GraphManager {
   uniqueNodeName(baseName: string): string {
     if (!this._graph) return baseName;
     const existing = new Set<string>();
-    for (const node of this._graph._nodes) {
+    for (const node of this._getNodes()) {
       if (!node._is_boundary) {
         existing.add(node.title);
       }
@@ -401,7 +411,7 @@ class GraphManager {
 
   isNodeNameUnique(name: string, excludeNode?: LGraphNode): boolean {
     if (!this._graph) return true;
-    for (const node of this._graph._nodes) {
+    for (const node of this._getNodes()) {
       if (node._is_boundary) continue;
       if (excludeNode && node === excludeNode) continue;
       if (node.title === name) return false;
@@ -442,7 +452,7 @@ class GraphManager {
     }
 
     // Serialize nodes (skip boundary nodes)
-    for (const node of graph._nodes) {
+    for (const node of this._getNodes(graph)) {
       if (node._is_boundary) continue;
       if (node.type === 'rtl/module') {
         const pos = node.pos || [0, 0];
@@ -464,7 +474,7 @@ class GraphManager {
 
     // Serialize connections
     const linkMap: Record<string, { node: string; port: string }[]> = {};
-    for (const node of graph._nodes) {
+    for (const node of this._getNodes(graph)) {
       for (const input of (node.inputs || [])) {
         if (input.link !== undefined && input.link !== null) {
           const link = graph.links[String(input.link)];
@@ -480,7 +490,7 @@ class GraphManager {
     }
     for (const [fromKey, toList] of Object.entries(linkMap)) {
       const [fromId, fromSlot] = fromKey.split(':');
-      const fromNode = graph._nodes.find((n: LGraphNode) => String(n.id) === fromId);
+      const fromNode = this._findNodeById(fromId, graph);
       data.connections!.push({
         from: { node: fromNode ? fromNode.title : fromId, port: fromNode ? fromNode.outputs[parseInt(fromSlot)].name : fromSlot },
         to: toList
