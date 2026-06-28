@@ -134,11 +134,15 @@ class App {
       this._toolbar.refresh();
     };
 
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
     const resizeCanvas = () => {
-      const container = document.getElementById('canvas-container')!;
-      canvasEl.width = container.clientWidth;
-      canvasEl.height = container.clientHeight;
-      if (this._canvas) this._canvas.draw(true, true);
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        const container = document.getElementById('canvas-container')!;
+        canvasEl.width = container.clientWidth;
+        canvasEl.height = container.clientHeight;
+        if (this._canvas) this._canvas.draw(true, true);
+      }, 150);
     };
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
