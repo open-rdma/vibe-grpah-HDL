@@ -202,8 +202,13 @@ class App {
       // double-click rebuilds from fresh data (including any edits
       // just cached to _stateCache).
       const closingGraph = canvas.graph;
-      if (closingGraph && (closingGraph as any)._subgraph_node) {
-        (closingGraph as any)._subgraph_node._subgraph = undefined;
+      const owningNode: LGraphNode | null =
+        (closingGraph && (closingGraph as any)._subgraph_node) || null;
+      const editedRefPath: string =
+        (closingGraph && closingGraph.extra && closingGraph.extra.path) || '';
+
+      if (owningNode) {
+        owningNode._subgraph = undefined;
       }
 
       origCloseSubgraph();
@@ -214,6 +219,13 @@ class App {
         this._breadcrumbPath.pop();
       }
       this._renderBreadcrumb();
+
+      // Refresh all nodes in the parent graph that reference the
+      // just-edited module so their port displays pick up any
+      // additions/removals made inside the subgraph.
+      if (editedRefPath) {
+        this._refreshNodesForRef(editedRefPath);
+      }
     };
   }
 
@@ -478,6 +490,19 @@ class App {
     if (this._canvas) this._canvas.draw(true, true);
   }
 
+  async _refreshNodesForRef(refPath: string): Promise<void> {
+    const graph = this._graphManager._graph;
+    if (!graph || !refPath) return;
+    for (const node of graph._nodes || []) {
+      if (node._module_ref === refPath) {
+        await this._graphManager._loadRefPorts(node, refPath);
+      }
+    }
+    if (this._canvas) {
+      this._canvas.draw(true, true);
+    }
+  }
+
   _renderBreadcrumb(): void {
     const bar = document.getElementById('breadcrumb-bar');
     if (!bar) return;
@@ -512,13 +537,23 @@ class App {
 
       // Invalidate subgraph cache on the owning node (same as closeSubgraph wrapper)
       const closingGraph = this._canvas?.graph;
-      if (closingGraph && (closingGraph as any)._subgraph_node) {
-        (closingGraph as any)._subgraph_node._subgraph = undefined;
+      const owningNode: LGraphNode | null =
+        (closingGraph && (closingGraph as any)._subgraph_node) || null;
+      const editedRefPath: string =
+        (closingGraph && closingGraph.extra && closingGraph.extra.path) || '';
+
+      if (owningNode) {
+        owningNode._subgraph = undefined;
       }
 
       if (this._origCloseSubgraph) this._origCloseSubgraph();
       this._graphManager._syncFromCanvas();
       this._breadcrumbPath.pop();
+
+      // Refresh ports on parent nodes that reference the just-edited module
+      if (editedRefPath) {
+        this._refreshNodesForRef(editedRefPath);
+      }
     }
     this._renderBreadcrumb();
   }
