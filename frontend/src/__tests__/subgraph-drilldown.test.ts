@@ -1296,3 +1296,134 @@ describe('canvas viewport — _syncGraphFromCache', () => {
     expect(canvas.ds.scale).toBe(4);
   });
 });
+
+// ------------------------------------------------------------------
+// Multi-level breadcrumb navigation — cache integrity
+//
+// Why: _navigateBreadcrumb was synchronous even though
+// _syncGraphFromCache is async.  The while loop called it
+// fire-and-forget, so the next iteration's _cacheCurrentState
+// would snapshot a partially-rebuilt graph (nodes removed but not
+// yet repopulated), corrupting the cache for intermediate levels.
+// Fix: make _navigateBreadcrumb async and await each
+// _syncGraphFromCache / _refreshNodesForRef call.
+// ------------------------------------------------------------------
+
+describe('multi-level breadcrumb cache integrity', () => {
+  let gm: GraphManager;
+  let ts: TypeSystem;
+
+  beforeEach(() => {
+    mockLoadGraph.mockReset();
+    ts = new TypeSystem();
+    gm = new GraphManager(ts);
+  });
+
+  afterEach(() => {
+    gm.reset();
+  });
+
+  it('should preserve cache when closing 2+ levels with awaited rebuilds', async () => {
+    // Simulate: D→C→B breadcrumb jump (2 level closes).
+    // Cache B and C with known node data, then step through the
+    // while-loop iterations with proper awaits.
+
+    const dataC = makeGraphData({
+      meta: { name: 'c' },
+      nodes: [{ id: 'c1', ref: '', pos_x: 10, pos_y: 20, properties: {} }],
+      connections: [],
+    });
+    const dataB = makeGraphData({
+      meta: { name: 'b' },
+      nodes: [{ id: 'b1', ref: '', pos_x: 30, pos_y: 40, properties: {} }],
+      connections: [],
+    });
+    gm._stateCache.set('mod/c.yaml', dataC);
+    gm._stateCache.set('mod/b.yaml', dataB);
+
+    // Current level D (deepest, dirty)
+    const graphD = new LiteGraph.LGraph();
+    graphD.extra = { path: 'mod/d.yaml', meta: { name: 'd' }, properties: {}, ports: [] };
+    const canvas = stubCanvas(graphD);
+    gm.setCanvas(canvas);
+    gm.markDirty();
+
+    // Iter 1: close D → C
+    gm._cacheCurrentState();  // cache D ✓
+    const graphC = new LiteGraph.LGraph();
+    graphC.extra = { path: 'mod/c.yaml', meta: { name: 'c' }, properties: {}, ports: [] };
+    canvas.graph = graphC;
+    gm._syncFromCanvas();
+    await gm._syncGraphFromCache('mod/c.yaml');  // awaited — C is now fully rebuilt
+
+    // Iter 2: close C → B
+    gm._cacheCurrentState();  // C is fully rebuilt, safe to cache
+    const graphB = new LiteGraph.LGraph();
+    graphB.extra = { path: 'mod/b.yaml', meta: { name: 'b' }, properties: {}, ports: [] };
+    canvas.graph = graphB;
+    gm._syncFromCanvas();
+    await gm._syncGraphFromCache('mod/b.yaml');
+
+    // C's cache must still have the original node (not corrupted)
+    const cachedC = gm._stateCache.get('mod/c.yaml');
+    expect(cachedC).toBeDefined();
+    expect(cachedC!.nodes!.length).toBe(1);
+    expect(cachedC!.nodes![0].id).toBe('c1');
+
+    // B's cache must be intact
+    const cachedB = gm._stateCache.get('mod/b.yaml');
+    expect(cachedB).toBeDefined();
+    expect(cachedB!.nodes!.length).toBe(1);
+    expect(cachedB!.nodes![0].id).toBe('b1');
+
+    // D's dirty state was cached in iter 1
+    expect(gm._stateCache.has('mod/d.yaml')).toBe(true);
+  });
+
+  it('should preserve cache data when awaiting _syncGraphFromCache before _cacheCurrentState', async () => {
+    // _syncGraphFromCache is async: it clears non-boundary nodes then
+    // repopulates via _populateGraph.  If the caller doesn't await it,
+    // a subsequent _cacheCurrentState may snapshot intermediate state
+    // (partially cleared or partially populated).  After the fix in
+    // app.ts, all call sites (closeSubgraph, _navigateBreadcrumb)
+    // await _syncGraphFromCache before the next _cacheCurrentState.
+
+    const dataC = makeGraphData({
+      meta: { name: 'c' },
+      nodes: [{ id: 'survive', ref: '', pos_x: 50, pos_y: 60, properties: {} }],
+      connections: [],
+    });
+    gm._stateCache.set('mod/c.yaml', dataC);
+
+    const graphC = new LiteGraph.LGraph();
+    graphC.extra = { path: 'mod/c.yaml', meta: { name: 'c' }, properties: {}, ports: [] };
+    gm.setCanvas(stubCanvas(graphC));
+
+    // Correct sequence: await rebuild, then cache
+    await gm._syncGraphFromCache('mod/c.yaml');
+    gm.markDirty();
+    gm._cacheCurrentState();
+
+    const intact = gm._stateCache.get('mod/c.yaml');
+    expect(intact!.nodes!.length).toBe(1);
+    expect(intact!.nodes![0].id).toBe('survive');
+
+    // Verify the graph itself is correctly populated
+    const allNodes = graphC._nodes as any[];
+    expect(allNodes.filter((n: any) => !n._is_boundary).length).toBe(1);
+    expect(allNodes.find((n: any) => n.title === 'survive')).toBeDefined();
+
+    // Second round-trip: cache → rebuild → cache again should be idempotent
+    gm.markDirty();
+    gm._cacheCurrentState();
+    const cached = gm._stateCache.get('mod/c.yaml');
+    expect(cached!.nodes!.length).toBe(1);
+
+    await gm._syncGraphFromCache('mod/c.yaml');
+    gm.markDirty();
+    gm._cacheCurrentState();
+    const cached2 = gm._stateCache.get('mod/c.yaml');
+    expect(cached2!.nodes!.length).toBe(1);
+    expect(cached2!.nodes![0].id).toBe('survive');
+  });
+});

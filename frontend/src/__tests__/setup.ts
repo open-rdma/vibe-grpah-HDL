@@ -209,6 +209,7 @@ class _LGraphCanvas {
       this.graph = this._graph_stack.pop()!;
     }
   }
+  drawSubgraphPanel(_ctx: any): void {}
 }
 
 // ---------------------------------------------------------------------------

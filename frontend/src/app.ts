@@ -107,6 +107,8 @@ class App {
 
     const graph = new LiteGraph.LGraph();
     this._canvas = new LiteGraph.LGraphCanvas(canvasEl, graph);
+    // Disable litegraph's built-in subgraph panels — we use our own boundary nodes
+    this._canvas.drawSubgraphPanel = () => {};
     this._canvas.background_image = '';
 
     this._canvas.render_links_border = true;
@@ -211,7 +213,7 @@ class App {
       this._renderBreadcrumb();
     };
 
-    canvas.closeSubgraph = () => {
+    canvas.closeSubgraph = async () => {
       this._graphManager._cacheCurrentState();
 
       // Invalidate subgraph cache on the owning node so the next
@@ -242,7 +244,7 @@ class App {
       // one exists, otherwise the stack copy is authoritative and clean.
       const parentPath = this._graphManager.getCurrentGraphPath();
       if (parentPath && this._graphManager._stateCache.has(parentPath)) {
-        this._graphManager._syncGraphFromCache(parentPath);
+        await this._graphManager._syncGraphFromCache(parentPath);
       } else {
         this._graphManager.markClean();
       }
@@ -251,7 +253,7 @@ class App {
       // edited ref (self-reference), the explicit _syncGraphFromCache
       // above already performed a full rebuild; skip the redundant call.
       if (editedRefPath && parentPath !== editedRefPath) {
-        this._refreshNodesForRef(editedRefPath);
+        await this._refreshNodesForRef(editedRefPath);
       }
     };
   }
@@ -568,7 +570,7 @@ class App {
     }
   }
 
-  _navigateBreadcrumb(index: number): void {
+  async _navigateBreadcrumb(index: number): Promise<void> {
     // Close subgraphs until we reach the target depth.
     // Use the unwrapped origCloseSubgraph to avoid double-popping breadcrumb state.
     while (this._breadcrumbPath.length - 1 > index) {
@@ -590,9 +592,12 @@ class App {
       this._breadcrumbPath.pop();
 
       // Uniform cache-then-rebuild (same as closeSubgraph wrapper).
+      // Must await: the parent rebuild must finish before the next iteration,
+      // otherwise _cacheCurrentState at the top of the loop snapshots a
+      // partially-rebuilt graph and corrupts the cache.
       const parentPath = this._graphManager.getCurrentGraphPath();
       if (parentPath && this._graphManager._stateCache.has(parentPath)) {
-        this._graphManager._syncGraphFromCache(parentPath);
+        await this._graphManager._syncGraphFromCache(parentPath);
       } else {
         this._graphManager.markClean();
       }
@@ -601,7 +606,7 @@ class App {
       // edited ref (self-reference), the explicit _syncGraphFromCache
       // above already performed a full rebuild; skip the redundant call.
       if (editedRefPath && parentPath !== editedRefPath) {
-        this._refreshNodesForRef(editedRefPath);
+        await this._refreshNodesForRef(editedRefPath);
       }
     }
     this._renderBreadcrumb();

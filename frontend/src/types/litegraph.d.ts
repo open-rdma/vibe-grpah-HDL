@@ -45,6 +45,7 @@ declare class LGraphCanvas {
   selectNode(node: LGraphNode): void;
   openSubgraph(graph: LGraph): void;
   closeSubgraph(): void;
+  drawSubgraphPanel(ctx: CanvasRenderingContext2D): void;
   setDirtyCanvas(fg: boolean, bg: boolean): void;
 }
 
