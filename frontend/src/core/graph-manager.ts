@@ -158,6 +158,14 @@ class GraphManager {
     // The graph now represents unsaved cached state.
     this._dirty = true;
 
+    // Restore canvas viewport from cached data so the user returns to
+    // the same pan/zoom position they last had for this graph.
+    if (this._canvas && cached.canvas) {
+      const { offset_x, offset_y, scale } = cached.canvas;
+      this._canvas.ds.offset = [offset_x || 0, offset_y || 0];
+      this._canvas.ds.scale = scale || 1;
+    }
+
     if (this._canvas) {
       this._canvas.draw(true, true);
     }
@@ -232,6 +240,11 @@ class GraphManager {
     console.log('[GraphManager.buildSubgraphFromData] refPath=' + refPath +
       ' fromCache=' + !!cached + ' nodes=' + (source.nodes || []).length);
     await this._populateGraph(graph, source);
+
+    // Pass canvas viewport through so openSubgraph can restore it
+    if (source.canvas) {
+      (graph.extra as any)._canvas_viewport = source.canvas;
+    }
 
     // Wire dirty tracking for edits inside the subgraph
     graph.onAfterChange = () => {

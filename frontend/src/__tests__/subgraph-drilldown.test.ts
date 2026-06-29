@@ -1140,3 +1140,159 @@ describe('cache-before-drill-down (openSubgraph pattern)', () => {
     expect((gm as any)._stateCache.has('mod/clean.yaml')).toBe(false);
   });
 });
+
+// ==========================================================================
+// Canvas viewport save/restore during subgraph navigation
+// ==========================================================================
+describe('canvas viewport — buildSubgraphFromData', () => {
+  let gm: GraphManager;
+  let ts: TypeSystem;
+
+  beforeEach(() => {
+    mockLoadGraph.mockReset();
+    ts = new TypeSystem();
+    gm = new GraphManager(ts);
+  });
+
+  afterEach(() => {
+    gm.reset();
+  });
+
+  it('stores canvas viewport on graph.extra._canvas_viewport', async () => {
+    const data = makeGraphData({
+      meta: { name: 'sub', description: '', test_method: '' },
+      canvas: { offset_x: 100, offset_y: 200, scale: 1.5 },
+    });
+
+    const subgraph = await gm.buildSubgraphFromData(data, 'mod/sub.yaml');
+    const vp = (subgraph.extra as any)._canvas_viewport;
+    expect(vp).toBeDefined();
+    expect(vp.offset_x).toBe(100);
+    expect(vp.offset_y).toBe(200);
+    expect(vp.scale).toBe(1.5);
+  });
+
+  it('does not set _canvas_viewport when data has no canvas', async () => {
+    const data = makeGraphData({
+      meta: { name: 'sub', description: '', test_method: '' },
+    });
+    delete data.canvas;
+
+    const subgraph = await gm.buildSubgraphFromData(data, 'mod/sub.yaml');
+    expect((subgraph.extra as any)._canvas_viewport).toBeUndefined();
+  });
+
+  it('uses cached canvas viewport when state cache has entry', async () => {
+    // Simulate: user opened a subgraph, panned/zoomed, closed it
+    // Then re-opens — should get the cached viewport, not the disk one
+    const diskData = makeGraphData({
+      meta: { name: 'sub', description: '', test_method: '' },
+      canvas: { offset_x: 0, offset_y: 0, scale: 1 },
+    });
+
+    const cachedData = makeGraphData({
+      meta: { name: 'sub', description: '', test_method: '' },
+      canvas: { offset_x: -300, offset_y: 150, scale: 2 },
+    });
+    (gm as any)._stateCache.set('mod/sub.yaml', cachedData);
+
+    const subgraph = await gm.buildSubgraphFromData(diskData, 'mod/sub.yaml');
+    const vp = (subgraph.extra as any)._canvas_viewport;
+    expect(vp.offset_x).toBe(-300);
+    expect(vp.offset_y).toBe(150);
+    expect(vp.scale).toBe(2);
+  });
+});
+
+describe('canvas viewport — _syncGraphFromCache', () => {
+  let gm: GraphManager;
+  let ts: TypeSystem;
+
+  function stubCanvas(graph: any): any {
+    return {
+      graph,
+      ds: { offset: [0, 0], scale: 1 },
+      draw(_fg: boolean, _bg: boolean) {},
+    };
+  }
+
+  beforeEach(() => {
+    mockLoadGraph.mockReset();
+    ts = new TypeSystem();
+    gm = new GraphManager(ts);
+  });
+
+  afterEach(() => {
+    gm.reset();
+  });
+
+  it('restores canvas.ds from cached data canvas field', async () => {
+    const graph = new LiteGraph.LGraph();
+    graph.extra = { path: 'mod/p.yaml', meta: { name: 'p' }, properties: {}, ports: [] };
+    const canvas = stubCanvas(graph);
+    gm.setCanvas(canvas);
+
+    // Add a node and mark dirty so cache has content
+    const node = LiteGraph.createNode('rtl/module');
+    node.title = 'n1';
+    graph.add(node);
+    gm.markDirty();
+
+    // Cache the graph with a specific viewport
+    (gm as any)._stateCache.set('mod/p.yaml', {
+      meta: { name: 'p' },
+      properties: {},
+      ports: [],
+      nodes: [{ id: 'n1', ref: '', pos_x: 50, pos_y: 80, properties: {} }],
+      connections: [],
+      canvas: { offset_x: -500, offset_y: 300, scale: 0.75 },
+    });
+
+    await gm._syncGraphFromCache('mod/p.yaml');
+
+    expect(canvas.ds.offset[0]).toBe(-500);
+    expect(canvas.ds.offset[1]).toBe(300);
+    expect(canvas.ds.scale).toBe(0.75);
+  });
+
+  it('does not change canvas.ds when cached data has no canvas field', async () => {
+    const graph = new LiteGraph.LGraph();
+    graph.extra = { path: 'mod/p.yaml', meta: { name: 'p' }, properties: {}, ports: [] };
+    const canvas = stubCanvas(graph);
+    canvas.ds.offset = [123, 456];
+    canvas.ds.scale = 3;
+    gm.setCanvas(canvas);
+
+    // Cache has no canvas field
+    (gm as any)._stateCache.set('mod/p.yaml', {
+      meta: { name: 'p' },
+      properties: {},
+      ports: [],
+      nodes: [],
+      connections: [],
+    });
+
+    await gm._syncGraphFromCache('mod/p.yaml');
+
+    // ds should be unchanged
+    expect(canvas.ds.offset[0]).toBe(123);
+    expect(canvas.ds.offset[1]).toBe(456);
+    expect(canvas.ds.scale).toBe(3);
+  });
+
+  it('is a no-op when cache has no entry for the path (ds unchanged)', async () => {
+    const graph = new LiteGraph.LGraph();
+    graph.extra = { path: 'mod/p.yaml', meta: { name: 'p' }, properties: {}, ports: [] };
+    const canvas = stubCanvas(graph);
+    canvas.ds.offset = [999, 888];
+    canvas.ds.scale = 4;
+    gm.setCanvas(canvas);
+
+    await gm._syncGraphFromCache('mod/nonexistent.yaml');
+
+    // No cache entry → ds unchanged
+    expect(canvas.ds.offset[0]).toBe(999);
+    expect(canvas.ds.offset[1]).toBe(888);
+    expect(canvas.ds.scale).toBe(4);
+  });
+});

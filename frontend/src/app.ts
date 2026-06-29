@@ -188,6 +188,18 @@ class App {
       this._graphManager._cacheCurrentState();
 
       origOpenSubgraph(graph);
+
+      // Restore subgraph canvas viewport if one was saved, otherwise
+      // reset to default (origin, 1:1 scale) for a fresh view.
+      const savedViewport = (graph.extra as any)?._canvas_viewport;
+      if (savedViewport) {
+        canvas.ds.offset = [savedViewport.offset_x || 0, savedViewport.offset_y || 0];
+        canvas.ds.scale = savedViewport.scale || 1;
+      } else {
+        canvas.ds.offset = [0, 0];
+        canvas.ds.scale = 1;
+      }
+
       this._canvas.draw(true, true);
       this._graphManager._syncFromCanvas();
 
