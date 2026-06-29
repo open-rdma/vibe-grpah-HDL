@@ -824,3 +824,319 @@ describe('self-referencing position sync via _refreshNodesForRef → _syncGraphF
     expect(nonBoundary[0].title).toBe('keep_me');
   });
 });
+
+// ------------------------------------------------------------------
+// closeSubgraph cache-then-rebuild → toYAML consistency
+//
+// Why: a race condition in closeSubgraph (double fire-and-forget
+// _syncGraphFromCache for self-ref graphs) caused save errors when
+// toYAML() read the graph mid-rebuild. These tests verify that after
+// the cache→rebuild sequence, serialization produces consistent data.
+// ------------------------------------------------------------------
+
+describe('toYAML after cache-rebuild (save integrity)', () => {
+  let gm: GraphManager;
+  let ts: TypeSystem;
+
+  beforeEach(() => {
+    mockLoadGraph.mockReset();
+    ts = new TypeSystem();
+    gm = new GraphManager(ts);
+  });
+
+  afterEach(() => {
+    gm.reset();
+  });
+
+  it('should produce YAML matching cached state after _syncGraphFromCache', async () => {
+    // Bug scenario: user edits a self-referencing graph, closes subgraph
+    // (which triggers cache→rebuild), then clicks save. toYAML() must
+    // reflect the cached version, not a half-rebuilt intermediate state.
+    const editedData = makeGraphData({
+      meta: { name: 'saved', description: 'after edit', test_method: '' },
+      nodes: [
+        { id: 'node_a', ref: '', pos_x: 111, pos_y: 222, properties: { k: 'v' } },
+        { id: 'node_b', ref: 'mod/s.yaml', pos_x: 333, pos_y: 444, properties: {} },
+      ],
+      connections: [],
+    });
+
+    // Set up graph at path mod/s.yaml
+    const graph = new LiteGraph.LGraph();
+    graph.extra = { path: 'mod/s.yaml', meta: { name: 's' }, properties: {}, ports: [] };
+    const canvas = stubCanvas(graph);
+    gm.setCanvas(canvas);
+
+    // Put edited state into cache (simulates edits cached by closeSubgraph)
+    (gm as any)._stateCache.set('mod/s.yaml', editedData);
+
+    // Rebuild from cache (simulates closeSubgraph cache-then-rebuild)
+    await gm._syncGraphFromCache('mod/s.yaml');
+
+    // Serialize — this must match the cached data, not crash
+    const yaml = gm.toYAML();
+    expect(yaml.meta.name).toBe('saved');
+    expect(yaml.meta.description).toBe('after edit');
+    expect(yaml.nodes!.length).toBe(2);
+    expect(yaml.nodes![0].id).toBe('node_a');
+    expect(yaml.nodes![0].pos_x).toBe(111);
+    expect(yaml.nodes![0].pos_y).toBe(222);
+    expect(yaml.nodes![0].properties).toEqual({ k: 'v' });
+    expect(yaml.nodes![1].id).toBe('node_b');
+  });
+
+  it('should not crash toYAML after consecutive cache-rebuild cycles', async () => {
+    // Why: the save error ("点击保存会报错") was caused by toYAML reading
+    // inconsistent graph state.  Multiple cache-then-rebuild cycles on the
+    // same graph must leave it in a serializable state each time.
+
+    const graph = new LiteGraph.LGraph();
+    graph.extra = { path: 'mod/cyc.yaml', meta: { name: 'cyc' }, properties: {}, ports: [] };
+    const canvas = stubCanvas(graph);
+    gm.setCanvas(canvas);
+
+    // Cycle 1: add node A, cache, rebuild
+    const nodeA = LiteGraph.createNode('rtl/module');
+    nodeA.title = 'node_a';
+    graph.add(nodeA);
+    gm.markDirty();
+    gm._cacheCurrentState();
+
+    graph.clear();
+    graph.extra = { path: 'mod/cyc.yaml' };
+    await gm._syncGraphFromCache('mod/cyc.yaml');
+    let yaml = gm.toYAML();
+    expect(yaml.nodes!.length).toBe(1);
+    expect(yaml.nodes![0].id).toBe('node_a');
+
+    // Cycle 2: add node B (edit), cache, rebuild again
+    const nodeB = LiteGraph.createNode('rtl/module');
+    nodeB.title = 'node_b';
+    gm._graph!.add(nodeB);
+    gm.markDirty();
+    gm._cacheCurrentState();
+
+    graph.clear();
+    graph.extra = { path: 'mod/cyc.yaml' };
+    await gm._syncGraphFromCache('mod/cyc.yaml');
+    yaml = gm.toYAML();
+    expect(yaml.nodes!.length).toBe(2);
+
+    // Cycle 3: no-op rebuild (cache unchanged)
+    await gm._syncGraphFromCache('mod/cyc.yaml');
+    yaml = gm.toYAML();
+    expect(yaml.nodes!.length).toBe(2);
+  });
+
+  it('should survive consecutive _syncGraphFromCache calls without corruption', async () => {
+    // Why: the closeSubgraph race condition called _syncGraphFromCache twice
+    // without await. Even with the app.ts fix (skip second call via
+    // _refreshNodesForRef), we must ensure that two sequential awaited
+    // calls don't corrupt — defensive guarantee at the data layer.
+    const editedData = makeGraphData({
+      meta: { name: 't' },
+      nodes: [
+        { id: 'only_node', ref: '', pos_x: 77, pos_y: 88, properties: {} },
+      ],
+    });
+
+    const graph = new LiteGraph.LGraph();
+    graph.extra = { path: 'mod/t.yaml', meta: { name: 't' }, properties: {}, ports: [] };
+    const canvas = stubCanvas(graph);
+    gm.setCanvas(canvas);
+
+    (gm as any)._stateCache.set('mod/t.yaml', editedData);
+
+    // Two consecutive rebuilds (simulating the race, but awaited)
+    await gm._syncGraphFromCache('mod/t.yaml');
+    await gm._syncGraphFromCache('mod/t.yaml');
+
+    const yaml = gm.toYAML();
+    expect(yaml.nodes!.length).toBe(1);
+    expect(yaml.nodes![0].id).toBe('only_node');
+    expect(yaml.nodes![0].pos_x).toBe(77);
+  });
+});
+
+// ------------------------------------------------------------------
+// Cross-reference port refresh from cache
+//
+// Why: when returning from a cross-referenced subgraph (parent != ref),
+// _refreshNodesForRef loads port data for nodes that reference the
+// edited module.  These tests verify that _loadRefPorts reads from
+// cache (reflecting unsaved edits in the just-closed subgraph) rather
+// than stale on-disk data.
+// ------------------------------------------------------------------
+
+describe('cross-reference port refresh from cache', () => {
+  let gm: GraphManager;
+  let ts: TypeSystem;
+
+  beforeEach(() => {
+    mockLoadGraph.mockReset();
+    ts = new TypeSystem();
+    gm = new GraphManager(ts);
+  });
+
+  afterEach(() => {
+    gm.reset();
+  });
+
+  it('should use cached port data for cross-ref node after subgraph edit', async () => {
+    // Parent graph at mod/parent.yaml has a node ref: lib/child.yaml.
+    // User edited child.yaml's subgraph (changed ports), closed it.
+    // The cache now holds the edited child data.
+    // _loadRefPorts should read from cache, not API, so the parent
+    // node's ports reflect the unsaved edits.
+
+    const editedChildData = makeGraphData({
+      meta: { name: 'child' },
+      ports: [
+        { name: 'new_input', direction: 'input', category: 'data' },
+        { name: 'new_output', direction: 'output', category: 'data' },
+      ],
+      nodes: [],
+    });
+
+    // Cache holds the edited version (simulates unsaved subgraph edit)
+    (gm as any)._stateCache.set('lib/child.yaml', editedChildData);
+
+    // Set up parent graph
+    const graph = new LiteGraph.LGraph();
+    graph.extra = { path: 'mod/parent.yaml', meta: { name: 'parent' }, properties: {}, ports: [] };
+    const canvas = stubCanvas(graph);
+    gm.setCanvas(canvas);
+
+    const crossRefNode = LiteGraph.createNode('rtl/module');
+    crossRefNode.title = 'child_instance';
+    crossRefNode._module_ref = 'lib/child.yaml';
+    graph.add(crossRefNode);
+
+    // Load ports — should use cached data, not call API
+    const callCountBefore = mockLoadGraph.mock.calls.length;
+    await gm._loadRefPorts(crossRefNode, 'lib/child.yaml');
+
+    // API should NOT have been called (cache hit)
+    expect(mockLoadGraph.mock.calls.length).toBe(callCountBefore);
+
+    // Ports should come from the edited cache
+    const inputs = crossRefNode.inputs || [];
+    const outputs = crossRefNode.outputs || [];
+    expect(inputs.length).toBe(1);
+    expect(inputs[0].name).toBe('new_input');
+    expect(outputs.length).toBe(1);
+    expect(outputs[0].name).toBe('new_output');
+  });
+
+  it('should fall back to API when no cache entry exists for cross-ref', async () => {
+    // Normal case: no unsaved edits for the referenced module,
+    // so ports load from disk via API.
+    const diskChildData = makeGraphData({
+      meta: { name: 'child_disk' },
+      ports: [{ name: 'disk_port', direction: 'input', category: 'data' }],
+      nodes: [],
+    });
+
+    mockLoadGraph.mockImplementation((path: string) => {
+      if (path === 'lib/child_disk.yaml') {
+        return Promise.resolve({ path, data: diskChildData });
+      }
+      return Promise.reject(new Error(`unexpected path: ${path}`));
+    });
+
+    const graph = new LiteGraph.LGraph();
+    graph.extra = { path: 'mod/parent.yaml', meta: {}, properties: {}, ports: [] };
+    const canvas = stubCanvas(graph);
+    gm.setCanvas(canvas);
+
+    const crossRefNode = LiteGraph.createNode('rtl/module');
+    crossRefNode.title = 'child_inst';
+    crossRefNode._module_ref = 'lib/child_disk.yaml';
+    graph.add(crossRefNode);
+
+    await gm._loadRefPorts(crossRefNode, 'lib/child_disk.yaml');
+
+    const inputs = crossRefNode.inputs || [];
+    expect(inputs.length).toBe(1);
+    expect(inputs[0].name).toBe('disk_port');
+  });
+});
+
+// ------------------------------------------------------------------
+// openSubgraph wrapper: _cacheCurrentState before drill-down
+//
+// Why: the uniform cache-then-rebuild pattern requires openSubgraph
+// to cache the parent's current state before switching views. Without
+// this, edits at the parent level would be lost when entering a
+// subgraph.  These tests verify the GM-level operations that underpin
+// the openSubgraph wrapper.
+// ------------------------------------------------------------------
+
+describe('cache-before-drill-down (openSubgraph pattern)', () => {
+  let gm: GraphManager;
+  let ts: TypeSystem;
+
+  beforeEach(() => {
+    mockLoadGraph.mockReset();
+    ts = new TypeSystem();
+    gm = new GraphManager(ts);
+  });
+
+  afterEach(() => {
+    gm.reset();
+  });
+
+  it('should cache dirty state so parent edits survive drill-down round-trip', async () => {
+    // User edits parent graph, THEN double-clicks a subgraph node.
+    // openSubgraph wrapper calls _cacheCurrentState() first.
+    // Simulate: cache dirty graph, rebuild from cache → edits preserved.
+
+    const parentPath = 'mod/p.yaml';
+    const graph = new LiteGraph.LGraph();
+    graph.extra = { path: parentPath, meta: { name: 'p' }, properties: {}, ports: [] };
+    const canvas = stubCanvas(graph);
+    gm.setCanvas(canvas);
+
+    // Add a node (user's unsaved edit)
+    const node = LiteGraph.createNode('rtl/module');
+    node.title = 'edited_node';
+    node.pos = [150, 250];
+    node.properties = { edited: 'true' };
+    graph.add(node);
+    gm.markDirty();
+
+    // openSubgraph: cache current state before drilling down
+    gm._cacheCurrentState();
+
+    // Cache should now hold the edited graph
+    expect((gm as any)._stateCache.has(parentPath)).toBe(true);
+
+    // Simulate returning from subgraph: rebuild from cache
+    // (The subgraph may have modified the LGraph on the stack)
+    graph.clear();
+    graph.extra = { path: parentPath };
+    await gm._syncGraphFromCache(parentPath);
+
+    // Parent edits must survive
+    const nodes = graph._nodes.filter((n: any) => !n._is_boundary);
+    expect(nodes.length).toBe(1);
+    expect(nodes[0].title).toBe('edited_node');
+    expect(nodes[0].pos[0]).toBe(150);
+    expect(nodes[0].pos[1]).toBe(250);
+    expect(nodes[0].properties).toEqual({ edited: 'true' });
+  });
+
+  it('should NOT cache clean state (no-op when nothing to save)', () => {
+    // No edits → no cache entry. Avoids polluting the cache with
+    // clean snapshots that would incorrectly make isGraphDirty() true.
+    const graph = new LiteGraph.LGraph();
+    graph.extra = { path: 'mod/clean.yaml', meta: {}, properties: {}, ports: [] };
+    const canvas = stubCanvas(graph);
+    gm.setCanvas(canvas);
+    gm.markClean();
+
+    gm._cacheCurrentState();
+
+    expect((gm as any)._stateCache.has('mod/clean.yaml')).toBe(false);
+  });
+});

@@ -8,7 +8,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // setup.ts installs LiteGraph/LGraph/LGraphCanvas globals
 import './setup';
 
-// ----- mock API -----
+// ----- mocks -----
+vi.mock('../ui/toast', () => ({
+  showToast: vi.fn(),
+}));
+
 const mockListTypes = vi.fn();
 vi.mock('../services/api', () => ({
   API: {
