@@ -235,8 +235,10 @@ class App {
         this._graphManager.markClean();
       }
 
-      // Refresh cross-ref node ports (self-ref already handled above).
-      if (editedRefPath) {
+      // Refresh cross-ref node ports.  When the parent is itself the
+      // edited ref (self-reference), the explicit _syncGraphFromCache
+      // above already performed a full rebuild; skip the redundant call.
+      if (editedRefPath && parentPath !== editedRefPath) {
         this._refreshNodesForRef(editedRefPath);
       }
     };
@@ -583,8 +585,10 @@ class App {
         this._graphManager.markClean();
       }
 
-      // Refresh cross-ref node ports (self-ref already handled above).
-      if (editedRefPath) {
+      // Refresh cross-ref node ports.  When the parent is itself the
+      // edited ref (self-reference), the explicit _syncGraphFromCache
+      // above already performed a full rebuild; skip the redundant call.
+      if (editedRefPath && parentPath !== editedRefPath) {
         this._refreshNodesForRef(editedRefPath);
       }
     }
