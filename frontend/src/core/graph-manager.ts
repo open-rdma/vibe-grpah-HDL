@@ -19,6 +19,7 @@ class GraphManager {
   _canvas: LGraphCanvas | null;
   _dirty: boolean;
   _stateCache: Map<string, GraphData>;
+  _suppressSelfRefCache: boolean;
 
   constructor(typeSystem: TypeSystem) {
     this._typeSystem = typeSystem;
@@ -26,6 +27,7 @@ class GraphManager {
     this._canvas = null;
     this._dirty = false;
     this._stateCache = new Map();
+    this._suppressSelfRefCache = false;
   }
 
   markDirty(): void {
@@ -77,6 +79,7 @@ class GraphManager {
   reset(): void {
     this._stateCache.clear();
     this._dirty = false;
+    this._suppressSelfRefCache = false;
     this._graph = null;
     this._canvas = null;
   }
@@ -118,6 +121,43 @@ class GraphManager {
     console.log('[GraphManager._cacheCurrentState] caching to _stateCache[' + path +
       '] nodes=' + (yaml.nodes || []).length);
     this._stateCache.set(path, yaml);
+  }
+
+  /**
+   * Rebuild the current graph from the state cache for the given path.
+   * Used when returning from a self-referencing subgraph session where
+   * edits at a deeper recursive level were cached — this ensures the
+   * parent-level LGraph is fully rebuilt with positions, added/removed
+   * nodes, and connections from the shared cache, not just ports.
+   */
+  async _syncGraphFromCache(refPath: string): Promise<void> {
+    const cached = this._stateCache.get(refPath);
+    if (!cached) return;
+
+    const graph = this._requireGraph();
+
+    // Remove all non-boundary nodes. The litegraph remove() also cleans up
+    // their connections in graph.links, so we don't need to clear links manually.
+    const nodes = this._getNodes(graph);
+    for (let i = nodes.length - 1; i >= 0; i--) {
+      if (!nodes[i]._is_boundary) {
+        graph.remove(nodes[i]);
+      }
+    }
+
+    // Repopulate from cached data. Suppress the self-ref cache flush in
+    // _loadRefPorts — we are building from the same cache we'd flush to,
+    // so a flush here would write intermediate state and corrupt the cache.
+    this._suppressSelfRefCache = true;
+    try {
+      await this._populateGraph(graph, cached);
+    } finally {
+      this._suppressSelfRefCache = false;
+    }
+
+    if (this._canvas) {
+      this._canvas.draw(true, true);
+    }
   }
 
   newGraph(name: string): LGraph {
@@ -272,8 +312,10 @@ class GraphManager {
       // When a module references itself (e.g. b.yaml contains a node with ref: b.yaml),
       // flush current unsaved edits to the state cache so the drill-down sees the
       // in-memory state rather than stale on-disk data.
+      // Suppressed during _syncGraphFromCache → _populateGraph because we are
+      // building FROM the cache — flushing would write intermediate state.
       const currentPath = this._graph?.extra?.path;
-      if (refPath && currentPath && refPath === currentPath) {
+      if (refPath && currentPath && refPath === currentPath && !this._suppressSelfRefCache) {
         this._cacheCurrentState();
       }
 

@@ -484,3 +484,307 @@ describe('onDblClick guard logic (simulated)', () => {
     expect(shouldBail).toBe(false); // Should NOT bail — data is already available
   });
 });
+
+// ------------------------------------------------------------------
+// Phase C tests: shared-state cache for recursive self-references
+// ------------------------------------------------------------------
+
+describe('_syncGraphFromCache — full graph rebuild from cache', () => {
+  let gm: GraphManager;
+  let ts: TypeSystem;
+
+  beforeEach(() => {
+    mockLoadGraph.mockReset();
+    ts = new TypeSystem();
+    gm = new GraphManager(ts);
+  });
+
+  afterEach(() => {
+    gm.reset();
+  });
+
+  it('should replace all non-boundary nodes with cached state', async () => {
+    // Set up initial graph with node at position [unused_node]
+    const initialGraph = new LiteGraph.LGraph();
+    initialGraph.extra = { path: 'mod/x.yaml', meta: { name: 'x' }, properties: {}, ports: [] };
+    const canvas = stubCanvas(initialGraph);
+    gm.setCanvas(canvas);
+
+    const oldNode = LiteGraph.createNode('rtl/module');
+    oldNode.title = 'old_node';
+    oldNode.pos = [50, 50];
+    initialGraph.add(oldNode);
+
+    // Cache a different state with node at a moved position
+    const cachedData = makeGraphData({
+      meta: { name: 'x' },
+      nodes: [
+        { id: 'moved_node', ref: '', pos_x: 999, pos_y: 888, properties: {} },
+      ],
+    });
+    (gm as any)._stateCache.set('mod/x.yaml', cachedData);
+
+    // Rebuild from cache
+    await gm._syncGraphFromCache('mod/x.yaml');
+
+    const nodes = gm._graph!._nodes;
+    const nonBoundary = nodes.filter((n: any) => !n._is_boundary);
+    expect(nonBoundary.length).toBe(1);
+    expect(nonBoundary[0].title).toBe('moved_node');
+    expect(nonBoundary[0].pos[0]).toBe(999);
+    expect(nonBoundary[0].pos[1]).toBe(888);
+    // Old node should be gone
+    expect(nodes.find((n: any) => n.title === 'old_node')).toBeUndefined();
+  });
+
+  it('should be a no-op when cache has no entry for the path', async () => {
+    const graph = new LiteGraph.LGraph();
+    graph.extra = { path: 'mod/y.yaml', meta: { name: 'y' }, properties: {}, ports: [] };
+    const canvas = stubCanvas(graph);
+    gm.setCanvas(canvas);
+
+    const oldNode = LiteGraph.createNode('rtl/module');
+    oldNode.title = 'unchanged';
+    graph.add(oldNode);
+
+    // No cache entry — should leave graph unchanged
+    await gm._syncGraphFromCache('mod/y.yaml');
+
+    const nonBoundary = graph._nodes.filter((n: any) => !n._is_boundary);
+    expect(nonBoundary.length).toBe(1);
+    expect(nonBoundary[0].title).toBe('unchanged');
+  });
+});
+
+describe('_suppressSelfRefCache — prevents premature cache during populate', () => {
+  let gm: GraphManager;
+  let ts: TypeSystem;
+
+  beforeEach(() => {
+    mockLoadGraph.mockReset();
+    ts = new TypeSystem();
+    gm = new GraphManager(ts);
+  });
+
+  afterEach(() => {
+    gm.reset();
+  });
+
+  it('should NOT flush to cache when _suppressSelfRefCache is true', async () => {
+    // Put a valid cached state
+    const validCache = makeGraphData({
+      meta: { name: 'z' },
+      nodes: [
+        { id: 'cached_node', ref: '', pos_x: 300, pos_y: 400, properties: {} },
+        { id: 'self_instance', ref: 'mod/z.yaml', pos_x: 100, pos_y: 100, properties: {} },
+      ],
+    });
+    (gm as any)._stateCache.set('mod/z.yaml', validCache);
+
+    // Set up graph with self-ref node
+    const graph = new LiteGraph.LGraph();
+    graph.extra = { path: 'mod/z.yaml', meta: { name: 'z' }, properties: {}, ports: [] };
+    const canvas = stubCanvas(graph);
+    gm.setCanvas(canvas);
+
+    const selfNode = LiteGraph.createNode('rtl/module');
+    selfNode.title = 'self_instance';
+    selfNode._module_ref = 'mod/z.yaml';
+    graph.add(selfNode);
+
+    // Turn on suppression — simulates _syncGraphFromCache calling _populateGraph
+    (gm as any)._suppressSelfRefCache = true;
+
+    // _loadRefPorts with self-ref should NOT flush cache
+    await gm._loadRefPorts(selfNode, 'mod/z.yaml');
+
+    // Cache should still be the valid data, not overwritten with intermediate state
+    const cached = (gm as any)._stateCache.get('mod/z.yaml');
+    expect(cached.nodes.length).toBe(2); // Both nodes still present
+    expect(cached.nodes[0].id).toBe('cached_node');
+    expect(cached.nodes[1].id).toBe('self_instance');
+  });
+
+  it('should flush to cache when _suppressSelfRefCache is false (normal operation)', async () => {
+    const graph = new LiteGraph.LGraph();
+    graph.extra = { path: 'mod/w.yaml', meta: { name: 'w' }, properties: {}, ports: [] };
+    const canvas = stubCanvas(graph);
+    gm.setCanvas(canvas);
+
+    const selfNode = LiteGraph.createNode('rtl/module');
+    selfNode.title = 'self_instance';
+    selfNode._module_ref = 'mod/w.yaml';
+    graph.add(selfNode);
+
+    gm.markDirty();
+
+    // _suppressSelfRefCache is false (default) — should flush
+    await gm._loadRefPorts(selfNode, 'mod/w.yaml');
+
+    // Cache should have been populated
+    const cached = (gm as any)._stateCache.get('mod/w.yaml');
+    expect(cached).toBeDefined();
+  });
+});
+
+describe('self-referencing position sync via _refreshNodesForRef → _syncGraphFromCache', () => {
+  let gm: GraphManager;
+  let ts: TypeSystem;
+
+  beforeEach(() => {
+    mockLoadGraph.mockReset();
+    ts = new TypeSystem();
+    gm = new GraphManager(ts);
+  });
+
+  afterEach(() => {
+    gm.reset();
+  });
+
+  it('should rebuild self-ref parent graph from cache instead of port-only refresh', async () => {
+    // Simulate: mod/top.yaml has a self-ref node. User opens subgraph, moves
+    // a node, closes. The parent graph (also mod/top.yaml) should see the move.
+
+    const diskData = makeGraphData({
+      meta: { name: 'top' },
+      nodes: [
+        { id: 'data_node', ref: '', pos_x: 10, pos_y: 10, properties: {} },
+        { id: 'self_node', ref: 'mod/top.yaml', pos_x: 200, pos_y: 200, properties: {} },
+      ],
+    });
+
+    mockLoadGraph.mockImplementation((path: string) => {
+      if (path === 'mod/top.yaml') {
+        return Promise.resolve({ path, data: diskData });
+      }
+      return Promise.reject(new Error(`unexpected path: ${path}`));
+    });
+
+    // Load the graph
+    const graph = new LiteGraph.LGraph();
+    graph.extra = { path: 'mod/top.yaml', meta: diskData.meta, properties: diskData.properties, ports: diskData.ports };
+    const canvas = stubCanvas(graph);
+    gm.setCanvas(canvas);
+
+    for (const nd of diskData.nodes!) {
+      const node = LiteGraph.createNode('rtl/module');
+      node.title = nd.id;
+      node._module_ref = nd.ref || '';
+      node.pos = [nd.pos_x, nd.pos_y];
+      graph.add(node);
+    }
+
+    // Simulate: user moves data_node to [500, 600] in subgraph, closes it.
+    // The cache is flushed with the new position.
+    const editedData = makeGraphData({
+      meta: { name: 'top' },
+      nodes: [
+        { id: 'data_node', ref: '', pos_x: 500, pos_y: 600, properties: {} },
+        { id: 'self_node', ref: 'mod/top.yaml', pos_x: 200, pos_y: 200, properties: {} },
+      ],
+    });
+    (gm as any)._stateCache.set('mod/top.yaml', editedData);
+
+    // Now simulate what _refreshNodesForRef('mod/top.yaml') does when
+    // currentPath === refPath — it calls _syncGraphFromCache.
+    await gm._syncGraphFromCache('mod/top.yaml');
+
+    const dataNode = graph._nodes.find((n: any) => n.title === 'data_node');
+    expect(dataNode).toBeDefined();
+    expect(dataNode!.pos[0]).toBe(500);
+    expect(dataNode!.pos[1]).toBe(600);
+  });
+
+  it('should reflect added nodes from deeper recursive level', async () => {
+    // Disk version has only one self-ref node
+    const diskData = makeGraphData({
+      meta: { name: 'r' },
+      nodes: [
+        { id: 'self_1', ref: 'mod/r.yaml', pos_x: 100, pos_y: 100, properties: {} },
+      ],
+    });
+
+    mockLoadGraph.mockImplementation((path: string) => {
+      if (path === 'mod/r.yaml') {
+        return Promise.resolve({ path, data: diskData });
+      }
+      return Promise.reject(new Error(`unexpected path: ${path}`));
+    });
+
+    const graph = new LiteGraph.LGraph();
+    graph.extra = { path: 'mod/r.yaml', meta: diskData.meta, properties: diskData.properties, ports: diskData.ports };
+    const canvas = stubCanvas(graph);
+    gm.setCanvas(canvas);
+
+    const node1 = LiteGraph.createNode('rtl/module');
+    node1.title = 'self_1';
+    node1._module_ref = 'mod/r.yaml';
+    node1.pos = [100, 100];
+    graph.add(node1);
+
+    // User added a new self-ref node in deeper recursive view, cached the edit
+    const editedData = makeGraphData({
+      meta: { name: 'r' },
+      nodes: [
+        { id: 'self_1', ref: 'mod/r.yaml', pos_x: 100, pos_y: 100, properties: {} },
+        { id: 'self_2', ref: 'mod/r.yaml', pos_x: 400, pos_y: 400, properties: {} },
+      ],
+    });
+    (gm as any)._stateCache.set('mod/r.yaml', editedData);
+
+    // _syncGraphFromCache should rebuild with both nodes
+    await gm._syncGraphFromCache('mod/r.yaml');
+
+    const nonBoundary = graph._nodes.filter((n: any) => !n._is_boundary);
+    expect(nonBoundary.length).toBe(2);
+    const titles = nonBoundary.map((n: any) => n.title);
+    expect(titles).toContain('self_1');
+    expect(titles).toContain('self_2');
+  });
+
+  it('should reflect removed nodes from deeper recursive level', async () => {
+    // Disk version has two nodes
+    const diskData = makeGraphData({
+      meta: { name: 'q' },
+      nodes: [
+        { id: 'keep_me', ref: '', pos_x: 10, pos_y: 10, properties: {} },
+        { id: 'remove_me', ref: 'mod/q.yaml', pos_x: 100, pos_y: 100, properties: {} },
+      ],
+    });
+
+    mockLoadGraph.mockImplementation((path: string) => {
+      if (path === 'mod/q.yaml') {
+        return Promise.resolve({ path, data: diskData });
+      }
+      return Promise.reject(new Error(`unexpected path: ${path}`));
+    });
+
+    const graph = new LiteGraph.LGraph();
+    graph.extra = { path: 'mod/q.yaml', meta: diskData.meta, properties: diskData.properties, ports: diskData.ports };
+    const canvas = stubCanvas(graph);
+    gm.setCanvas(canvas);
+
+    for (const nd of diskData.nodes!) {
+      const node = LiteGraph.createNode('rtl/module');
+      node.title = nd.id;
+      node._module_ref = nd.ref || '';
+      node.pos = [nd.pos_x, nd.pos_y];
+      graph.add(node);
+    }
+
+    // User deleted remove_me in deeper recursive view
+    const editedData = makeGraphData({
+      meta: { name: 'q' },
+      nodes: [
+        { id: 'keep_me', ref: '', pos_x: 10, pos_y: 10, properties: {} },
+      ],
+    });
+    (gm as any)._stateCache.set('mod/q.yaml', editedData);
+
+    await gm._syncGraphFromCache('mod/q.yaml');
+
+    const nonBoundary = graph._nodes.filter((n: any) => !n._is_boundary);
+    expect(nonBoundary.length).toBe(1);
+    expect(nonBoundary[0].title).toBe('keep_me');
+  });
+});

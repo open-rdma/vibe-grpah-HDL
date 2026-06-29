@@ -493,6 +493,18 @@ class App {
   async _refreshNodesForRef(refPath: string): Promise<void> {
     const graph = this._graphManager._graph;
     if (!graph || !refPath) return;
+
+    // Self-reference: the current graph IS the refPath (e.g., b.yaml editing
+    // a subgraph of b.yaml). A port-only refresh is insufficient — the graph
+    // is an independent LGraph copy with stale positions, added/removed nodes,
+    // and connections. Rebuild the entire graph from the shared cache.
+    const currentPath = this._graphManager.getCurrentGraphPath();
+    if (currentPath === refPath) {
+      await this._graphManager._syncGraphFromCache(refPath);
+      return;
+    }
+
+    // Cross-reference: refresh only ports on nodes that reference the edited module
     for (const node of graph._nodes || []) {
       if (node._module_ref === refPath) {
         await this._graphManager._loadRefPorts(node, refPath);
