@@ -269,6 +269,14 @@ class GraphManager {
 
   async _loadRefPorts(node: LGraphNode, refPath: string): Promise<void> {
     try {
+      // When a module references itself (e.g. b.yaml contains a node with ref: b.yaml),
+      // flush current unsaved edits to the state cache so the drill-down sees the
+      // in-memory state rather than stale on-disk data.
+      const currentPath = this._graph?.extra?.path;
+      if (refPath && currentPath && refPath === currentPath) {
+        this._cacheCurrentState();
+      }
+
       // Check state cache first — unsaved edits take precedence over on-disk data
       let data: GraphData;
       const cached = this._stateCache.get(refPath);

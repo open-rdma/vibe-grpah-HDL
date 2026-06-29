@@ -60,6 +60,11 @@ proto.onDblClick = function(
     return true;
   }
 
+  // Guard against concurrent drill-down Promise chains from rapid double-clicks
+  if ((this as any)._subgraph_loading) {
+    return true;
+  }
+
   const refPath: string = this._module_ref || '';
 
   // Can't open only if there's no ref to load from AND no preloaded data
@@ -79,6 +84,8 @@ proto.onDblClick = function(
     showToast('Cannot open: app not available', 'error');
     return false;
   }
+
+  (this as any)._subgraph_loading = true;
 
   // Always refresh _subgraph_data from cache/API (or load for the first time),
   // then build subgraph.  This handles the race where _instantiateFromRef
@@ -102,6 +109,9 @@ proto.onDblClick = function(
     .catch((e: Error) => {
       console.error('[onDblClick] failed:', e.message);
       showToast('Failed to build subgraph: ' + e.message, 'error');
+    })
+    .finally(() => {
+      (this as any)._subgraph_loading = false;
     });
 
   return true;
@@ -138,6 +148,10 @@ proto.getExtraMenuOptions = function(canvas: LGraphCanvas, _options: any[]): any
           canvas.openSubgraph(self._subgraph);
           return;
         }
+        // Guard against concurrent drill-down Promise chains
+        if ((self as any)._subgraph_loading) {
+          return;
+        }
         const refPath: string = self._module_ref || '';
         // Can't open only if there's no ref to load from AND no preloaded data
         if (!refPath && !self._subgraph_data) {
@@ -154,6 +168,7 @@ proto.getExtraMenuOptions = function(canvas: LGraphCanvas, _options: any[]): any
           showToast('Cannot open: app not available', 'error');
           return;
         }
+        (self as any)._subgraph_loading = true;
         console.log('[ctx OpenSubgraph] refPath=' + refPath + ' hasData=' + !!self._subgraph_data);
         app._graphManager._loadRefPorts(self, refPath)
           .then(() => {
@@ -172,6 +187,9 @@ proto.getExtraMenuOptions = function(canvas: LGraphCanvas, _options: any[]): any
           .catch((e: Error) => {
             console.error('[ctx OpenSubgraph] failed:', e.message);
             showToast('Failed to build subgraph: ' + e.message, 'error');
+          })
+          .finally(() => {
+            (self as any)._subgraph_loading = false;
           });
       }
     });

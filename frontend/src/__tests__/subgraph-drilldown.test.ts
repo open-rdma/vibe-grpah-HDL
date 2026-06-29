@@ -273,6 +273,175 @@ describe('_cacheCurrentState behavior', () => {
   });
 });
 
+describe('_loadRefPorts self-reference cache flush', () => {
+  let gm: GraphManager;
+  let ts: TypeSystem;
+
+  beforeEach(() => {
+    mockLoadGraph.mockReset();
+    ts = new TypeSystem();
+    gm = new GraphManager(ts);
+  });
+
+  afterEach(() => {
+    gm.reset();
+  });
+
+  it('should cache current state before reading cache when refPath matches current graph path', async () => {
+    // Set up a self-referencing graph: top/self.yaml contains a node with ref: top/self.yaml
+    const selfRefData = makeGraphData({
+      meta: { name: 'self' },
+      nodes: [
+        { id: 'added_node', ref: '', pos_x: 50, pos_y: 50, properties: {} },
+        { id: 'self_instance', ref: 'top/self.yaml', pos_x: 300, pos_y: 300, properties: {} },
+      ],
+    });
+
+    mockLoadGraph.mockImplementation((path: string) => {
+      if (path === 'top/self.yaml') {
+        return Promise.resolve({ path, data: selfRefData });
+      }
+      return Promise.reject(new Error(`unexpected path: ${path}`));
+    });
+
+    // Load the graph first to populate the canvas
+    const graph = new LiteGraph.LGraph();
+    graph.extra = { path: 'top/self.yaml', meta: {}, properties: {}, ports: [] };
+    const canvas = stubCanvas(graph);
+    gm.setCanvas(canvas);
+
+    // Populate graph with the self-ref data
+    const node = LiteGraph.createNode('rtl/module');
+    node.title = 'self_instance';
+    node._module_ref = 'top/self.yaml';
+    node.pos = [300, 300];
+    graph.add(node);
+
+    // Mark dirty — simulates the user adding a new node to this graph
+    gm.markDirty();
+
+    // Now call _loadRefPorts with the same path. The fix should:
+    // 1. Detect refPath === currentPath
+    // 2. Call _cacheCurrentState() to flush current graph to state cache
+    // 3. Find the cached entry and use it instead of calling API.loadGraph
+    const callCountBefore = mockLoadGraph.mock.calls.length;
+    await gm._loadRefPorts(node, 'top/self.yaml');
+
+    // _loadRefPorts should have used cached data, NOT called API.loadGraph
+    // (mockLoadGraph was called once during setup, not during _loadRefPorts)
+    expect(mockLoadGraph.mock.calls.length).toBe(callCountBefore);
+  });
+
+  it('should NOT cache when refPath differs from current graph path', async () => {
+    // Cross-reference scenario: graph at top/a.yaml has a node ref: lib/b.yaml
+    const dataA = makeGraphData({
+      meta: { name: 'a' },
+      nodes: [{ id: 'b_node', ref: 'lib/b.yaml', pos_x: 100, pos_y: 100, properties: {} }],
+    });
+    const dataB = makeGraphData({
+      meta: { name: 'b' },
+      nodes: [],
+    });
+
+    mockLoadGraph.mockImplementation((path: string) => {
+      if (path === 'lib/b.yaml') {
+        return Promise.resolve({ path, data: dataB });
+      }
+      return Promise.reject(new Error(`unexpected path: ${path}`));
+    });
+
+    const graph = new LiteGraph.LGraph();
+    graph.extra = { path: 'top/a.yaml', meta: {}, properties: {}, ports: [] };
+    const canvas = stubCanvas(graph);
+    gm.setCanvas(canvas);
+
+    const node = LiteGraph.createNode('rtl/module');
+    node.title = 'b_node';
+    node._module_ref = 'lib/b.yaml';
+    graph.add(node);
+
+    gm.markDirty();
+
+    // refPath differs from current — should fall through to API
+    await gm._loadRefPorts(node, 'lib/b.yaml');
+
+    // API.loadGraph should have been called because refPath !== currentPath
+    // and there's no cache entry for lib/b.yaml
+    const loadGraphCalls = mockLoadGraph.mock.calls.filter(
+      (c: any[]) => c[0] === 'lib/b.yaml'
+    );
+    expect(loadGraphCalls.length).toBe(1);
+  });
+
+  it('self-ref drill-down sees unsaved edits (integration simulation)', async () => {
+    // Full scenario: b.yaml self-references, user adds a new b.yaml node
+    // without saving, double-clicks the new node → subgraph shows new node
+
+    const originalDiskData = makeGraphData({
+      meta: { name: 'b' },
+      nodes: [
+        { id: 'existing_node', ref: '', pos_x: 100, pos_y: 100, properties: {} },
+        { id: 'b_instance_1', ref: 'mod/b.yaml', pos_x: 300, pos_y: 100, properties: {} },
+      ],
+    });
+
+    // Simulate: user added a second self-ref node (in memory, not saved)
+    const editedData = makeGraphData({
+      meta: { name: 'b' },
+      nodes: [
+        { id: 'existing_node', ref: '', pos_x: 100, pos_y: 100, properties: {} },
+        { id: 'b_instance_1', ref: 'mod/b.yaml', pos_x: 300, pos_y: 100, properties: {} },
+        { id: 'b_instance_2', ref: 'mod/b.yaml', pos_x: 500, pos_y: 100, properties: {} },
+      ],
+    });
+
+    mockLoadGraph.mockImplementation((path: string) => {
+      if (path === 'mod/b.yaml') {
+        return Promise.resolve({ path, data: originalDiskData });
+      }
+      return Promise.reject(new Error(`unexpected path: ${path}`));
+    });
+
+    // Set up the current graph with the edited state (2 self-ref nodes)
+    const graph = new LiteGraph.LGraph();
+    graph.extra = { path: 'mod/b.yaml', meta: editedData.meta, properties: editedData.properties, ports: editedData.ports };
+    const canvas = stubCanvas(graph);
+    gm.setCanvas(canvas);
+
+    // Add the nodes (including the new unsaved b_instance_2)
+    for (const nd of editedData.nodes!) {
+      const node = LiteGraph.createNode('rtl/module');
+      node.title = nd.id;
+      node._module_ref = nd.ref || '';
+      node.pos = [nd.pos_x, nd.pos_y];
+      graph.add(node);
+    }
+
+    gm.markDirty();
+
+    // Simulate double-click on b_instance_2 (the new unsaved self-ref node)
+    const drillNode = graph._nodes.find((n: any) => n.title === 'b_instance_2')!;
+    expect(drillNode).toBeDefined();
+
+    // _loadRefPorts should flush cache, then find the cached version
+    await gm._loadRefPorts(drillNode, 'mod/b.yaml');
+
+    // Now buildSubgraphFromData should see the cached version with 3 nodes
+    const subgraph = await gm.buildSubgraphFromData(
+      drillNode._subgraph_data!,
+      'mod/b.yaml'
+    );
+
+    const subTitles = subgraph._nodes
+      .filter((n: any) => !n._is_boundary)
+      .map((n: any) => n.title);
+    expect(subTitles).toContain('existing_node');
+    expect(subTitles).toContain('b_instance_1');
+    expect(subTitles).toContain('b_instance_2');
+    expect(subTitles.length).toBe(3); // Should see the unsaved edit
+  });
+});
+
 describe('onDblClick guard logic (simulated)', () => {
   // This tests the guard conditions in onDblClick:
   //   if (!refPath && !this._subgraph_data) → bail
