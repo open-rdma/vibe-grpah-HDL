@@ -536,3 +536,93 @@ describe('GraphManager state management', () => {
     expect(boundaryNodes.length).toBe(2);
   });
 });
+
+// ==========================================================================
+// Boundary node context menu — Add Port
+// ==========================================================================
+describe('Boundary node context menu — Add Port', () => {
+  let gm: GraphManager;
+  let graph: any;
+
+  function stubCanvas(g: any): any {
+    return {
+      graph: g,
+      ds: { offset: [0, 0], scale: 1 },
+      draw(_fg: boolean, _bg: boolean) {},
+    };
+  }
+
+  beforeEach(() => {
+    const ts = new TypeSystem();
+    gm = new GraphManager(ts);
+    graph = new LiteGraph.LGraph();
+    graph.extra = { meta: { name: 'test' }, properties: {}, ports: [] };
+    gm.setCanvas(stubCanvas(graph));
+    gm._ensureBoundaryNodes(graph);
+  });
+
+  afterEach(() => {
+    delete (globalThis as any).__app;
+    delete (globalThis as any).prompt;
+  });
+
+  function triggerAddPortCallback(direction: 'input' | 'output', portName: string): boolean {
+    // Find the boundary node of the requested direction
+    const boundaryNodes = graph._nodes.filter((n: any) => n._is_boundary);
+    const nodeType = direction === 'input' ? 'rtl/graph_input' : 'rtl/graph_output';
+    const boundaryNode = boundaryNodes.find((n: any) => n.type === nodeType);
+    if (!boundaryNode || !boundaryNode.getExtraMenuOptions) return false;
+
+    // Mock prompt to return the desired port name
+    (globalThis as any).prompt = () => portName;
+
+    // Mock __app on globalThis
+    const mockApp = {
+      _graphManager: gm,
+      redraw: vi.fn(),
+      _propertyPanel: {
+        _showGraphProperties: vi.fn(),
+        clear: vi.fn(),
+      },
+    };
+    (globalThis as any).__app = mockApp;
+
+    const options = boundaryNode.getExtraMenuOptions(null, []);
+    const addOption = options.find((o: any) => o.content.includes('Add'));
+    if (!addOption) return false;
+    addOption.callback();
+    return true;
+  }
+
+  it('adds port to graph.extra.ports via context menu', () => {
+    const ok = triggerAddPortCallback('input', 'clk');
+    expect(ok).toBe(true);
+    expect(graph.extra.ports.length).toBe(1);
+    expect(graph.extra.ports[0].name).toBe('clk');
+    expect(graph.extra.ports[0].direction).toBe('input');
+  });
+
+  it('calls markDirty after adding port via context menu', () => {
+    triggerAddPortCallback('input', 'rst_n');
+    expect(gm.isDirty()).toBe(true);
+  });
+
+  it('calls _showGraphProperties (not clear) after adding port via context menu', () => {
+    triggerAddPortCallback('output', 'result');
+    const panel = (globalThis as any).__app._propertyPanel;
+    expect(panel._showGraphProperties).toHaveBeenCalledWith(graph);
+    expect(panel.clear).not.toHaveBeenCalled();
+  });
+
+  it('ignores empty port name', () => {
+    triggerAddPortCallback('input', '');
+    expect(graph.extra.ports.length).toBe(0);
+    expect(gm.isDirty()).toBe(false);
+  });
+
+  it('adds output port with correct direction', () => {
+    triggerAddPortCallback('output', 'data_out');
+    expect(graph.extra.ports.length).toBe(1);
+    expect(graph.extra.ports[0].direction).toBe('output');
+  });
+});

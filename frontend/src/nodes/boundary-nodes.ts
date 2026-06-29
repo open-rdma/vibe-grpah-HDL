@@ -52,9 +52,10 @@ function addPortMenuOptions(this: LGraphNode, _canvas: LGraphCanvas, _options: a
       graph.extra.ports.push(port);
       const app = window.__app;
       if (app) {
+        app._graphManager.markDirty();
         app._graphManager.syncBoundaryNodes();
         app.redraw();
-        app._propertyPanel.clear();
+        app._propertyPanel._showGraphProperties(graph);
       }
     }
   }];
