@@ -155,6 +155,9 @@ class GraphManager {
       this._suppressSelfRefCache = false;
     }
 
+    // The graph now represents unsaved cached state.
+    this._dirty = true;
+
     if (this._canvas) {
       this._canvas.draw(true, true);
     }

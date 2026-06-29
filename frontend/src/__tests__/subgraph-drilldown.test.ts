@@ -742,6 +742,42 @@ describe('self-referencing position sync via _refreshNodesForRef → _syncGraphF
     expect(titles).toContain('self_2');
   });
 
+  it('should set _dirty=true after rebuilding from cached unsaved state', async () => {
+    // Arrange: a graph with clean state, cache has edited data
+    const graph = new LiteGraph.LGraph();
+    graph.extra = { path: 'mod/u.yaml', meta: { name: 'u' }, properties: {}, ports: [] };
+    const canvas = stubCanvas(graph);
+    gm.setCanvas(canvas);
+    gm.markClean();
+
+    const cachedData = makeGraphData({
+      meta: { name: 'u' },
+      nodes: [{ id: 'n1', ref: '', pos_x: 10, pos_y: 10, properties: {} }],
+    });
+    (gm as any)._stateCache.set('mod/u.yaml', cachedData);
+
+    expect(gm.isDirty()).toBe(false);
+
+    // Act: rebuild from cache
+    await gm._syncGraphFromCache('mod/u.yaml');
+
+    // Assert: graph is now dirty (represents unsaved cache state)
+    expect(gm.isDirty()).toBe(true);
+  });
+
+  it('should not change _dirty when cache has no entry (no-op)', async () => {
+    const graph = new LiteGraph.LGraph();
+    graph.extra = { path: 'mod/v.yaml', meta: { name: 'v' }, properties: {}, ports: [] };
+    const canvas = stubCanvas(graph);
+    gm.setCanvas(canvas);
+    gm.markClean();
+
+    await gm._syncGraphFromCache('mod/v.yaml');
+
+    // Still clean — no cache entry, so nothing was rebuilt
+    expect(gm.isDirty()).toBe(false);
+  });
+
   it('should reflect removed nodes from deeper recursive level', async () => {
     // Disk version has two nodes
     const diskData = makeGraphData({

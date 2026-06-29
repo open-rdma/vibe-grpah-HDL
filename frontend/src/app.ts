@@ -183,6 +183,10 @@ class App {
     this._origCloseSubgraph = origCloseSubgraph;
 
     canvas.openSubgraph = (graph: LGraph) => {
+      // Cache current (parent) state before switching views, so edits at
+      // this graph level survive in _stateCache while we're in the subgraph.
+      this._graphManager._cacheCurrentState();
+
       origOpenSubgraph(graph);
       this._canvas.draw(true, true);
       this._graphManager._syncFromCanvas();
@@ -220,9 +224,18 @@ class App {
       }
       this._renderBreadcrumb();
 
-      // Refresh all nodes in the parent graph that reference the
-      // just-edited module so their port displays pick up any
-      // additions/removals made inside the subgraph.
+      // Uniform cache-then-rebuild: the parent LGraph from the canvas
+      // stack may be stale — edits at other recursive levels may have
+      // updated the shared _stateCache entry.  Rebuild from cache if
+      // one exists, otherwise the stack copy is authoritative and clean.
+      const parentPath = this._graphManager.getCurrentGraphPath();
+      if (parentPath && this._graphManager._stateCache.has(parentPath)) {
+        this._graphManager._syncGraphFromCache(parentPath);
+      } else {
+        this._graphManager.markClean();
+      }
+
+      // Refresh cross-ref node ports (self-ref already handled above).
       if (editedRefPath) {
         this._refreshNodesForRef(editedRefPath);
       }
@@ -562,7 +575,15 @@ class App {
       this._graphManager._syncFromCanvas();
       this._breadcrumbPath.pop();
 
-      // Refresh ports on parent nodes that reference the just-edited module
+      // Uniform cache-then-rebuild (same as closeSubgraph wrapper).
+      const parentPath = this._graphManager.getCurrentGraphPath();
+      if (parentPath && this._graphManager._stateCache.has(parentPath)) {
+        this._graphManager._syncGraphFromCache(parentPath);
+      } else {
+        this._graphManager.markClean();
+      }
+
+      // Refresh cross-ref node ports (self-ref already handled above).
       if (editedRefPath) {
         this._refreshNodesForRef(editedRefPath);
       }
