@@ -139,11 +139,10 @@ class App {
       if (resizeTimer) clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
         const container = document.getElementById('canvas-container')!;
-        const dpr = window.devicePixelRatio || 1;
         const w = container.clientWidth;
         const h = container.clientHeight;
-        canvasEl.width = w * dpr;
-        canvasEl.height = h * dpr;
+        canvasEl.width = w;
+        canvasEl.height = h;
         canvasEl.style.width = w + 'px';
         canvasEl.style.height = h + 'px';
         if (this._canvas) this._canvas.draw(true, true);
@@ -233,8 +232,8 @@ class App {
     const cx = clientX - rect.left;
     const cy = clientY - rect.top;
     const ds = this._canvas.ds;
-    const canvasX = (cx - ds.offset[0]) / ds.scale;
-    const canvasY = (cy - ds.offset[1]) / ds.scale;
+    const canvasX = cx / ds.scale - ds.offset[0];
+    const canvasY = cy / ds.scale - ds.offset[1];
     node.pos = [canvasX, canvasY];
 
     this._graphManager._graph!.add(node);
