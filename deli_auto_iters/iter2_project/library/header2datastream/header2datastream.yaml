@@ -1,0 +1,33 @@
+meta:
+  name: "header2datastream"
+  description: "Converts HeaderRDMA into DataStream fragments and HeaderMetaData output"
+  knowledge: |
+    # Library Module: mkHeader2DataStream
+    Converts an RDMA header into data stream fragments. Outputs metadata once per header,
+    then outputs each DataStream fragment with isFirst/isLast flags.
+
+    Module signature: mkHeader2DataStream#(Bool clearAll, PipeOut#(HeaderRDMA) headerPipeIn)
+
+    Returns interface with:
+    - headerDataStream: DataStreamPipeOut
+    - headerMetaData: PipeOut#(HeaderMetaData)
+
+    Import from ExtractAndPrependPipeOut package.
+
+ports:
+  - name: "clearAll"
+    direction: "input"
+    category: "data"
+    type: "Bool"
+  - name: "headerPipeIn"
+    direction: "input"
+    category: "data"
+    type: "PipeOut_HeaderRDMA"
+  - name: "headerDataStream"
+    direction: "output"
+    category: "data"
+    type: "DataStreamPipeOut"
+  - name: "headerMetaData"
+    direction: "output"
+    category: "data"
+    type: "PipeOut_HeaderMetaData"

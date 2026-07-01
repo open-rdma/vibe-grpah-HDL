@@ -1,0 +1,121 @@
+types:
+  HeaderRDMA:
+    description: >
+      A struct representing an RDMA packet header ready for transmission.
+      Contains the header data bits (left-aligned to the full header max width of 512 bits),
+      the byte enable mask (1 bit per byte, left-aligned, 64 bits total for 512-bit max header),
+      and header metadata describing lengths and fragmentation.
+    category: "user"
+    fields:
+      - name: "headerData"
+        type: "HeaderData"
+        description: "Left-aligned header data bits, width = HEADER_MAX_DATA_WIDTH = DATA_BUS_WIDTH * HEADER_MAX_FRAG_NUM = 256 * 2 = 512 bits"
+      - name: "headerByteEn"
+        type: "HeaderByteEn"
+        description: "Left-aligned byte enable, one bit per byte in headerData. Width = DATA_BUS_BYTE_WIDTH * HEADER_MAX_FRAG_NUM = 32 * 2 = 64 bits"
+      - name: "headerMetaData"
+        type: "HeaderMetaData"
+
+  HeaderMetaData:
+    description: >
+      Metadata for RDMA header fragmentation. Describes the total header byte length,
+      how many data-bus-width fragments the header occupies, how many bytes are valid
+      in the last fragment, whether the packet has a payload after the header,
+      and whether the header is empty.
+    category: "user"
+    fields:
+      - name: "headerLen"
+        type: "HeaderByteNum"
+        description: "Total header length in bytes. Width = HEADER_MAX_BYTE_NUM_WIDTH = 7 bits (0-63)"
+      - name: "headerFragNum"
+        type: "HeaderFragNum"
+        description: "Number of DATA_BUS_WIDTH fragments needed for the header. Width = HEADER_FRAG_NUM_WIDTH = 2 bits (1-2 fragments for 256-bit bus)"
+      - name: "lastFragValidByteNum"
+        type: "ByteEnBitNum"
+        description: "Number of valid bytes in the last fragment. Width = DATA_BUS_BYTE_NUM_WIDTH = 5 bits (0-31 for 256-bit/32-byte bus)"
+      - name: "hasPayload"
+        type: "Bool"
+        description: "Whether the packet has payload data following the header"
+      - name: "isEmptyHeader"
+        type: "Bool"
+        description: "Whether the header has zero length (no header data to output)"
+
+  DataStream:
+    description: >
+      A single fragment of data on the wide data bus. Contains the data itself,
+      a byte enable mask, and flags indicating whether this is the first or last
+      fragment of the packet.
+    category: "user"
+    fields:
+      - name: "data"
+        type: "DATA"
+        description: "Data bus bits, width = DATA_BUS_WIDTH = 256 bits, left-aligned within the fragment"
+      - name: "byteEn"
+        type: "ByteEn"
+        description: "Byte enable mask, width = DATA_BUS_BYTE_WIDTH = 32 bits, left-aligned. 1 = valid byte"
+      - name: "isFirst"
+        type: "Bool"
+        description: "True if this is the first DataStream fragment of the packet"
+      - name: "isLast"
+        type: "Bool"
+        description: "True if this is the last DataStream fragment of the packet"
+
+  DATA:
+    description: "Data bus word, width = DATA_BUS_WIDTH = 256 bits"
+    category: "builtin"
+    params:
+      - name: "DATA_BUS_WIDTH"
+        type: "int"
+        value: 256
+
+  ByteEn:
+    description: "Byte enable mask, one bit per byte on the data bus. Width = DATA_BUS_BYTE_WIDTH = DATA_BUS_WIDTH / 8 = 32 bits"
+    category: "builtin"
+    params:
+      - name: "DATA_BUS_WIDTH"
+        type: "int"
+        value: 256
+
+  HeaderData:
+    description: "Header data bits, width = HEADER_MAX_DATA_WIDTH = DATA_BUS_WIDTH * HEADER_MAX_FRAG_NUM = 512 bits"
+    category: "builtin"
+
+  HeaderByteEn:
+    description: "Header byte enable, width = HEADER_MAX_BYTE_EN_WIDTH = DATA_BUS_BYTE_WIDTH * HEADER_MAX_FRAG_NUM = 64 bits"
+    category: "builtin"
+
+  HeaderByteNum:
+    description: "Header byte count, width = HEADER_MAX_BYTE_NUM_WIDTH = log2(HEADER_MAX_BYTE_EN_WIDTH + 1) = 7 bits"
+    category: "builtin"
+
+  HeaderFragNum:
+    description: "Header fragment count, width = HEADER_FRAG_NUM_WIDTH = log2(HEADER_MAX_FRAG_NUM + 1) = 2 bits"
+    category: "builtin"
+
+  ByteEnBitNum:
+    description: "Byte enable bit count, width = DATA_BUS_BYTE_NUM_WIDTH = log2(DATA_BUS_BYTE_WIDTH) + 1 = 6 bits"
+    category: "builtin"
+
+  BusBitNum:
+    description: "Data bus bit count, width = log2(DATA_BUS_WIDTH) + 1 = 9 bits"
+    category: "builtin"
+
+  PipeOut_T:
+    description: "Standard Bluespec PipeOut interface: method T first() returns the current value; method Action deq() removes it; method Bool notEmpty() indicates availability"
+    category: "builtin"
+
+  DataStreamPipeOut:
+    description: "Alias for PipeOut#(DataStream)"
+    category: "builtin"
+
+  FIFOF_T:
+    description: "Standard Bluespec FIFOF: methods enq(T), deq(), first(), clear(), notEmpty(), notFull()"
+    category: "builtin"
+
+  Reg_T:
+    description: "Standard Bluespec register: Reg#(T) with _read and _write methods"
+    category: "builtin"
+
+  Bool:
+    description: "Boolean type: True or False"
+    category: "builtin"

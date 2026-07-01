@@ -1,0 +1,35 @@
+meta:
+  name: "countcf"
+  description: "Counter with increment/decrement FIFO queues plus write capability"
+  knowledge: |
+    # mkCountCF
+
+    Counter with increment/decrement FIFO queues. Uses CReg for safe concurrent access.
+
+    ## Interface: CountCF#(anytype)
+    - incrOne(): enqueues a True to incrQ
+    - decrOne(): enqueues a True to decrQ
+    - _write(anytype): writes new value, clears pending incr/decr
+    - _read(): returns current count value
+
+    ## Internal State
+    - cntReg: Reg#(anytype) initialized to resetVal
+    - incrQ, decrQ: FIFOF#(Bool) for increment/decrement requests
+    - writeReg: Reg#(Maybe#(anytype))[2], mkCReg(2, tagged Invalid)
+    - incrReg: Reg#(Bool)[2], mkCReg(2, False)
+    - decrReg: Reg#(Bool)[2], mkCReg(2, False)
+
+    ## Rules
+    1. write (writeReg[1] matches tagged Valid .writeVal): set cntReg=writeVal, clear incrQ/decrQ, reset all regs
+    2. increment (!isValid(writeReg[1])): incrReg[0]=True, deq incrQ
+    3. decrement (!isValid(writeReg[1])): decrReg[0]=True, deq decrQ
+    4. incrAndDecr (!isValid(writeReg[1])): if incrReg[1] && !decrReg[1]: cntReg++; else if !incrReg[1] && decrReg[1]: cntReg--; reset flags
+
+    ## Imports
+    FIFOF, PrimUtils (for CReg, mkCReg, isValid)
+
+ports:
+  - name: "count_ifc"
+    direction: "output"
+    category: "data"
+    type: "CountCF_T"

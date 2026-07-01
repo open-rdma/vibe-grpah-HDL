@@ -1,0 +1,10 @@
+meta:
+  name: "header_to_data_stream_converter"
+  description: "Converts RDMA header into data stream fragments suitable for transmission over a wide data bus"
+  test_method: "Use mkTestHeaderAndDataStreamConversion from the original test suite. This test: (1) Generates random header metadata and corresponding data streams using test utilities (mkRandomHeaderMetaPipeOut, mkFixedPktLenDataStreamPipeOut). (2) Feeds the data stream through mkDataStream2Header to convert it into HeaderRDMA format. (3) Passes the resulting HeaderRDMA through mkHeader2DataStream. (4) Compares the output headerMetaData and headerDataStream against the original reference values. The test succeeds if all comparisons match."
+properties:
+  target: "bluespec_sv"
+  clock_freq_mhz: 500
+trees:
+  - top
+  - library

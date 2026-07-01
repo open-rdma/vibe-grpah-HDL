@@ -1,0 +1,29 @@
+meta:
+  name: "datastream2header"
+  description: "Converts DataStream fragments back into HeaderRDMA"
+  knowledge: |
+    # mkDataStream2Header
+
+    Converts a stream of DataStream fragments back into a fully reconstructed HeaderRDMA.
+    This is the inverse of mkHeader2DataStream. Uses a 2-rule FSM: first rule reads
+    HeaderMetaData and computes fragment layout, second rule accumulates DataStream
+    fragments one-by-one, zero-extending the first fragment, concatenating subsequent
+    ones, and left-shifting the final result by invalid bit/byte counts before output.
+    Output via FIFOF converted to PipeOut.
+
+    Has assertion checks on header length, byte enable patterns, and fragment count.
+    Uses calcHeaderInvalidFragByteAndBitNum and genByteEn utilities.
+
+ports:
+  - name: "dataPipeIn"
+    direction: "input"
+    category: "data"
+    type: "DataStreamPipeOut"
+  - name: "headerMetaDataPipeIn"
+    direction: "input"
+    category: "data"
+    type: "PipeOut_HeaderMetaData"
+  - name: "headerPipeOut"
+    direction: "output"
+    category: "data"
+    type: "PipeOut_HeaderRDMA"

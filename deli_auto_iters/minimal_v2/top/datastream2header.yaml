@@ -1,0 +1,56 @@
+meta:
+  name: "datastream2header"
+  description: "Converts DataStream fragments back into HeaderRDMA, guided by HeaderMetaData"
+  knowledge: |
+    # mkDataStream2Header
+
+    Reverse of mkHeader2DataStream. Accumulates DataStream fragments into a HeaderRDMA.
+
+    ## Parameters
+    - dataPipeIn (DataStreamPipeOut): source of DataStream fragments
+    - headerMetaDataPipeIn (PipeOut#(HeaderMetaData)): metadata describing expected header structure
+
+    ## Interface
+    Returns PipeOut#(HeaderRDMA).
+
+    ## Internal State
+    - headerOutQ: FIFOF#(HeaderRDMA) output queue
+    - rdmaHeaderReg: Reg#(HeaderRDMA), uninitialized, accumulates header under construction
+    - headerMetaDataReg: Reg#(HeaderMetaData), uninitialized, stores current header metadata
+    - headerInvalidFragByteNumReg: Reg#(HeaderByteNum), uninitialized
+    - headerInvalidFragBitNumReg: Reg#(HeaderBitNum), uninitialized
+    - busyReg: Reg#(Bool), initialized False
+
+    ## 2-Rule FSM
+
+    ### Rule: popHeaderMetaData (when !busyReg)
+    Reads one HeaderMetaData entry. Computes invalid byte/bit counts via calcHeaderInvalidFragByteAndBitNum(headerFragNum).
+    Asserts headerLen non-zero. Sets busyReg=True. Destructure tuple result with let {byteNum, bitNum}.
+
+    ### Rule: accumulate (when busyReg)
+    Reads one DataStream fragment per cycle:
+    - If isFirst: zeroExtend fragment data/byteEn to header width, copy metadata from headerMetaDataReg, set fragNum=1
+    - If !isFirst: concatenate {accumulated.data, newFragment.data} and truncate to header width, increment fragNum
+    - If isLast: left-shift by headerInvalidFragBitNumReg/BitNumReg to align, compute genByteEn(lastFragValidByteNum) for assertion, enqueue to headerOutQ, set busyReg=False
+    - If !isLast: assert byteEn is all-ones
+    Always write rdmaHeader back to rdmaHeaderReg at end.
+
+    Return toPipeOut(headerOutQ).
+
+    ## Imports
+    FIFOF, GetPut, PAClib, PrimUtils, Utils, DataTypes, Headers, Settings.
+    immAssert(condition, "name", $format("msg", args)) — exactly 3 args.
+
+ports:
+  - name: "dataPipeIn"
+    direction: "input"
+    category: "data"
+    type: "DataStreamPipeOut"
+  - name: "headerMetaDataPipeIn"
+    direction: "input"
+    category: "data"
+    type: "PipeOut_HeaderMetaData"
+  - name: "headerPipeOut"
+    direction: "output"
+    category: "data"
+    type: "PipeOut_HeaderRDMA"

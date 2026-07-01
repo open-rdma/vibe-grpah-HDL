@@ -1,0 +1,133 @@
+meta:
+  name: "combine_header_and_payload"
+  description: >
+    Combines an RDMA packet header and payload into a single unified DataStream output.
+    The header is first converted into DataStream fragments via mkHeader2DataStream, then
+    prepended before the payload fragments via mkPrependHeader2PipeOut. A PSN (Packet Sequence
+    Number) pipe is consumed on each last fragment to track packet boundaries.
+  knowledge: |
+    # Bluespec Module: mkCombineHeaderAndPayload
+
+    ## Purpose
+    Combine an RDMA header and payload into a single data stream, tracking PSN consumption.
+
+    ## Parameters
+    - cntrlStatus (CntrlStatus): provides the isReset signal via cntrlStatus.comm.isReset.
+      CntrlStatus is a struct with a comm sub-struct that has Bool field isReset.
+    - headerPipeIn (PipeOut#(HeaderRDMA)): source of RDMA headers
+    - psnPipeIn (PipeOut#(PSN)): source of PSN values. PSN = Bit#(24) (PSN_WIDTH = 24).
+    - payloadPipeIn (DataStreamPipeOut): source of payload data stream fragments
+
+    ## Interface
+    Returns a DataStreamPipeOut (PipeOut#(DataStream)).
+
+    ## Internal Submodules and Connections
+
+    This module instantiates two submodules:
+
+    ### Submodule 1: mkHeader2DataStream
+    - Converts HeaderRDMA input into DataStream fragments + HeaderMetaData
+    - Parameter: clearAll = cntrlStatus.comm.isReset
+    - Input: headerPipeIn (the parent's headerPipeIn parameter)
+    - Output: headerDataStream (DataStreamPipeOut), headerMetaData (PipeOut#(HeaderMetaData))
+
+    ### Submodule 2: mkPrependHeader2PipeOut
+    - Prepends header DataStream fragments before payload DataStream fragments
+    - Parameters: clearAll = cntrlStatus.comm.isReset, headerPipeIn = headerDataStream from submodule 1, headerMetaDataPipeIn = headerMetaData from submodule 1, dataPipeIn = payloadPipeIn (the parent's parameter)
+    - Output: a DataStreamPipeOut with header fragments first, then payload fragments, properly interleaved at fragment boundaries
+
+    ### Connection Flow
+    ```
+    headerPipeIn ──→ [mkHeader2DataStream] ──┬── headerDataStream ──→ [mkPrependHeader2PipeOut] ──→ rdmaDataStreamPipeOut
+                                              │
+                                              └── headerMetaData ───→ [mkPrependHeader2PipeOut]
+
+    payloadPipeIn ───────────────────────────────────────────────────→ [mkPrependHeader2PipeOut]
+    ```
+
+    ### Output Connection
+    The rdmaDataStreamPipeOut from mkPrependHeader2PipeOut is connected to an internal output FIFO (outputQ) using mkConnectionWithAction. A deqAction function is registered that:
+    - On every DataStream fragment passing through: if dataStream.isLast is True, dequeue from psnPipeIn (consuming one PSN per packet)
+    - This ensures one PSN is consumed for each complete packet output
+
+    ### Interface
+    The output FIFO is converted to a PipeOut via toPipeOut and returned as the module's output interface.
+
+    ## Bluespec Coding Requirements
+    - Import: FIFOF, GetPut, PAClib, DataTypes, Headers, PrimUtils, Settings, Controller, Utils, ExtractAndPrependPipeOut
+    - CRITICAL: mkConnectionWithAction is defined in the Utils package, NOT in PAClib. You MUST import Utils.
+    - mkConnectionWithAction takes 3 arguments: Get#(T) source, Put#(T) sink, and function Action f(T val). It returns Empty.
+      Instantiate without binding: `mkConnectionWithAction(toGet(s), toPut(q), funcName);`
+    - toGet converts PipeOut to Get interface (from PAClib)
+    - toPut converts FIFOF to Put interface (from PAClib)
+    - toPipeOut converts FIFOF to PipeOut interface (from PAClib)
+    - mkFIFOF creates a FIFOF (from FIFOF package)
+    - The deqAction must be defined as a local function: function Action deqActionFunc(DataStream dataStream); action ... endaction endfunction
+    - PSN type: Bit#(PSN_WIDTH) where PSN_WIDTH = 24
+
+  test_method: >
+    Test via the original TestExtractAndPrependPipeOut test infrastructure. Feed random
+    headers through the combine pipeline and verify output matches expected header+payload
+    concatenation.
+
+  knowledge_template: |
+    {{children}}
+
+ports:
+  - name: "cntrlStatus"
+    direction: "input"
+    category: "data"
+    type: "CntrlStatus"
+    description: "Control status struct providing isReset signal via cntrlStatus.comm.isReset"
+
+  - name: "headerPipeIn"
+    direction: "input"
+    category: "data"
+    type: "PipeOut_HeaderRDMA"
+    description: "Input pipe providing HeaderRDMA packets"
+
+  - name: "psnPipeIn"
+    direction: "input"
+    category: "data"
+    type: "PipeOut_PSN"
+    description: "Input pipe providing PSN values (Bit#(24)). Consumed on each packet's last fragment."
+
+  - name: "payloadPipeIn"
+    direction: "input"
+    category: "data"
+    type: "DataStreamPipeOut"
+    description: "Input pipe providing payload DataStream fragments"
+
+  - name: "dataStreamOut"
+    direction: "output"
+    category: "data"
+    type: "DataStreamPipeOut"
+    description: "Output pipe producing combined header+payload DataStream fragments"
+
+nodes:
+  - id: "header2ds_inst"
+    ref: "library/header2datastream.yaml"
+    description: "Converts RDMA header into DataStream fragments and metadata"
+    properties: {}
+
+  - id: "prepend_inst"
+    ref: "library/prepend_header.yaml"
+    description: "Prepends header DataStream fragments before payload DataStream fragments"
+    properties: {}
+
+connections:
+  - from: { node: "graph_input", port: "headerPipeIn" }
+    to: [{ node: "header2ds_inst", port: "headerPipeIn" }]
+
+  - from: { node: "header2ds_inst", port: "headerDataStream" }
+    to: [{ node: "prepend_inst", port: "headerDataStream" }]
+
+  - from: { node: "header2ds_inst", port: "headerMetaData" }
+    to: [{ node: "prepend_inst", port: "headerMetaData" }]
+
+  - from: { node: "graph_input", port: "payloadPipeIn" }
+    to: [{ node: "prepend_inst", port: "payloadPipeIn" }]
+
+  - from: { node: "prepend_inst", port: "dataStreamOut" }
+    to: [{ node: "graph_output", port: "dataStreamOut" }]
+    description: "Connected via mkConnectionWithAction with a deqAction that dequeues psnPipeIn on isLast fragment"

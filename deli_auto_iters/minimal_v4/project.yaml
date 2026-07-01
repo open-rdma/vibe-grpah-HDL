@@ -1,0 +1,5 @@
+meta:
+  name: "datastream2header_skeletal"
+  description: "DataStream to HeaderRDMA converter"
+properties:
+  target: "bluespec_sv"

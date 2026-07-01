@@ -1,0 +1,180 @@
+meta:
+  name: "prepend_header_pipeout"
+  description: >
+    Prepends header DataStream fragments before payload DataStream fragments at the
+    fragment level. The last header fragment and first payload fragment are merged at
+    the bit/byte level so there are no gaps or overlaps. Uses a 4-stage FSM with 5 rules.
+  knowledge: |
+    # Bluespec Module: mkPrependHeader2PipeOut
+
+    ## Purpose
+    Prepends header DataStream fragments before payload DataStream fragments. Handles
+    the alignment where the last header fragment does not necessarily fill the full
+    bus width — the remainder is packed with the first payload fragment's data.
+
+    ## Parameters
+    - clearAll (Bool): When True, the module resets to initial state.
+    - headerPipeIn (DataStreamPipeOut): source of header DataStream fragments
+    - headerMetaDataPipeIn (PipeOut#(HeaderMetaData)): source of header metadata
+    - dataPipeIn (DataStreamPipeOut): source of payload DataStream fragments
+
+    ## Interface
+    Returns a DataStreamPipeOut (PipeOut#(DataStream)).
+
+    ## FSM Stage Enum
+    The module uses a 4-stage enum type (call it PrependStage or similar):
+    Enum values: HEADER_META_DATA_POP, HEADER_OUTPUT, DATA_OUTPUT, EXTRA_LAST_FRAG_OUTPUT
+    The enum should derive Bits, Eq, FShow.
+    Initial stage: HEADER_META_DATA_POP
+
+    ## Internal State Registers
+    - dataStreamOutQ: FIFOF#(DataStream) — output FIFO
+    - preDataStreamReg: Reg#(DataStream) — stores the previous DataStream fragment for merging; uninitialized (used for boundary merging)
+    - headerFragCntReg: Reg#(HeaderFragNum) — counts remaining header fragments; uninitialized
+    - headerLastFragInvalidBitNumReg: Reg#(BusBitNum) — number of invalid bits in the last header fragment; uninitialized
+    - headerLastFragInvalidByteNumReg: Reg#(ByteEnBitNum) — number of invalid bytes in the last header fragment; uninitialized
+    - headerLastFragValidBitNumReg: Reg#(BusBitNum) — number of valid bits in the last header fragment; uninitialized
+    - headerLastFragValidByteNumReg: Reg#(ByteEnBitNum) — number of valid bytes in the last header fragment; uninitialized
+    - headerHasPayloadReg: Reg#(Bool) — whether the current header has a payload after it; uninitialized
+    - isFirstReg: Reg#(Bool) — tracks whether the next output fragment is the first of its group; uninitialized
+    - stageReg: Reg#(PrependStage) — FSM current stage; initialized to HEADER_META_DATA_POP
+
+    ## Rules
+
+    ### Rule 1: resetAndClear (fires when clearAll is True)
+    - Set the rule attribute `(* no_implicit_conditions, fire_when_enabled *)` so it fires regardless of pipeline readiness.
+    - Clear dataStreamOutQ (call .clear() method).
+    - Set stageReg to HEADER_META_DATA_POP.
+
+    ### Rule 2: popHeaderMetaData (fires when clearAll is False and stageReg == HEADER_META_DATA_POP)
+    1. Read headerMetaData from headerMetaDataPipeIn (read .first, then call .deq).
+    2. Let headerFragNum = headerMetaData.headerFragNum.
+    3. Let headerLastFragValidByteNum = headerMetaData.lastFragValidByteNum.
+    4. Call calcFragBitNumAndByteNum(headerLastFragValidByteNum) which returns a Tuple3.
+       Destructure: let { headerLastFragValidBitNum, headerLastFragInvalidByteNum, headerLastFragInvalidBitNum } = calcFragBitNumAndByteNum(headerLastFragValidByteNum);
+    5. If headerMetaData.isEmptyHeader is True:
+       Assert with immAssert(isZero(validBitNum) && isZero(validByteNum), "emptyHeaderValidZero", $format("..."));
+    6. If headerMetaData.isEmptyHeader is False:
+       Assert with immAssert(!isZero(headerMetaData.headerLen), "headerLenNonZero", $format("..."));
+    7. Store headerLastFragValidByteNum, headerLastFragValidBitNum, headerLastFragInvalidByteNum, headerLastFragInvalidBitNum in their respective registers.
+    8. Set headerFragCntReg: if isEmptyHeader then 0, else (headerFragNum - 1).
+    9. Set headerHasPayloadReg to headerMetaData.hasPayload.
+    10. Set stageReg: if isEmptyHeader then DATA_OUTPUT, else HEADER_OUTPUT.
+    11. Set isFirstReg to True.
+
+    ### Rule 3: outputHeader (fires when clearAll is False and stageReg == HEADER_OUTPUT)
+    1. Read curHeaderDataStreamFrag from headerPipeIn (read .first, then call .deq).
+    2. If curHeaderDataStreamFrag.isLast is True:
+       a. Assert with immAssert(isZero(headerFragCntReg), "headerFragCntZero", $format("..."));
+       b. Compute rightShiftHeaderLastFragData = curHeaderDataStreamFrag.data >> headerLastFragInvalidBitNumReg.
+          This right-shifts by the invalid bit count to remove invalid bits from the LSB side.
+       c. Compute rightShiftHeaderLastFragByteEn = curHeaderDataStreamFrag.byteEn >> headerLastFragInvalidByteNumReg.
+       d. Create headerLastFragDataStream = DataStream {
+            data: rightShiftHeaderLastFragData,
+            byteEn: rightShiftHeaderLastFragByteEn,
+            isFirst: curHeaderDataStreamFrag.isFirst,
+            isLast: !headerHasPayloadReg   (True if header has NO payload)
+          }
+       e. Store this headerLastFragDataStream into preDataStreamReg.
+       f. Determine whether to enter DATA_OUTPUT or go back to HEADER_META_DATA_POP:
+          - If headerHasPayloadReg is True: stageReg becomes DATA_OUTPUT.
+          - If headerHasPayloadReg is False: stageReg becomes HEADER_META_DATA_POP.
+            AND also enqueue curHeaderDataStreamFrag directly into dataStreamOutQ (the original fragment, not the right-shifted one — since header ends here).
+    3. If curHeaderDataStreamFrag.isLast is False:
+       a. Set isFirstReg to False.
+       b. Decrement headerFragCntReg by 1.
+       c. Enqueue curHeaderDataStreamFrag directly into dataStreamOutQ.
+
+    ### Rule 4: outputData (fires when clearAll is False and stageReg == DATA_OUTPUT)
+    1. Read curDataStreamFrag from dataPipeIn (read .first, then call .deq).
+    2. Store curDataStreamFrag into preDataStreamReg.
+    3. Set isFirstReg to False.
+    4. Compute lastFragByteEn using an explicit type to avoid ambiguity:
+       `ByteEn lastFragByteEn = truncate(curDataStreamFrag.byteEn << headerLastFragInvalidByteNumReg);`
+       This left-shifts the byte enable by the invalid byte count from the header last fragment.
+       IMPORTANT: must use `ByteEn` explicit type declaration (not `let`) to resolve type ambiguity for truncate.
+    5. Determine noExtraLastFrag: True if isZeroByteEn(lastFragByteEn).
+       If the payload's last fragment has NO bytes beyond the invalid header bytes, there's no extra fragment needed.
+    6. Compute the merged output data and byte enable:
+       - tmpData = { preDataStreamReg.data, curDataStreamFrag.data } >> headerLastFragValidBitNumReg.
+         Concatenate previous and current fragment data, then right-shift by valid bits to align.
+       - tmpByteEn = { preDataStreamReg.byteEn, curDataStreamFrag.byteEn } >> headerLastFragValidByteNumReg.
+         Same concatenation + right-shift for byte enables.
+    7. Create outDataStream = DataStream {
+         data: truncate(tmpData),
+         byteEn: truncate(tmpByteEn),
+         isFirst: isFirstReg,
+         isLast: curDataStreamFrag.isLast && noExtraLastFrag
+       }
+    8. Enqueue outDataStream into dataStreamOutQ.
+    9. If curDataStreamFrag.isLast is True:
+       a. If noExtraLastFrag is True: set stageReg to HEADER_META_DATA_POP (done with this header+payload).
+       b. If noExtraLastFrag is False: set stageReg to EXTRA_LAST_FRAG_OUTPUT (one more fragment needed).
+
+    ### Rule 5: extraLastFrag (fires when clearAll is False and stageReg == EXTRA_LAST_FRAG_OUTPUT)
+    1. Compute leftShiftData = truncate(preDataStreamReg.data << headerLastFragInvalidBitNumReg).
+       Left-shift the previous fragment's data by the invalid bit count (moving valid data to MSB side).
+    2. Compute leftShiftByteEn = truncate(preDataStreamReg.byteEn << headerLastFragInvalidByteNumReg).
+    3. Create extraLastDataStream = DataStream {
+         data: leftShiftData,
+         byteEn: leftShiftByteEn,
+         isFirst: False,
+         isLast: True
+       }
+    4. Enqueue extraLastDataStream into dataStreamOutQ.
+    5. Set stageReg to HEADER_META_DATA_POP (return to idle, ready for next header).
+
+    ## Output
+    Return toPipeOut(dataStreamOutQ), converting the output FIFO to a PipeOut.
+
+    ## Built-in Value References
+    - valueOf(DATA_BUS_BYTE_WIDTH) = 32 (number of bytes on the data bus)
+
+    ## Bluespec Coding Requirements
+    - Import: FIFOF, GetPut, PAClib, PrimUtils, Utils, DataTypes, Settings
+    - Define the PrependStage enum type locally within the module (or as a top-level typedef).
+      The enum MUST derive Bits, Eq. Optionally derive FShow.
+    - Use immAssert for assertion checks. CRITICAL: immAssert takes EXACTLY 3 arguments:
+      immAssert(condition, "assertion_name_string_literal", $format("format", args)).
+      The second argument is a String literal naming the assertion. NEVER use 2-argument form.
+    - For truncate() calls that BSC may find ambiguous, assign the shift result to an intermediate
+      variable with an explicit type declaration. Example: `ByteEn shifted = expr << N; let result = truncate(shifted);`
+    - Register writes use "<=" (non-blocking assignment).
+    - The output via toPipeOut.
+
+  test_method: >
+    In simulation: feed a header data stream (from mkHeader2DataStream) and a payload data stream
+    into mkPrependHeader2PipeOut. Verify that the output stream contains header fragments first,
+    then payload fragments, with the boundary merged correctly (no gaps, no overlaps).
+    Also verify isFirst/isLast flags are correct on all fragments.
+
+ports:
+  - name: "clearAll"
+    direction: "input"
+    category: "data"
+    type: "Bool"
+    description: "When True, resets the module to initial state (clears output FIFO, resets stage to HEADER_META_DATA_POP)"
+
+  - name: "headerPipeIn"
+    direction: "input"
+    category: "data"
+    type: "DataStreamPipeOut"
+    description: "Input pipe providing header DataStream fragments"
+
+  - name: "headerMetaDataPipeIn"
+    direction: "input"
+    category: "data"
+    type: "PipeOut_HeaderMetaData"
+    description: "Input pipe providing HeaderMetaData describing the header structure"
+
+  - name: "dataPipeIn"
+    direction: "input"
+    category: "data"
+    type: "DataStreamPipeOut"
+    description: "Input pipe providing payload DataStream fragments"
+
+  - name: "dataStreamOut"
+    direction: "output"
+    category: "data"
+    type: "DataStreamPipeOut"
+    description: "Output pipe producing combined header+payload DataStream fragments"

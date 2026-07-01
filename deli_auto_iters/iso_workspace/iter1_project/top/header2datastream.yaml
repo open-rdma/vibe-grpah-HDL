@@ -1,0 +1,138 @@
+meta:
+  name: "header2datastream"
+  description: >
+    Converts an RDMA packet header (HeaderRDMA) into a sequence of DataStream fragments
+    that can be transmitted over a wide data bus. The header may span multiple
+    DATA_BUS_WIDTH (256-bit) fragments. This module outputs the header metadata once
+    and then outputs each fragment of header data as a DataStream, with proper
+    isFirst/isLast flagging. If the header is empty (isEmptyHeader), it outputs only
+    the metadata and no data fragments.
+  knowledge: |
+    # Bluespec Module: mkHeader2DataStream
+
+    ## Purpose
+    Convert an RDMA header into data stream fragments for transmission.
+
+    ## Interface
+    This module implements the HeaderDataStreamAndMetaDataPipeOut interface, which has two sub-interfaces:
+    - headerDataStream: a DataStreamPipeOut (PipeOut#(DataStream)) — outputs header fragments as DataStream
+    - headerMetaData: a PipeOut#(HeaderMetaData) — outputs the header's metadata once per header
+
+    ## Parameters
+    - clearAll (Bool): when True, resets all internal state and clears output queues
+    - headerPipeIn (PipeOut#(HeaderRDMA)): source of RDMA headers to convert
+
+    ## Internal Storage
+    - A FIFOF for headerDataStream output fragments (headerDataStreamOutQ)
+    - A FIFOF for headerMetaData output (headerMetaDataOutQ)
+    - A register rdmaHeaderReg of type HeaderRDMA, initialized with dont-care value via mkRegU
+    - A register headerValidReg of type Bool, initialized to False via mkReg(False)
+
+    ## Rules (Bluespec atomic rules)
+
+    ### Rule: resetAndClear
+    Condition: clearAll is True (guarded by "no_implicit_conditions, fire_when_enabled")
+    Actions:
+    1. Clear headerDataStreamOutQ (remove all pending entries)
+    2. Clear headerMetaDataOutQ (remove all pending entries)
+    3. Set headerValidReg to False
+
+    ### Rule: outputHeader
+    Condition: clearAll is False (guarded by implicit condition that output FIFOs are notFull)
+    Actions:
+
+    Step 1 — Determine the current header to process:
+    - If headerValidReg is False: use the value from headerPipeIn.first (do NOT dequeue yet); let this be curHeader
+    - If headerValidReg is True: use the cached value from rdmaHeaderReg as curHeader
+
+    Step 2 — Output metadata for new headers:
+    - If headerValidReg is False: enqueue curHeader.headerMetaData into headerMetaDataOutQ
+
+    Step 3 — Compute the remaining header state after extracting one DATA_BUS_WIDTH fragment:
+    - remainingHeaderLen = curHeader.headerMetaData.headerLen - DATA_BUS_BYTE_WIDTH (which is DATA_BUS_WIDTH/8 = 32)
+    - remainingHeaderFragNum = curHeader.headerMetaData.headerFragNum - 1
+
+    Step 4 — Left-shift the header data and byte enable by one bus width to prepare for the next cycle:
+    - leftShiftHeaderData = truncate(curHeader.headerData logically left-shifted by DATA_BUS_WIDTH bits). This is HeaderData width (512 bits).
+    - leftShiftHeaderByteEn = truncate(curHeader.headerByteEn logically left-shifted by DATA_BUS_BYTE_WIDTH bits). This is HeaderByteEn width (64 bits).
+
+    Step 5 — Build the next HeaderRDMA state for the next fragment:
+    - headerData = leftShiftHeaderData
+    - headerByteEn = leftShiftHeaderByteEn
+    - headerMetaData.headerLen = remainingHeaderLen
+    - headerMetaData.headerFragNum = remainingHeaderFragNum
+    - headerMetaData.lastFragValidByteNum = curHeader.headerMetaData.lastFragValidByteNum (carried forward unchanged)
+    - headerMetaData.hasPayload = curHeader.headerMetaData.hasPayload (carried forward unchanged)
+    - headerMetaData.isEmptyHeader = curHeader.headerMetaData.isEmptyHeader (carried forward unchanged)
+
+    Step 6 — Determine fragment boundary flags:
+    - isFirst = (NOT headerValidReg). True only when processing the first fragment from a freshly dequeued header (headerValidReg was False before this cycle).
+    - isLast = (curHeader.headerMetaData.isEmptyHeader) OR (remainingHeaderFragNum equals zero). This is True when either the header is empty or there are no more fragments after this one.
+
+    Step 7 — Update state register:
+    - If isLast is True: set headerValidReg to False, and DEQUEUE from headerPipeIn (consuming the current header)
+    - If isLast is False: set headerValidReg to True, and store the nextHeaderRDMA (computed in Step 5) into rdmaHeaderReg. Do NOT dequeue headerPipeIn.
+
+    Step 8 — Extract output data for the current fragment:
+    - data = truncateLSB(curHeader.headerData). This takes the lowest DATA_BUS_WIDTH (256) bits of the header data (right-aligned extraction, since headerData is left-aligned).
+    - byteEn = truncateLSB(curHeader.headerByteEn). This takes the lowest DATA_BUS_BYTE_WIDTH (32) bits of the header byte enable.
+    - Construct a DataStream with: data, byteEn, isFirst, isLast.
+
+    Step 9 — Output the DataStream fragment:
+    - If curHeader.headerMetaData.isEmptyHeader is False: enqueue the DataStream into headerDataStreamOutQ
+    - If isEmptyHeader is True: skip enqueueing (do not output any data fragment, only the metadata was output in Step 2)
+
+    ## Edge Cases
+    - Empty header (isEmptyHeader=True): Only headerMetaData is output. No DataStream fragments are produced. headerPipeIn is dequeued in the same cycle (because isLast is True when isEmptyHeader is True).
+    - Single-fragment header (headerFragNum=1, remainingHeaderFragNum=0): One DataStream fragment is output with isFirst=True and isLast=True. The header is dequeued from headerPipeIn.
+
+    ## Bluespec Coding Requirements
+    - Import: FIFOF (for mkFIFOF), GetPut, PAClib (for toPipeOut), DataTypes, Headers, PrimUtils, Settings
+    - Use "no_implicit_conditions, fire_when_enabled" pragma on the clear rule
+    - Use mkRegU for rdmaHeaderReg (uninitialized register, dont-care initial value)
+    - Use mkReg(False) for headerValidReg
+    - Use mkFIFOF for both output queues
+    - Convert FIFOF to PipeOut using toPipeOut
+    - Use truncate for narrowing bit widths
+    - Use truncateLSB for extracting low bits (right-aligned)
+    - ZeroExtend is available via zeroExtend function from PrimUtils or standard Bluespec
+    - The outputHeader rule relies on implicit conditions: both output queues must be notFull. Do NOT add explicit notFull checks.
+
+  test_method: >
+    Test via round-trip: (1) Generate random HeaderMetaData and matching DataStream using
+    test utilities. (2) Convert DataStream to HeaderRDMA using mkDataStream2Header.
+    (3) Convert back using mkHeader2DataStream. (4) Verify output headerMetaData matches
+    original and output headerDataStream matches original DataStream. Use immAssert for
+    all comparisons. Run 10000 comparisons then finish.
+
+  knowledge_template: |
+    {{children}}
+
+ports:
+  - name: "clearAll"
+    direction: "input"
+    category: "data"
+    type: "Bool"
+    description: "Module parameter: when True, resets and clears all internal state"
+
+  - name: "headerPipeIn"
+    direction: "input"
+    category: "data"
+    type: "PipeOut_T"
+    description: "Input pipe providing HeaderRDMA packets to convert"
+
+  - name: "headerDataStream"
+    direction: "output"
+    category: "data"
+    type: "DataStreamPipeOut"
+    description: "Output pipe producing DataStream fragments of the header"
+
+  - name: "headerMetaData"
+    direction: "output"
+    category: "data"
+    type: "PipeOut_T"
+    description: "Output pipe producing HeaderMetaData once per header"
+
+nodes: []
+
+connections: []

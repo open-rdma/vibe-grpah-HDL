@@ -1,0 +1,19 @@
+types:
+  anytype:
+    description: "Generic type parameter. Can be any type with Arith and Bits instances."
+    category: "builtin"
+  Bool:
+    description: "Boolean type"
+    category: "builtin"
+  CountCF_T:
+    description: "Interface: method incrOne(), decrOne(), _write(anytype), _read() returns anytype"
+    category: "user"
+  FIFOF_T:
+    description: "Bluespec FIFOF: enq(T), deq(), first(), clear(), notEmpty(), notFull()"
+    category: "builtin"
+  Reg_T:
+    description: "Bluespec Reg#(T): mkReg(val) for initialized, mkRegU for uninitialized"
+    category: "builtin"
+  Maybe_T:
+    description: "BSV Maybe#(T): tagged Valid .value or tagged Invalid"
+    category: "builtin"

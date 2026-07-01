@@ -1,0 +1,128 @@
+types:
+  # --- From minimal_v2 (shared data path types) ---
+  DataStream:
+    description: >
+      Struct: { DATA data; ByteEn byteEn; Bool isFirst; Bool isLast; }
+      DATA = Bit#(256), ByteEn = Bit#(32)
+    category: "user"
+  HeaderRDMA:
+    description: >
+      Struct: { HeaderData headerData; HeaderByteEn headerByteEn; HeaderMetaData headerMetaData; }
+      HeaderData = Bit#(512), HeaderByteEn = Bit#(64)
+    category: "user"
+  HeaderMetaData:
+    description: >
+      Struct: { HeaderByteNum headerLen; HeaderFragNum headerFragNum;
+      ByteEnBitNum lastFragValidByteNum; Bool hasPayload; Bool isEmptyHeader; }
+      HeaderByteNum = Bit#(7), HeaderFragNum = Bit#(2), ByteEnBitNum = Bit#(6)
+    category: "user"
+  DataStreamPipeOut:
+    description: "Alias for PipeOut#(DataStream)"
+    category: "builtin"
+  PipeOut_T:
+    description: "Bluespec PipeOut#(T): method T first(), Action deq(), Bool notEmpty()"
+    category: "builtin"
+  FIFOF_T:
+    description: "Bluespec FIFOF: enq(T), deq(), first(), clear(), notEmpty(), notFull()"
+    category: "builtin"
+  Bool:
+    description: "Boolean type"
+    category: "builtin"
+  HeaderByteNum:
+    description: "Bit#(7). Number of valid bytes in header."
+    category: "user"
+  HeaderFragNum:
+    description: "Bit#(2). Number of DataStream fragments in header."
+    category: "user"
+  ByteEnBitNum:
+    description: "Bit#(6). Number of valid bytes in last fragment."
+    category: "user"
+  ByteEn:
+    description: "Bit#(32). Byte enable mask."
+    category: "user"
+  DATA:
+    description: "Bit#(256). Data bus width."
+    category: "user"
+  HeaderData:
+    description: "Bit#(512). Full header data width."
+    category: "user"
+  HeaderByteEn:
+    description: "Bit#(64). Full header byte enable width."
+    category: "user"
+  HeaderBitNum:
+    description: "Bit#(9). Bit number within header data."
+    category: "user"
+  Tuple2_a_b:
+    description: "BSV Tuple2#(A, B): access with tpl_1(tuple) and tpl_2(tuple), or destructure with let {a, b} = tuple;"
+    category: "builtin"
+  Tuple3_a_b_c:
+    description: "BSV Tuple3#(A, B, C): access with tpl_1/2/3(tuple), or destructure with let {a, b, c} = tuple;"
+    category: "builtin"
+  Tuple4_a_b_c_d:
+    description: "BSV Tuple4#(A, B, C, D): destructure with let {a, b, c, d} = tuple;"
+    category: "builtin"
+  Tuple5_a_b_c_d_e:
+    description: "BSV Tuple5#(A, B, C, D, E): destructure with let {a, b, c, d, e} = tuple;"
+    category: "builtin"
+  Maybe_T:
+    description: "BSV Maybe#(T): tagged Valid .value or tagged Invalid"
+    category: "builtin"
+  Vector:
+    description: "BSV Vector#(n, T): fixed-size array. replicateM, map, zip3, readVReg, writeVReg, mapM_"
+    category: "builtin"
+
+  # --- DupReadAtomicCache-specific ---
+  PSN:
+    description: "Bit#(24). Packet sequence number from Headers."
+    category: "user"
+  ADDR:
+    description: "Bit#(64). RDMA address."
+    category: "user"
+  RETH:
+    description: "RDMA Extended Transport Header struct: { Bit#(32) rkey; ADDR va; Bit#(RDMA_MAX_LEN_WIDTH) dlen; }"
+    category: "user"
+  PMTU:
+    description: "Enum: IBV_MTU_256, IBV_MTU_512, IBV_MTU_1024, IBV_MTU_2048, IBV_MTU_4096 deriving (Bits, Eq)"
+    category: "user"
+  RdmaOpCode:
+    description: "Enum of RDMA operation codes from Headers."
+    category: "user"
+  AtomicEth:
+    description: "Struct with fields: rkey (Bit#(32)), va (ADDR), swap (Bit#(64)), comp (Bit#(64))"
+    category: "user"
+  AtomicAckEth:
+    description: "Struct for atomic acknowledgment (original value)."
+    category: "user"
+  ReadCacheItem:
+    description: "Struct: { PSN startPSN; PSN endPSN; RETH reth; }"
+    category: "user"
+  AtomicCacheItem:
+    description: "Struct: { PSN atomicPSN; RdmaOpCode atomicOpCode; AtomicEth atomicEth; AtomicAckEth atomicAckEth; }"
+    category: "user"
+  DupReadCmpParts:
+    description: "Struct of Bool flags: addrHighHalfMatch, addrLowHalfMatch, keyMatch, psnStartExactMatch, psnStartRangeMatch, psnEndExactMatch, psnEndRangeMatch, readLenMatch"
+    category: "user"
+  DupAtomicCmpParts:
+    description: "Struct of Bool flags: addrHighPartMatch, addrLowPartMatch, compMatch, keyMatch, opCodeMatch, psnMatch, swapMatch"
+    category: "user"
+  DupReadReqStartState:
+    description: "Enum: DUP_READ_REQ_START_FROM_FIRST, DUP_READ_REQ_START_FROM_MIDDLE deriving (Bits, Eq, FShow)"
+    category: "user"
+  ReadRespLastPktAddrPart:
+    description: "Bit#(PKT_NUM_WIDTH). Address part for last packet comparison."
+    category: "user"
+  MAX_QP_RD_ATOM:
+    description: "Power-of-2 (typically 4 or 8) from Settings. Max QP read/atomic count per queue pair."
+    category: "builtin"
+  TWO:
+    description: "Numeric type constant = 2."
+    category: "builtin"
+  PKT_NUM_WIDTH:
+    description: "Numeric type constant for packet number bit width (from Settings)."
+    category: "builtin"
+  TLog:
+    description: "BSV TLog#(n): ceil(log2(n)), used for pointer/address widths."
+    category: "builtin"
+  TDiv:
+    description: "BSV TDiv#(n, d): n / d, integer division at type level."
+    category: "builtin"

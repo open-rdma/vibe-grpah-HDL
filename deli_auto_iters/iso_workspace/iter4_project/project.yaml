@@ -1,0 +1,8 @@
+meta:
+  name: "prepend_header_pipeout"
+  description: "Prepends header DataStream fragments before payload DataStream fragments, merging the last header fragment and first payload fragment at the bit/byte level"
+  test_method: "Feed header + payload data streams and HeaderMetaData, verify output DataStream has header fragments first then payload fragments, with proper byte-aligned merging at the boundary"
+properties:
+  target: "bluespec_sv"
+trees:
+  - top

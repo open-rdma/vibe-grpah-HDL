@@ -1,0 +1,56 @@
+types:
+  DataStream:
+    description: >
+      Struct: { DATA data; ByteEn byteEn; Bool isFirst; Bool isLast; }
+      DATA = Bit#(256), ByteEn = Bit#(32)
+    category: "user"
+  HeaderRDMA:
+    description: >
+      Struct: { HeaderData headerData; HeaderByteEn headerByteEn; HeaderMetaData headerMetaData; }
+      HeaderData = Bit#(512), HeaderByteEn = Bit#(64)
+    category: "user"
+  HeaderMetaData:
+    description: >
+      Struct: { HeaderByteNum headerLen; HeaderFragNum headerFragNum;
+      ByteEnBitNum lastFragValidByteNum; Bool hasPayload; Bool isEmptyHeader; }
+      HeaderByteNum = Bit#(7), HeaderFragNum = Bit#(2), ByteEnBitNum = Bit#(6)
+    category: "user"
+  DataStreamPipeOut:
+    description: "Alias for PipeOut#(DataStream)"
+    category: "builtin"
+  PipeOut_T:
+    description: "Bluespec PipeOut#(T): method T first(), Action deq(), Bool notEmpty()"
+    category: "builtin"
+  FIFOF_T:
+    description: "Bluespec FIFOF: enq(T), deq(), first(), clear(), notEmpty(), notFull()"
+    category: "builtin"
+  Bool:
+    description: "Boolean type"
+    category: "builtin"
+  HeaderByteNum:
+    description: "Bit#(7). Number of valid bytes in header."
+    category: "user"
+  HeaderFragNum:
+    description: "Bit#(2). Number of DataStream fragments in header."
+    category: "user"
+  ByteEnBitNum:
+    description: "Bit#(6). Number of valid bytes in last fragment."
+    category: "user"
+  ByteEn:
+    description: "Bit#(32). Byte enable mask."
+    category: "user"
+  DATA:
+    description: "Bit#(256). Data bus width."
+    category: "user"
+  HeaderData:
+    description: "Bit#(512). Full header data width."
+    category: "user"
+  HeaderByteEn:
+    description: "Bit#(64). Full header byte enable width."
+    category: "user"
+  HeaderBitNum:
+    description: "Bit#(9). Bit number within header data."
+    category: "user"
+  Tuple2_a_b:
+    description: "BSV Tuple2#(A, B): access with tpl_1(tuple) and tpl_2(tuple), or destructure with let {a, b} = tuple;"
+    category: "builtin"

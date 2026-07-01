@@ -1,0 +1,9 @@
+meta:
+  name: "combine_header_and_payload"
+  description: "Combines an RDMA header and payload into a single data stream, tracking PSN consumption"
+  test_method: "Feed random headers and payloads, verify output data stream contains header followed by payload in correct order with proper isFirst/isLast flags"
+properties:
+  target: "bluespec_sv"
+trees:
+  - top
+  - library

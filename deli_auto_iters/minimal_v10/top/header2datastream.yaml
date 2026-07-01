@@ -1,0 +1,13 @@
+meta:
+  name: "header2datastream"
+  description: "Convert RDMA header to data stream bytes"
+  knowledge: |
+    # mkHeader2DataStream
+    Reads RDMA header struct fields and encodes them into a byte-stream PipeOut.
+    Uses FSM with byte counter to serialize each field sequentially.
+    Outputs DataStream fragments.
+ports:
+  - name: "header2ds_ifc"
+    direction: "output"
+    category: "data"
+    type: "Header2DataStream_T"

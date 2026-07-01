@@ -1,0 +1,145 @@
+meta:
+  name: "dup_read_atomic_cache"
+  description: "Deeply nested recursive multi-module system for duplicate read/atomic request caching and matching."
+  knowledge: |
+    # mkDupReadAtomicCache System
+
+    A deeply nested system of 4 modules for caching and matching duplicate RDMA read and atomic requests.
+    Uses recursive module instantiation (mkBinaryTreeFork, mkRecursiveSearch) and function-parameterized module (mkCacheFIFO).
+
+    ## Imports
+    FIFOF, PAClib, Vector, DataTypes, Headers, PrimUtils, SpecialFIFOF (for CacheFIFO interface), Settings, Utils.
+
+    ## Helper Functions (top-level in package)
+
+    ### computeReadEndAddrAndCompare(PMTU pmtu, RETH dupReadReth, RETH origReadReth) → Tuple5#(Bool, Bool, Bool, ReadRespLastPktAddrPart, ReadRespLastPktAddrPart)
+    Computes end address of read + length for both dup and orig, compares addrHighHalf (truncateLSB), addrLowPart, and len match. PMTU-dependent (MTU 256/512/1024/2048/4096). Returns (addrHighHalfMatch, addrLowHalfMatch, readLenMatch, dupReadLastPktAddrPart, origReadLastPktAddrPart).
+
+    ### getVerifiedDupReadAddr(RETH dupReadReth, RETH origReadReth) → ADDR
+    Replaces dupReadReth.va upper half with origReadReth.va upper half: {truncateLSB(origReth.va), truncate(dupReth.va)}.
+
+    ### compareDupReadAddr(PMTU pmtu, RETH dupReadReth, RETH origReadReth) → Bool
+    PMTU-dependent comparison of dup start address vs orig. Only compares lower half.
+
+    ### cmpHalfAddr(ADDR addrA, ADDR addrB) → Tuple2#(Bool, Bool)
+    Compares upper and lower halves (TDiv#(ADDR_WIDTH,2) bits) separately. Returns (addrHighPartMatch, addrLowPartMatch).
+
+    ---
+
+    ## Module 1: mkBinaryTreeFork (RECURSIVE)
+    Forks 1 PipeOut to vSz identical outputs via recursive binary tree.
+
+    ### Parameters
+    - clearAll (Bool), pipeIn (PipeOut#(anytype))
+
+    ### Interface
+    Returns Vector#(vSz, PipeOut#(anytype)). Requires vSz power of 2.
+
+    ### Structure
+    - Internal: Vector#(vSz, FIFOF#(anytype)) resultVec
+    - Base case (vSz==2): rule dupPipeIn copies pipeIn to resultVec[0] and resultVec[1]; resetAndClear clears all
+    - Recursive (vSz>2): instantiates mkBinaryTreeFork(clearAll, pipeIn) of size vSz/2, then rules duplicate each half output to 2 result FIFOs
+    - Returns map(toPipeOut, resultVec)
+
+    ---
+
+    ## Module 2: mkRecursiveSearch (RECURSIVE)
+    Recursive tournament search: vSz Maybe inputs → 1 Maybe output.
+
+    ### Parameters
+    - clearAll (Bool), inputVec (Vector#(vSz, PipeOut#(Maybe#(anytype))))
+
+    ### Interface
+    Returns PipeOut#(Maybe#(anytype)).
+
+    ### Structure
+    - Base case (vSz==1): passthrough via FIFOF + rule popOut
+    - Recursive: creates vSz/2 FIFOFs as nextLayerVec, pairs inputVec[idx] + inputVec[idx+1], prefers Valid over Invalid, enqueues winner to nextLayerVec, recursively calls self
+    - Returns result pipe
+
+    ---
+
+    ## Module 3: mkCacheFIFO (3 FUNCTION ARGUMENTS)
+    Parameterized search cache: circular buffer with parallel search pipeline.
+
+    ### Parameters (function arguments)
+    - firstStageFunc: (anytype item4Search, anytype itemInQ) → searchType
+    - secondStageFunc: (searchType searchData) → cmpResultType
+    - thirdStageFunc: (cmpResultType searchResult) → Maybe#(anytype)
+
+    ### Interface
+    Returns CacheFIFO#(qSz, anytype) { cacheIfc, searchIfc }. Requires qSz power of 2.
+
+    ### Internal State
+    - dataVec: Vector#(qSz, Reg#(anytype)), uninitialized
+    - tagVec: Vector#(qSz, Reg#(Bool)), initialized False
+    - insertQ, searchReqQ: FIFOF#(anytype)
+    - clearReg: Reg#(Bool)[2] mkCReg(2, False)
+    - enqPtrReg: Reg#(Bit#(cntSz)), initialized 0, where cntSz = TLog#(qSz)
+    - searchReqPipeOutVec: via mkBinaryTreeFork(clearReg[1], toPipeOut(searchReqQ))
+    - firstSearchStageZipVec: zip3(tagVec, dataVec, searchDataVec)
+    - searchDataVec, cmpResultVec, searchResultVec: Vector#(qSz, FIFOF#(...))
+    - searchResultPipeOut: via mkRecursiveSearch(clearReg[1], searchResultPipeOutVec)
+
+    ### Rules
+    1. clearAll (clearReg[1]): write all tags to False, clear all FIFOs, reset enqPtrReg, set clearReg[1]=False
+    2. insert (!clearReg[1]): read insertQ, write dataVec[enqPtrReg], set tagVec[enqPtrReg]=True, increment enqPtrReg
+    3. firstSearchStage per entry: read searchReqPipeOutVec[idx], call firstStageFunc(item4Search, dataVec[idx]), enq (tag, searchData) to searchDataVec[idx]
+    4. secondSearchStage per entry: read (tag, searchData) from searchDataVec[idx], call secondStageFunc(searchData) → cmpResult, enq (tag ? Valid cmpResult : Invalid) to cmpResultVec[idx]
+    5. thirdSearchStage per entry: read cmpResultVec[idx], if Valid call thirdStageFunc(cmpResult), enq result to searchResultVec[idx]
+
+    ### Interface methods
+    - cacheIfc.push(val): enq to insertQ
+    - cacheIfc.clear(): set clearReg[0]=True
+    - searchIfc.searchReq(val): enq to searchReqQ
+    - searchIfc.searchResp: deq searchResultPipeOut and return
+
+    ---
+
+    ## Module 4: mkDupReadAtomicCache (TOP)
+    Duplicate read/atomic request cache with matching logic.
+
+    ### Parameter
+    - pmtu (PMTU)
+
+    ### Interface
+    Returns DupReadAtomicCache with 7 methods (see Interface section).
+
+    ### Internal Functions (local, defined inside module)
+    1. buildDupReadSearchData: wraps pmtu + comparison booleans + cache items into Tuple6
+    2. compareReadCacheItem: calls computeReadEndAddrAndCompare, builds DupReadCmpParts, returns Tuple4
+    3. checkReadCacheItemCmpResult: checks addrLenMatch && keyMatch && psnMatch, returns Maybe#(ReadCacheItem)
+    4. buildAtomicSearchData: compares opCode, key, PSN, returns Tuple5
+    5. compareAtomicCacheItem: calls cmpHalfAddr, builds DupAtomicCmpParts, returns Tuple2
+    6. checkAtomicCacheItemCmpResult: checks all match conditions, handles COMPARE_SWAP vs FETCH_ADD specially
+
+    ### Internal State
+    - readCacheQ: CacheFIFO#(MAX_QP_RD_ATOM, ReadCacheItem) via mkCacheFIFO(buildDupReadSearchData(pmtu), compareReadCacheItem, checkReadCacheItemCmpResult)
+    - atomicCacheQ: CacheFIFO#(MAX_QP_RD_ATOM, AtomicCacheItem) via mkCacheFIFO(buildAtomicSearchData, compareAtomicCacheItem, checkAtomicCacheItemCmpResult)
+    - dupReadReqQ: FIFOF#(ReadCacheItem)
+    - dupReadRespQ: FIFOF#(Maybe#(Tuple3#(ReadCacheItem, ADDR, DupReadReqStartState)))
+
+    ### Rules
+    - postProcessDupReadResp: reads dupReadReqQ, gets searchResp from readCacheQ.searchIfc, if Valid result: calls compareDupReadAddr + getVerifiedDupReadAddr, determines DUP_READ_REQ_START_FROM_FIRST vs _FROM_MIDDLE, enqueues to dupReadRespQ
+
+    ### Interface methods
+    - insertRead(ReadCacheItem): readCacheQ.cacheIfc.push
+    - searchReadReq(ReadCacheItem): readCacheQ.searchIfc.searchReq + enq to dupReadReqQ
+    - searchReadResp() → Maybe#(Tuple3#(ReadCacheItem, ADDR, DupReadReqStartState)): deq dupReadRespQ
+    - insertAtomic(AtomicCacheItem): atomicCacheQ.cacheIfc.push
+    - searchAtomicReq(AtomicCacheItem): atomicCacheQ.searchIfc.searchReq
+    - searchAtomicResp() → Maybe#(AtomicCacheItem): deq atomicCacheQ.searchIfc.searchResp
+    - clear(): clear both readCacheQ and atomicCacheQ
+
+    ## Required Interfaces (from SpecialFIFOF)
+    Define CacheIfc, SearchIfc, and CacheFIFO interface in this file since they're simple.
+
+ports:
+  - name: "dup_read_resp"
+    direction: "output"
+    category: "data"
+    type: "Maybe_Tuple3_ReadCacheItem_ADDR_State"
+  - name: "atomic_resp"
+    direction: "output"
+    category: "data"
+    type: "Maybe_AtomicCacheItem"

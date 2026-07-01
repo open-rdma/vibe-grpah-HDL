@@ -1,0 +1,146 @@
+meta:
+  name: "datastream2header"
+  description: >
+    Converts a stream of DataStream fragments back into an RDMA header (HeaderRDMA).
+    This is the inverse operation of mkHeader2DataStream. A HeaderMetaData pipe provides
+    the expected header structure (fragment count, byte lengths) that guides the reassembly.
+  knowledge: |
+    # Bluespec Module: mkDataStream2Header
+
+    ## Purpose
+    Convert DataStream fragments back into a fully reconstructed HeaderRDMA, using
+    HeaderMetaData to determine fragment count and byte alignment. This reverses the
+    mkHeader2DataStream transformation.
+
+    ## Parameters
+    - dataPipeIn (DataStreamPipeOut): source of DataStream fragments that carry header data
+    - headerMetaDataPipeIn (PipeOut#(HeaderMetaData)): source of header metadata describing
+      the expected structure of the incoming header data stream
+
+    ## Interface
+    Returns a PipeOut#(HeaderRDMA).
+
+    ## Internal Architecture
+
+    This module uses a 2-rule FSM controlled by a Boolean busy register:
+
+    | busyReg | Active Rule        | Description |
+    |---------|--------------------|-------------|
+    | False   | popHeaderMetaData  | Read metadata, compute fragment layout, start accumulation |
+    | True    | accumulate         | Read data fragments one at a time, build HeaderRDMA |
+
+    ### State Registers
+    - headerOutQ: FIFOF#(HeaderRDMA) — output queue
+    - rdmaHeaderReg: Reg#(HeaderRDMA) — accumulates the header being built; uninitialized
+    - headerMetaDataReg: Reg#(HeaderMetaData) — stores the metadata for the current header; uninitialized
+    - headerInvalidFragByteNumReg: Reg#(HeaderByteNum) — byte offset for invalid data in last fragment; uninitialized
+    - headerInvalidFragBitNumReg: Reg#(HeaderBitNum) — bit offset for invalid data in last fragment; uninitialized
+    - busyReg: Reg#(Bool) — FSM state; initialized to False (idle, ready to pop metadata)
+
+    ### Rule 1: popHeaderMetaData (fires when busyReg is False)
+
+    Step-by-step behavior:
+    1. Set busyReg to True.
+    2. Read headerMetaData from headerMetaDataPipeIn (dequeue one entry).
+    3. Store headerMetaData in headerMetaDataReg.
+    4. Assert that headerMetaData.headerLen is non-zero (header length must be > 0).
+    5. Call calcHeaderInvalidFragByteAndBitNum(headerMetaData.headerFragNum) which returns a
+       Tuple2 where tpl_1 is the invalid byte count and tpl_2 is the invalid bit count.
+       Internally this function computes: (HEADER_MAX_FRAG_NUM - headerFragNum) shifted left
+       by DATA_BUS_BYTE_NUM_WIDTH (5 bits) for bytes, and by DATA_BUS_BIT_NUM_WIDTH (8 bits) for bits.
+       Use destructuring: let { byteNum, bitNum } = calcHeaderInvalidFragByteAndBitNum(fragNum);
+    6. Store the byte result in headerInvalidFragByteNumReg.
+    7. Store the bit result in headerInvalidFragBitNumReg.
+
+    ### Rule 2: accumulate (fires when busyReg is True)
+
+    This rule reads one DataStream fragment per cycle and builds the HeaderRDMA.
+
+    Step-by-step behavior:
+    1. Read curDataStreamFrag from dataPipeIn and dequeue it.
+    2. Read current rdmaHeaderReg into a local variable rdmaHeader.
+
+    3. If curDataStreamFrag.isFirst is True (first fragment of the header):
+       a. Set rdmaHeader.headerData = zeroExtend(curDataStreamFrag.data).
+          This zero-extends the 256-bit DATA value to the 512-bit HeaderData width.
+       b. Set rdmaHeader.headerByteEn = zeroExtend(curDataStreamFrag.byteEn).
+          Zero-extends 32-bit ByteEn to 64-bit HeaderByteEn.
+       c. Set rdmaHeader.headerMetaData = headerMetaDataReg (copy stored metadata).
+       d. Override rdmaHeader.headerMetaData.headerFragNum to 1 (this is the first fragment).
+
+    4. If curDataStreamFrag.isFirst is False (subsequent fragment):
+       a. Set rdmaHeader.headerData = truncate({ rdmaHeader.headerData, curDataStreamFrag.data }).
+          Concatenate the accumulated header data with the new fragment's data, then truncate
+          to the HeaderData width (512 bits). The truncate takes the LOWER/LEAST-significant bits.
+       b. Set rdmaHeader.headerByteEn = truncate({ rdmaHeader.headerByteEn, curDataStreamFrag.byteEn }).
+          Same concatenation pattern for byte enables, truncated to HeaderByteEn width (64 bits).
+       c. Increment rdmaHeader.headerMetaData.headerFragNum by 1.
+
+    5. If curDataStreamFrag.isLast is True (final fragment of the header):
+       a. Left-shift rdmaHeader.headerData by headerInvalidFragBitNumReg.
+          This shifts out the invalid bits at the low end, aligning the valid data to the top.
+       b. Left-shift rdmaHeader.headerByteEn by headerInvalidFragByteNumReg.
+          Same alignment for byte enables.
+       c. Compute headerLastFragByteEn = genByteEn(rdmaHeader.headerMetaData.lastFragValidByteNum).
+          genByteEn returns a ByteEn with the lowest lastFragValidByteNum bits set to 1.
+       d. Enqueue rdmaHeader into headerOutQ.
+       e. Set busyReg to False (return to idle state, ready for next header).
+       f. Assert that headerLastFragByteEn equals curDataStreamFrag.byteEn
+          (the byte enable pattern must match the expected last-fragment byte pattern).
+       g. Assert that rdmaHeader.headerMetaData.headerFragNum equals headerMetaDataReg.headerFragNum
+          (the accumulated fragment count must match the expected total).
+
+    6. If curDataStreamFrag.isLast is False (more fragments coming):
+       Assert that curDataStreamFrag.byteEn has all bits set to 1 (isAllOnesR).
+       All non-last fragments must have full byte enables.
+
+    7. Always: Write rdmaHeader back to rdmaHeaderReg.
+
+    ### Output
+    Return toPipeOut(headerOutQ), converting the output FIFO to a PipeOut interface.
+
+    ## Key Design Details
+
+    The header data is reconstructed from right-aligned DataStream fragments. Each incoming
+    fragment is 256 bits of data. The first fragment is zero-extended to 512 bits (placed at
+    the low bits). Subsequent fragments are concatenated to the left of the accumulated data
+    (via bit concatenation: {accumulated, newFragment}). The final alignment shifts out any
+    invalid bits/bytes from the last fragment so the valid header data is left-aligned.
+
+    The headerInvalidFragByteNumReg and headerInvalidFragBitNumReg represent how many
+    bytes/bits in the last fragment are invalid (padding), computed from the expected
+    fragment count vs the maximum possible fragments (HEADER_MAX_FRAG_NUM = 2 for a 256-bit bus).
+
+    ## Bluespec Coding Requirements
+    - Import: FIFOF, GetPut, PAClib, PrimUtils, Utils, DataTypes, Headers, Settings
+    - Use toPipeOut to convert FIFOF to PipeOut
+    - register assignments use "<=" (non-blocking)
+    - Use let for local bindings where convenient
+    - immAssert syntax: immAssert(condition, "name", $format("fmt string", args))
+
+  test_method: >
+    In simulation: generate header data via mkHeader2DataStream, feed the output data stream
+    and HeaderMetaData into mkDataStream2Header, verify the reconstructed HeaderRDMA matches
+    the original input header. This round-trip test verifies both encode and decode.
+
+ports:
+  - name: "dataPipeIn"
+    direction: "input"
+    category: "data"
+    type: "DataStreamPipeOut"
+    description: "Input pipe providing DataStream fragments that carry header data (from mkHeader2DataStream or similar source)"
+
+  - name: "headerMetaDataPipeIn"
+    direction: "input"
+    category: "data"
+    type: "PipeOut_HeaderMetaData"
+    description: "Input pipe providing HeaderMetaData describing the expected structure (fragment count, byte lengths) of the incoming header data stream"
+
+  - name: "headerPipeOut"
+    direction: "output"
+    category: "data"
+    type: "PipeOut_HeaderRDMA"
+    description: "Output pipe producing the fully reconstructed HeaderRDMA, one per header"
+
+nodes: []
+connections: []

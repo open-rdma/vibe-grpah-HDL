@@ -1,0 +1,49 @@
+{
+  "iteration": 6,
+  "total_findings": 30,
+  "status": "active",
+  "stale_count": 0,
+  "current_target": "ScatterGather nested system + minimal v8 WorkCompGen + integrated RecursiveCache",
+  "last_action": "v7 CountCF compiles (skeletal boundary confirmed). Recursive modules (mkBinaryTreeFork, mkRecursiveSearch) compile with NumAlias provisos. Full DupReadAtomicCache fails with 8 type errors. Launched 3 agents.",
+  "levels": {
+    "1_passed": [],
+    "1_manual_review_pass": ["mkHeader2DataStream"],
+    "1_compile_pass": ["mkHeader2DataStream"],
+    "2_passed": [],
+    "2_manual_review_pass": ["mkDataStream2Header", "mkPrependHeader2PipeOut"],
+    "2_compile_pass": ["mkDataStream2Header", "mkPrependHeader2PipeOut"],
+    "3_passed": [],
+    "3_manual_review_pass": ["mkCombineHeaderAndPayload"],
+    "3_compile_pass": ["mkCombineHeaderAndPayload", "mkCountCF"],
+    "minimal_tiers": {
+      "v2_compact_compile": "pass",
+      "v3_minimal_compile": "pass",
+      "v4_skeletal_compile": "pass",
+      "v5_ultra_skeletal_compile": "FAIL - (* synthesize *) + type inference + interface syntax errors",
+      "v6_compact_compile": "pass (mkCountCF)",
+      "v7_skeletal_compile": "pass (mkCountCF, after CReg syntax fix)",
+      "boundary_note": "Minimum viable description boundary IS at ~5 lines skeletal tier. Confirmed independently for BOTH FSM-type (mkDataStream2Header) AND counter-type (mkCountCF). Boundary appears module-type-independent.",
+      "boundary_errors_v7": "CReg#(n,t) invalid syntax — agent invents non-existent type rather than using Reg#(t) arr[n] <- mkCReg(n,init)"
+    },
+    "complex_multi": {
+      "pipeline_5module_compile": "pass (after minor HeaderDataWidth fix)",
+      "pipeline_5module_lines": 756
+    },
+    "complex_recursive": {
+      "RecursiveUtils_compile": "pass (2 recursive modules with NumAlias provisos)",
+      "RecursiveUtils_lines": 135,
+      "DupReadAtomicCache_full_compile": "FAIL — 8 type errors: Eq instance missing, ADDR ambiguity, function type mismatch, qSz unbound, return-in-nested-block",
+      "DupReadAtomicCache_full_lines": 674,
+      "architectural_score": "8/10 — correct 4-module structure",
+      "type_system_score": "3/10 — Bluespec type constraints too fine-grained"
+    },
+    "failed": ["minimal_v5_ultra_skeletal", "DupReadAtomicCache_full"],
+    "not_attempted": [
+      "mkScanFIFOF",
+      "mkServerArbiter",
+      "mkWorkCompGen"
+    ]
+  },
+  "blockers": [],
+  "infrastructure": "BSC v2022.01-ubuntu-20.04 working. Correct recursive provisos: NumAlias#(TLog#(vSz),cntSz) NOT Mul#(TDiv#(...))."
+}
