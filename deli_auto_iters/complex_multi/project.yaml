@@ -1,8 +1,0 @@
-meta:
-  name: "header_pipeline_complex"
-  description: "Multi-module header processing pipeline: 5 modules that segment, reassemble, prepend, extract, and combine header/payload DataStreams."
-  test_method: "Compile all 5 modules together"
-properties:
-  target: "bluespec_sv"
-trees:
-  - top

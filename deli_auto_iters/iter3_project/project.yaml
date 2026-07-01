@@ -1,8 +1,0 @@
-meta:
-  name: "datastream2header"
-  description: "Converts DataStream fragments back into an RDMA header, guided by HeaderMetaData"
-  test_method: "Feed generated header data streams (from mkHeader2DataStream output) into mkDataStream2Header and verify the reconstructed HeaderRDMA matches the original input"
-properties:
-  target: "bluespec_sv"
-trees:
-  - top

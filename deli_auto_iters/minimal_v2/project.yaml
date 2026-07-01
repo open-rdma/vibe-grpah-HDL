@@ -1,8 +1,0 @@
-meta:
-  name: "datastream2header_compact"
-  description: "Converts DataStream fragments back into HeaderRDMA"
-  test_method: "Round-trip test with mkHeader2DataStream output"
-properties:
-  target: "bluespec_sv"
-trees:
-  - top

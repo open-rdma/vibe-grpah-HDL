@@ -1,8 +1,0 @@
-meta:
-  name: "countcf_compact"
-  description: "Counter with increment/decrement FIFO interface and write capability"
-  test_method: "Compile standalone"
-properties:
-  target: "bluespec_sv"
-trees:
-  - top

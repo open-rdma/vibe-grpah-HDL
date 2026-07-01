@@ -1,9 +1,0 @@
-meta:
-  name: "dup_read_atomic_cache_complex"
-  description: "Deeply nested recursive multi-module system: binary tree fork, recursive tournament search, parameterized cache FIFO, and duplicate read/atomic cache."
-  test_method: "Compile all modules together"
-properties:
-  target: "bluespec_sv"
-trees:
-  - top
-  - lib

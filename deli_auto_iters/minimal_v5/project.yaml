@@ -1,5 +1,0 @@
-meta:
-  name: "datastream2header_ultra"
-  description: "DataStream to HeaderRDMA converter"
-properties:
-  target: "bluespec_sv"

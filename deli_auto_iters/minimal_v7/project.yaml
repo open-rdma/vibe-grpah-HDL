@@ -1,8 +1,0 @@
-meta:
-  name: "countcf_skeletal"
-  description: "Counter with increment/decrement and write"
-  test_method: "Compile standalone"
-properties:
-  target: "bluespec_sv"
-trees:
-  - top
