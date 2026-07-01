@@ -1,0 +1,96 @@
+meta:
+  name: "arbiter_tree"
+  description: "Two-level hierarchical arbiter tree that splits requests into two halves, arbitrates each half independently, then arbitrates between the two winners."
+  knowledge: |
+    # mkArbiterTree
+
+    ## Purpose
+    Hierarchical arbiter that handles wide request vectors by splitting them into
+    two halves, arbitrating each half with independent round-robin arbiters, then
+    selecting between the two winners at the top level.
+
+    ## Internal Architecture
+    - Splits the input request vector into lower and upper halves
+    - Each half goes to a dedicated mkRoundRobinArbiter
+    - The winners compete at a top-level mkRoundRobinArbiter (2-port)
+    - The combined grant is assembled from which half won and the internal grant position
+
+    ## Submodules
+    Instantiates THREE mkRoundRobinArbiter instances:
+    - "left_arb_inst": RoundRobinArbiter#(TDiv#(reqNum, 2)) — handles lower half bits
+    - "right_arb_inst": RoundRobinArbiter#(TDiv#(reqNum, 2)) — handles upper half bits
+    - "top_arb_inst": RoundRobinArbiter#(2) — chooses between left/right winners
+
+    ## Arbitration Flow
+    1. Split reqVec: leftReq = reqVec[TDiv(reqNum,2)-1 : 0], rightReq = reqVec[reqNum-1 : TDiv(reqNum,2)]
+    2. leftGrant = left_arb_inst.grant(leftReq)
+    3. rightGrant = right_arb_inst.grant(rightReq)
+    4. Build top-level request: topReq[0] = (leftGrant != 0), topReq[1] = (rightGrant != 0)
+    5. topGrant = top_arb_inst.grant(topReq)
+    6. If topGrant[0] == 1: combinedGrant = zeroExtend(leftGrant)
+    7. If topGrant[1] == 1: combinedGrant = {rightGrant, zeroExtend(0)}
+
+    ## Numeric Constraints
+    - reqNum must be a power of 2 and >= 4 (since we split into at least 2 halves of 2 each)
+    - Uses NumAlias#(TLog#(reqNum), ...) provisos
+
+ports:
+  - name: "reqVec"
+    direction: "input"
+    category: "data"
+    type: "Bit_N"
+    description: "Full request vector. Width = reqNum."
+  - name: "grantVec"
+    direction: "output"
+    category: "data"
+    type: "Bit_N"
+    description: "Final one-hot grant across all requestors. Width = reqNum."
+
+nodes:
+  - id: "left_arb_inst"
+    ref: "library/round_robin_arbiter/round_robin_arbiter.yaml"
+    description: "Round-robin arbiter for the lower half of request bits"
+    properties:
+      reqNum: "TDiv#(reqNum, 2)"
+
+  - id: "right_arb_inst"
+    ref: "library/round_robin_arbiter/round_robin_arbiter.yaml"
+    description: "Round-robin arbiter for the upper half of request bits"
+    properties:
+      reqNum: "TDiv#(reqNum, 2)"
+
+  - id: "top_arb_inst"
+    ref: "library/round_robin_arbiter/round_robin_arbiter.yaml"
+    description: "Top-level 2-port round-robin arbiter choosing between left and right winners"
+    properties:
+      reqNum: "2"
+
+connections:
+  - from: { node: "graph_input", port: "reqVec" }
+    to:
+      - { node: "self", port: "reqSplitter" }
+    description: "Input request vector goes to the split logic"
+
+  - from: { node: "self", port: "leftReq" }
+    to: [{ node: "left_arb_inst", port: "reqVec" }]
+    description: "Lower half of request bits → left arbiter"
+
+  - from: { node: "self", port: "rightReq" }
+    to: [{ node: "right_arb_inst", port: "reqVec" }]
+    description: "Upper half of request bits → right arbiter"
+
+  - from: { node: "left_arb_inst", port: "grantVec" }
+    to: [{ node: "self", port: "leftGrant" }]
+    description: "Left arbiter's grant feeds into the top-level selection"
+
+  - from: { node: "right_arb_inst", port: "grantVec" }
+    to: [{ node: "self", port: "rightGrant" }]
+    description: "Right arbiter's grant feeds into the top-level selection"
+
+  - from: { node: "self", port: "topReq" }
+    to: [{ node: "top_arb_inst", port: "reqVec" }]
+    description: "2-bit request vector (left_has_winner, right_has_winner) → top arbiter"
+
+  - from: { node: "top_arb_inst", port: "grantVec" }
+    to: [{ node: "self", port: "topGrant" }]
+    description: "Top arbiter's decision selects which half wins"

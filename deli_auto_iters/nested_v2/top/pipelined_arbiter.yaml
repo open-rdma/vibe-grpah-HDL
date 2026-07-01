@@ -1,0 +1,123 @@
+meta:
+  name: "pipelined_arbiter"
+  description: "Pipelined arbiter that adds a register stage and valid/ready handshake to a hierarchical arbiter tree. Outputs are registered for timing closure."
+  knowledge: |
+    # mkPipelinedArbiter
+
+    ## Purpose
+    Wraps a hierarchical arbiter tree with pipeline register and simple valid/ready
+    flow control. The pipeline register improves timing by breaking the combinational
+    path from request input to grant output.
+
+    ## Internal Architecture
+    - Instantiates ONE mkArbiterTree to perform arbitration
+    - Pipeline register (Reg) stages the grant output
+    - Valid signal: asserted when grant is non-zero (a request was granted)
+    - On each cycle: if the previous grant has been consumed (ready signal), or
+      no valid grant is pending, issue a new arbitration
+
+    ## Arbitration Flow
+    1. If grant_valid is false (no pending grant) OR (ready && grant_valid): run arbitration
+    2. grant_result = arbiter_tree.arbitrate(reqVec)
+    3. grant_reg <= grant_result
+    4. grant_valid_reg <= (grant_result != 0)
+    5. Output grantVec = grant_reg when grant_valid_reg is true
+
+    ## Interface
+    - reqVec: input request vector
+    - grantVec: output grant vector (registered)
+    - grantValid: output valid signal (True when grant is meaningful)
+
+    ## Note
+    This is a simplified pipeline — full ready/valid flow control with backpressure
+    would require FIFOF. This version uses a simple overwrite policy.
+
+provisos:
+  - "NumAlias#(TLog#(reqNum), logReqNum)"
+
+ports:
+  - name: "reqVec"
+    direction: "input"
+    category: "data"
+    type: "Bit#(reqNum)"
+    description: "Request vector (full width)"
+
+  - name: "grantVec"
+    direction: "output"
+    category: "data"
+    type: "Bit#(reqNum)"
+    description: "Registered grant output"
+
+  - name: "grantValid"
+    direction: "output"
+    category: "data"
+    type: "Bool"
+    description: "True when grantVec holds a valid grant"
+
+signals:
+  - name: "grantReg"
+    type: "Reg#(Bit#(reqNum))"
+    init: "0"
+    description: "Pipeline register holding the current grant output"
+
+  - name: "grantValidReg"
+    type: "Reg#(Bool)"
+    init: "False"
+    description: "Valid bit for the pipeline register"
+
+  - name: "newGrant"
+    type: "Bit#(reqNum)"
+    description: "Fresh grant result from the arbiter tree"
+
+methods:
+  - name: "arbitrate"
+    arguments:
+      - name: "reqVec"
+        type: "Bit#(reqNum)"
+    returns: "Action"
+    maps_to_port: "grantVec"
+    description: "Run one arbitration cycle. Updates internal pipeline register."
+
+  - name: "grant"
+    arguments: []
+    returns: "Bit#(reqNum)"
+    maps_to_port: "grantVec"
+    description: "Read current grant value from pipeline register"
+
+  - name: "grantValid_out"
+    arguments: []
+    returns: "Bool"
+    maps_to_port: "grantValid"
+    description: "Read current grant valid flag from pipeline register"
+
+nodes:
+  - id: "arbiter_inst"
+    ref: "library/arbiter_tree/arbiter_tree.yaml"
+    description: "Hierarchical arbiter tree performing the actual arbitration"
+    parameters:
+      reqNum: "reqNum"
+
+connections:
+  - from: { node: "graph_input", port: "reqVec" }
+    to:
+      - { node: "arbiter_inst", port: "reqVec" }
+    description: "Input request vector feeds the arbiter tree directly"
+
+  - from: { node: "arbiter_inst", port: "grantVec" }
+    to: [{ signal: "newGrant" }]
+    description: "Arbiter tree's grant result is captured"
+
+  - from: { signal: "newGrant" }
+    transform: "registered: grantReg <= newGrant each cycle"
+    to:
+      - { signal: "grantReg" }
+      - { signal: "grantValidReg" }
+    description: "Pipeline register captures grant and sets valid"
+
+  - from: { signal: "grantReg" }
+    to: [{ node: "graph_output", port: "grantVec" }]
+    description: "Registered grant → output"
+
+  - from: { signal: "grantValidReg" }
+    to: [{ node: "graph_output", port: "grantValid" }]
+    description: "Valid flag → output"

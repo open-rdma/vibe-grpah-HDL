@@ -1,0 +1,9 @@
+meta:
+  name: "priority_arbiter_nested"
+  description: "Multi-level hierarchical priority arbiter system with proper nested graph structure. Each module defined in its own YAML file."
+  test_method: "Compile all generated modules standalone, then compile top-level with sub-module dependencies"
+properties:
+  target: "bluespec_sv"
+trees:
+  - top
+  - library

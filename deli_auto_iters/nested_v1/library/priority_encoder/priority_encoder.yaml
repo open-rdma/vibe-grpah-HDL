@@ -1,0 +1,37 @@
+meta:
+  name: "priority_encoder"
+  description: "Fixed-priority encoder: finds the highest-priority asserted bit in a request vector. Bit 0 = highest priority, bit (reqNum-1) = lowest."
+  knowledge: |
+    # mkPriorityEncoder
+
+    ## Purpose
+    Combinational priority encoder. Given a request bit vector, returns a one-hot grant
+    vector where only the highest-priority asserted request bit is set to 1.
+
+    ## Priority Rule
+    - Bit 0 has the highest priority
+    - Bit (reqNum-1) has the lowest priority
+    - Only the FIRST (lowest-index) asserted bit in the request is granted
+    - If no bits are asserted, grant is all zeros
+
+    ## Implementation
+    - Pure combinational logic, no registers, no clock
+    - Parameterized by reqNum (numeric type, must be >= 1)
+    - Uses a for-loop (Integer index) to scan bits from 0 to reqNum-1
+    - Returns the grant as a Bit#(reqNum)
+    - The encode method is a combinational function — no Action, no state
+
+    ## Interface Methods
+    - encode(Bit#(reqNum) reqVec) → Bit#(reqNum): returns one-hot grant
+
+ports:
+  - name: "reqVec"
+    direction: "input"
+    category: "data"
+    type: "Bit_N"
+    description: "Request vector to encode. Width = reqNum."
+  - name: "grantVec"
+    direction: "output"
+    category: "data"
+    type: "Bit_N"
+    description: "One-hot grant vector. Width = reqNum. Only one bit is asserted."

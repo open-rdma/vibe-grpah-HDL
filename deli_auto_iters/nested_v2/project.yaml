@@ -1,0 +1,9 @@
+meta:
+  name: "nested_v2"
+  description: "4-level hierarchical arbiter system with pipelining. Tests improved knowledge merge with language templates, child interface filtering, proviso propagation, and signal declarations."
+properties:
+  target: "bluespec_sv"
+  language_template: "templates/bluespec_sv/template.md"
+trees:
+  - top
+  - library
