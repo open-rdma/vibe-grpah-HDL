@@ -1,1 +1,1 @@
-["direct_mechanical_yaml_to_bsv", "single_large_prompt_llm_agent", "split_prompt_parallel_only", "reference_bsv_error_fix_loop", "two_agent_blind_review", "minimal_declarative_prompt_l0_l1"]
+["direct_mechanical_yaml_to_bsv", "single_large_prompt_llm_agent", "split_prompt_parallel_only", "reference_bsv_error_fix_loop", "two_agent_blind_review", "minimal_declarative_prompt_l0_l1", "mechanical_types_llm_behavior"]

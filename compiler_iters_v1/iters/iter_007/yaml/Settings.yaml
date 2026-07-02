@@ -1,0 +1,100 @@
+meta:
+  name: Settings
+  description: RDMA engine configuration constants
+
+module_type: typedef_only
+
+project_context: >
+  This is part of an RDMA (RoCEv2) hardware engine implemented in Bluespec SystemVerilog.
+  These constants define the device attributes and capabilities.
+
+design_knowledge:
+  description: >
+    System-wide configuration constants for the RDMA engine.
+    These define hardware resource limits, bus widths, and protocol parameters.
+    All values are numeric typedefs used throughout the codebase.
+
+typedefs:
+  - name: TARGET_CYCLE_NS
+    description: Target clock cycle time in nanoseconds
+    value: "2"
+
+  - name: MIN_PKT_NUM_IN_RECV_BUF
+    description: Minimum number of packets that can be buffered in receive buffer
+    value: "2"
+
+  - name: MAX_PENDING_WORK_COMP_NUM
+    description: Maximum pending work completion entries, calculated as 2 * MAX_QP_WR
+    value: "TMul#(2, MAX_QP_WR)"
+
+  - name: DATA_BUS_WIDTH
+    description: Width of the data bus in bits, must be power of 2
+    value: "256"
+
+  - name: MAX_MR_SIZE
+    description: Maximum memory region size (2GB = 2^31)
+    value: "TExp#(31)"
+
+  - name: PAGE_SIZE_CAP
+    description: Maximum page size capacity (2MB = 2^21)
+    value: "TExp#(21)"
+
+  - name: MAX_QP
+    description: Maximum number of Queue Pairs
+    value: "4"
+
+  - name: MAX_QP_WR
+    description: Maximum Work Requests per Queue Pair
+    value: "32"
+
+  - name: MAX_SGE
+    description: Maximum Scatter-Gather Elements per Work Request
+    value: "8"
+
+  - name: MAX_CQ
+    description: Maximum number of Completion Queues
+    value: "8"
+
+  - name: MAX_CQE
+    description: Maximum Completion Queue Entries (equals MAX_QP_WR)
+    value: "MAX_QP_WR"
+
+  - name: MAX_MR
+    description: Maximum number of Memory Regions
+    value: "256"
+
+  - name: MAX_PD
+    description: Maximum number of Protection Domains
+    value: "2"
+
+  - name: MAX_QP_RD_ATOM
+    description: Maximum number of outstanding RDMA Read and Atomic operations per QP. Equals MAX_QP_WR / 2
+    value: "TDiv#(MAX_QP_WR, 2)"
+
+  - name: MAX_QP_DST_RD_ATOM
+    description: Maximum number of destination RDMA Read and Atomic operations per QP. Equals MAX_QP_WR / 2
+    value: "TDiv#(MAX_QP_WR, 2)"
+
+  - name: MAX_SRQ
+    description: Maximum number of Shared Receive Queues (0 = not supported)
+    value: "0"
+
+  - name: MAX_SRQ_WR
+    description: Maximum Work Requests per Shared Receive Queue
+    value: "MAX_QP_WR"
+
+  - name: MAX_SRQ_SGE
+    description: Maximum Scatter-Gather Elements per SRQ Work Request
+    value: "MAX_SGE"
+
+  - name: MAX_SEND_SGE
+    description: Maximum scatter-gather elements for send operations
+    value: "1"
+
+  - name: MAX_RECV_SGE
+    description: Maximum scatter-gather elements for receive operations
+    value: "1"
+
+  - name: MAX_INLINE_DATA
+    description: Maximum inline data size in bytes (0 = no inline data support)
+    value: "0"
