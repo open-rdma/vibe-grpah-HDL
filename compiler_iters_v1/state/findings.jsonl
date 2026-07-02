@@ -16,3 +16,6 @@
 {"iter": "iter_004","finding":"Hybrid YAML (structural + algorithmic hints) achieves FPC=1.0 for algorithmic modules","category":"YAML format","significance":"high"}
 {"iter": "iter_004","finding":"ID=0.75 maintained for algorithmic modules - structural descriptions are inherently compact","category":"metrics","significance":"high"}
 {"iter": "iter_004","finding":"BSV-specific patterns (Vector indexing, pack, fire_when_enabled) correctly inferred by LLM","category":"compiler capability","significance":"medium"}
+{"iter": "iter_006","finding":"Centralized types.yaml + Bottom-Up compilation is a viable and effective strategy","category":"compiler design","significance":"high"}
+{"iter": "iter_006","finding":"Single-source-of-truth type registry eliminates duplication across module YAML files","category":"YAML format","significance":"high"}
+{"iter": "iter_006","finding":"Bottom-Up order (types→modules) guarantees no undefined-type compilation errors","category":"compiler design","significance":"medium"}

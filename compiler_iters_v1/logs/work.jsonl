@@ -15,3 +15,8 @@
 {"ts":"2026-07-02T00:03:30Z","source":"orchestrator","level":"info","event":"test_created","detail":"Created minimal testbench TestPsnUtils.bsv for generated functions"}
 {"ts":"2026-07-02T00:03:45Z","source":"orchestrator","level":"info","event":"simulation_pass","detail":"All 4 sub-tests passed (psnInRangeExclusive no-wrap, wrap, calcPsnDiff, calcNextAndEndPSN)"}
 {"ts":"2026-07-02T00:04:00Z","source":"orchestrator","level":"decision","event":"iter_002_complete","detail":"Iteration 002 complete. FPC=1.0, TPR=1.0, ZFPR=1.0. Key insight: declarative YAML works but is 3.75x larger than BSV. Next: reduce ID while maintaining AL and LIS improvements."}
+{"ts":"2026-07-02T07:05:00Z","source":"orchestrator","level":"decision","event":"iter_006_start","detail":"Direction: centralized-types-bottom-up. Testing centralized type registry + Bottom-Up compilation order."}
+{"ts":"2026-07-02T07:06:00Z","source":"orchestrator","level":"info","event":"yaml_created","detail":"Created project.yaml with centralized type definitions (Settings + Headers)"}
+{"ts":"2026-07-02T07:07:00Z","source":"orchestrator","level":"info","event":"phase1_success","detail":"Types.bsv generated and compiled (3177 bytes, all types accessible)"}
+{"ts":"2026-07-02T07:08:00Z","source":"orchestrator","level":"info","event":"phase2_success","detail":"TestTypes.bsv compiled against Types.bsv and passed simulation"}
+{"ts":"2026-07-02T07:09:00Z","source":"orchestrator","level":"decision","event":"iter_006_complete","detail":"Centralized types registry + Bottom-Up compilation works. ID=0.60, AL=0.8, ZFPR=1.0."}
