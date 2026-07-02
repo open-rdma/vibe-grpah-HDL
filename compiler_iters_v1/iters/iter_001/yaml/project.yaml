@@ -1,7 +1,0 @@
-knowledge:
-  bsv: This is an RDMA (RoCEv2) hardware engine implementation in Bluespec SystemVerilog.
-meta:
-  name: RDMA Engine
-  version: '1.0'
-target_languages:
-- bsv
