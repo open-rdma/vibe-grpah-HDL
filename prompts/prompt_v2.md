@@ -370,4 +370,5 @@ compiler 需支持不同构建范围和模式：
 
 ---------------------------------------------------------------------
 
-/Deli_AutoResearch 以prompts/prompt_v2.md中的内容为基础，进行Compiler的研究工作。即使你已经看过这个md文件中的内容了，现在也重新阅读一遍。不能直接修改bsv，无论成功失败都要开始下一轮迭代，每次迭代创建新的目录，每次仿真超时时间不大于1分钟。产出结果放在当前目录的compiler_iters目录下。 没有明确的指令，则一直尝试新的方向，不要停止。bsc编译器使用这个：/data/mmh/vibe-grpah-HDL/blue-rdma/bsc-2022.01-ubuntu-20.04
+/loop 30m /Deli_AutoResearch 以prompts/prompt_v2.md中的内容为基础，进行Compiler的研究工作。即使你已经看过这个md文件中的内容了，现在也重新阅读一遍。不能直接修改bsv，无论成功失败都要开始下一轮迭代，每次迭代创建新的目录，每次仿真超时时间不大于1分钟。产出结果放在当前目录的compiler_iters_v1目录下。 没有明确的指令，则一直尝试新的方向，不要停止。bsc编译器使用这个：/data/mmh/vibe-grpah-HDL/blue-rdma/bsc-2022.01-ubuntu-20.04
+
