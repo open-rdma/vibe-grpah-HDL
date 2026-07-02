@@ -1,0 +1,22 @@
+{
+  "directions": [
+    {
+      "iter": "iter_001",
+      "name": "baseline-handcrafted-yaml",
+      "description": "Direct 1:1 structural mapping of BSV constructs to YAML fields (bsv_typedef). Template-based Python compiler (no LLM).",
+      "target": "T01 Settings.bsv",
+      "result": "FPC=1.0, AL=0.0, ID=1.241, LIS=20",
+      "verdict": "Compiles but no abstraction benefit; YAML larger than BSV; language-dependent"
+    }
+  ],
+  "perturbation_strategies": [
+    "change YAML abstraction level (more declarative vs more detailed)",
+    "change compiler generation strategy (Two-Phase vs Bottom-Up vs Top-Down)",
+    "change knowledge template granularity (merge/split knowledge levels)",
+    "change type system representation (inline types vs centralized types.yaml)",
+    "change connection model (explicit wires vs implicit inference)",
+    "change module boundary granularity (more smaller modules vs fewer larger ones)",
+    "add domain-specific knowledge templates",
+    "change natural language description style (algorithmic vs behavioral)"
+  ]
+}

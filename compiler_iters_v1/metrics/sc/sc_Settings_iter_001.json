@@ -1,0 +1,7 @@
+{
+  "module": "Settings",
+  "iteration": "iter_001",
+  "original_constructs": {"typedefs": 20},
+  "expressed_in_yaml": {"typedefs": 20},
+  "sc_score": 1.0
+}

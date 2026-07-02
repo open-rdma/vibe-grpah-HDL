@@ -1,0 +1,3 @@
+{"iter": "iter_001","finding":"Direct structural YAML mapping (bsv_typedef field) compiles but provides no abstraction benefit","category":"YAML format","significance":"high"}
+{"iter": "iter_001","finding":"Template-based compiler produces correct output for simple typedefs but doesn't leverage LLM capabilities","category":"compiler design","significance":"medium"}
+{"iter": "iter_001","finding":"YAML is 24% larger than original BSV - defeats purpose of information density","category":"metrics","significance":"high"}

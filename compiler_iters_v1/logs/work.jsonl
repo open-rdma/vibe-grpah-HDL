@@ -1,0 +1,7 @@
+{"ts":"2026-07-02T00:00:00Z","source":"orchestrator","level":"info","event":"iter_001_start","detail":"Starting iteration 001, direction: baseline-handcrafted-yaml, target: T01 Settings.bsv"}
+{"ts":"2026-07-02T00:00:01Z","source":"orchestrator","level":"info","event":"yaml_created","detail":"Created Settings.yaml with 20 typedefs using direct bsv_typedef mapping"}
+{"ts":"2026-07-02T00:00:02Z","source":"orchestrator","level":"info","event":"compiler_created","detail":"Created compiler.py with template-based BSV generation"}
+{"ts":"2026-07-02T00:00:03Z","source":"orchestrator","level":"info","event":"generation_success","detail":"Generated Settings.bsv (885 bytes)"}
+{"ts":"2026-07-02T00:00:04Z","source":"orchestrator","level":"info","event":"compilation_success","detail":"Settings.bsv compiled successfully with bsc"}
+{"ts":"2026-07-02T00:00:05Z","source":"orchestrator","level":"info","event":"downstream_test_pass","detail":"Headers.bsv compiled successfully against generated Settings.bsv"}
+{"ts":"2026-07-02T00:00:06Z","source":"orchestrator","level":"decision","event":"iter_001_complete","detail":"Iteration 001 complete. FPC=1.0, but AL=0.0, ID=1.241, LIS=20. Need to improve language independence and use LLM-based generation. Next: iter_002 targeting T03 with declarative YAML + LLM compiler."}

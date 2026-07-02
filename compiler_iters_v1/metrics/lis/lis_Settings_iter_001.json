@@ -1,0 +1,11 @@
+{
+  "module": "Settings",
+  "iteration": "iter_001",
+  "language_specific_occurrences": {
+    "bsv_specific": 20,
+    "sv_specific": 0,
+    "vhdl_specific": 0
+  },
+  "lis_score": 20,
+  "note": "bsv_typedef field contains raw BSV syntax in every type entry - violates language independence"
+}

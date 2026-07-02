@@ -1,0 +1,11 @@
+{
+  "iteration": 1,
+  "total_findings": 3,
+  "status": "active",
+  "stale_count": 0,
+  "zfpr": 1.0,
+  "last_update": "2026-07-02T00:01:00Z",
+  "active_module": "T01_Settings",
+  "phase": 1,
+  "latest_direction": "baseline-handcrafted-yaml"
+}
