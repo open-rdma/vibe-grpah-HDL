@@ -1,0 +1,557 @@
+meta:
+  name: Headers
+  description: RDMA protocol header definitions and utility functions
+
+module_type: typedef_and_functions
+
+project_context: >
+  This is part of an RDMA (RoCEv2) hardware engine. The Headers module defines
+  all RDMA protocol header structures, opcode enums, transport types, and
+  helper functions for calculating header lengths.
+
+design_knowledge:
+  description: >
+    Defines the RDMA wire protocol headers used in RoCEv2 (RDMA over Converged Ethernet v2).
+    Includes the Base Transport Header (BTH), various extended transport headers
+    (AETH, RETH, LETH, AtomicEth, etc.), and enumeration types for transport types,
+    RDMA opcodes, and AETH acknowledgment/error codes.
+
+typedefs:
+  - name: ADDR_WIDTH
+    description: Address bit width
+    value: "64"
+  - name: LONG_WIDTH
+    description: Long integer bit width
+    value: "64"
+  - name: PSN_WIDTH
+    description: Packet Sequence Number bit width
+    value: "24"
+  - name: QPN_WIDTH
+    description: Queue Pair Number bit width
+    value: "24"
+  - name: RDMA_MAX_LEN_WIDTH
+    description: Maximum RDMA transfer length bit width
+    value: "32"
+  - name: WR_ID_WIDTH
+    description: Work Request ID bit width
+    value: "64"
+  - name: PAD_WIDTH
+    description: Padding count bit width
+    value: "2"
+  - name: PKEY_WIDTH
+    description: Partition Key bit width
+    value: "16"
+  - name: AETH_VALUE_WIDTH
+    description: AETH value field bit width
+    value: "5"
+  - name: MSN_WIDTH
+    description: Message Sequence Number bit width
+    value: "24"
+  - name: KEY_WIDTH
+    description: Key (R_Key/L_Key/Q_Key) bit width
+    value: "32"
+  - name: IMM_WIDTH
+    description: Immediate data bit width
+    value: "32"
+  - name: MIN_PMTU
+    description: Minimum Path MTU in bytes
+    value: "256"
+  - name: MAX_PMTU
+    description: Maximum Path MTU in bytes
+    value: "4096"
+
+  # Bit-type aliases
+  - name: ADDR
+    description: Address type
+    value: "Bit#(ADDR_WIDTH)"
+  - name: Length
+    description: Byte length type for RDMA operations
+    value: "Bit#(RDMA_MAX_LEN_WIDTH)"
+  - name: Long
+    description: 64-bit long value type
+    value: "Bit#(LONG_WIDTH)"
+  - name: QPN
+    description: Queue Pair Number type
+    value: "Bit#(QPN_WIDTH)"
+  - name: PSN
+    description: Packet Sequence Number type
+    value: "Bit#(PSN_WIDTH)"
+  - name: PAD
+    description: Padding count type
+    value: "Bit#(PAD_WIDTH)"
+  - name: PKEY
+    description: Partition Key type
+    value: "Bit#(PKEY_WIDTH)"
+  - name: AethValue
+    description: AETH value field type
+    value: "Bit#(AETH_VALUE_WIDTH)"
+  - name: MSN
+    description: Message Sequence Number type
+    value: "Bit#(MSN_WIDTH)"
+  - name: RKEY
+    description: Remote Key type (alias for KEY_WIDTH)
+    value: "Bit#(KEY_WIDTH)"
+  - name: LKEY
+    description: Local Key type (alias for KEY_WIDTH)
+    value: "Bit#(KEY_WIDTH)"
+  - name: QKEY
+    description: Queue Key type (alias for KEY_WIDTH)
+    value: "Bit#(KEY_WIDTH)"
+  - name: IMM
+    description: Immediate data type
+    value: "Bit#(IMM_WIDTH)"
+
+  # RC opcode constants (hex values 0x00-0x17)
+  - name: RC_SEND_FIRST
+    description: RC Send First opcode
+    value: "8'h00"
+  - name: RC_SEND_MIDDLE
+    description: RC Send Middle opcode
+    value: "8'h01"
+  - name: RC_SEND_LAST
+    description: RC Send Last opcode
+    value: "8'h02"
+  - name: RC_SEND_LAST_WITH_IMMEDIATE
+    description: RC Send Last with Immediate opcode
+    value: "8'h03"
+  - name: RC_SEND_ONLY
+    description: RC Send Only opcode
+    value: "8'h04"
+  - name: RC_SEND_ONLY_WITH_IMMEDIATE
+    description: RC Send Only with Immediate opcode
+    value: "8'h05"
+  - name: RC_RDMA_WRITE_FIRST
+    description: RC RDMA Write First opcode
+    value: "8'h06"
+  - name: RC_RDMA_WRITE_MIDDLE
+    description: RC RDMA Write Middle opcode
+    value: "8'h07"
+  - name: RC_RDMA_WRITE_LAST
+    description: RC RDMA Write Last opcode
+    value: "8'h08"
+  - name: RC_RDMA_WRITE_LAST_WITH_IMMEDIATE
+    description: RC RDMA Write Last with Immediate opcode
+    value: "8'h09"
+  - name: RC_RDMA_WRITE_ONLY
+    description: RC RDMA Write Only opcode
+    value: "8'h0a"
+  - name: RC_RDMA_WRITE_ONLY_WITH_IMMEDIATE
+    description: RC RDMA Write Only with Immediate opcode
+    value: "8'h0b"
+  - name: RC_RDMA_READ_REQUEST
+    description: RC RDMA Read Request opcode
+    value: "8'h0c"
+  - name: RC_RDMA_READ_RESPONSE_FIRST
+    description: RC RDMA Read Response First opcode
+    value: "8'h0d"
+  - name: RC_RDMA_READ_RESPONSE_MIDDLE
+    description: RC RDMA Read Response Middle opcode
+    value: "8'h0e"
+  - name: RC_RDMA_READ_RESPONSE_LAST
+    description: RC RDMA Read Response Last opcode
+    value: "8'h0f"
+  - name: RC_RDMA_READ_RESPONSE_ONLY
+    description: RC RDMA Read Response Only opcode
+    value: "8'h10"
+  - name: RC_ACKNOWLEDGE
+    description: RC Acknowledge opcode
+    value: "8'h11"
+  - name: RC_ATOMIC_ACKNOWLEDGE
+    description: RC Atomic Acknowledge opcode
+    value: "8'h12"
+  - name: RC_COMPARE_SWAP
+    description: RC Compare and Swap opcode
+    value: "8'h13"
+  - name: RC_FETCH_ADD
+    description: RC Fetch and Add opcode
+    value: "8'h14"
+  - name: RC_SEND_LAST_WITH_INVALIDATE
+    description: RC Send Last with Invalidate opcode
+    value: "8'h16"
+  - name: RC_SEND_ONLY_WITH_INVALIDATE
+    description: RC Send Only with Invalidate opcode
+    value: "8'h17"
+
+  # XRC opcode constants (hex values 0xa0-0xb7)
+  - name: XRC_SEND_FIRST
+    description: XRC Send First opcode
+    value: "8'ha0"
+  - name: XRC_SEND_MIDDLE
+    description: XRC Send Middle opcode
+    value: "8'ha1"
+  - name: XRC_SEND_LAST
+    description: XRC Send Last opcode
+    value: "8'ha2"
+  - name: XRC_SEND_LAST_WITH_IMMEDIATE
+    description: XRC Send Last with Immediate opcode
+    value: "8'ha3"
+  - name: XRC_SEND_ONLY
+    description: XRC Send Only opcode
+    value: "8'ha4"
+  - name: XRC_SEND_ONLY_WITH_IMMEDIATE
+    description: XRC Send Only with Immediate opcode
+    value: "8'ha5"
+  - name: XRC_RDMA_WRITE_FIRST
+    description: XRC RDMA Write First opcode
+    value: "8'ha6"
+  - name: XRC_RDMA_WRITE_MIDDLE
+    description: XRC RDMA Write Middle opcode
+    value: "8'ha7"
+  - name: XRC_RDMA_WRITE_LAST
+    description: XRC RDMA Write Last opcode
+    value: "8'ha8"
+  - name: XRC_RDMA_WRITE_LAST_WITH_IMMEDIATE
+    description: XRC RDMA Write Last with Immediate opcode
+    value: "8'ha9"
+  - name: XRC_RDMA_WRITE_ONLY
+    description: XRC RDMA Write Only opcode
+    value: "8'haa"
+  - name: XRC_RDMA_WRITE_ONLY_WITH_IMMEDIATE
+    description: XRC RDMA Write Only with Immediate opcode
+    value: "8'hab"
+  - name: XRC_RDMA_READ_REQUEST
+    description: XRC RDMA Read Request opcode
+    value: "8'hac"
+  - name: XRC_RDMA_READ_RESPONSE_FIRST
+    description: XRC RDMA Read Response First opcode
+    value: "8'had"
+  - name: XRC_RDMA_READ_RESPONSE_MIDDLE
+    description: XRC RDMA Read Response Middle opcode
+    value: "8'hae"
+  - name: XRC_RDMA_READ_RESPONSE_LAST
+    description: XRC RDMA Read Response Last opcode
+    value: "8'haf"
+  - name: XRC_RDMA_READ_RESPONSE_ONLY
+    description: XRC RDMA Read Response Only opcode
+    value: "8'hb0"
+  - name: XRC_ACKNOWLEDGE
+    description: XRC Acknowledge opcode
+    value: "8'hb1"
+  - name: XRC_ATOMIC_ACKNOWLEDGE
+    description: XRC Atomic Acknowledge opcode
+    value: "8'hb2"
+  - name: XRC_COMPARE_SWAP
+    description: XRC Compare and Swap opcode
+    value: "8'hb3"
+  - name: XRC_FETCH_ADD
+    description: XRC Fetch and Add opcode
+    value: "8'hb4"
+  - name: XRC_SEND_LAST_WITH_INVALIDATE
+    description: XRC Send Last with Invalidate opcode
+    value: "8'hb6"
+  - name: XRC_SEND_ONLY_WITH_INVALIDATE
+    description: XRC Send Only with Invalidate opcode
+    value: "8'hb7"
+
+  # UD opcode constants
+  - name: UD_SEND_ONLY
+    description: UD Send Only opcode
+    value: "8'h64"
+  - name: UD_SEND_ONLY_WITH_IMMEDIATE
+    description: UD Send Only with Immediate opcode
+    value: "8'h65"
+
+  # CNP notification
+  - name: ROCE_CNP
+    description: RoCEv2 Congestion Notification Packet opcode
+    value: "8'h81"
+
+enums:
+  - name: TransType
+    description: RDMA transport types (3-bit encoding)
+    deriving: Bits, Bounded, Eq, FShow
+    variants:
+      - "TRANS_TYPE_RC  = 3'h0"
+      - "TRANS_TYPE_UC  = 3'h1"
+      - "TRANS_TYPE_RD  = 3'h2"
+      - "TRANS_TYPE_UD  = 3'h3"
+      - "TRANS_TYPE_CNP = 3'h4"
+      - "TRANS_TYPE_XRC = 3'h5"
+
+  - name: RdmaOpCode
+    description: RDMA operation codes (5-bit encoding)
+    deriving: Bits, Bounded, Eq, FShow
+    variants:
+      - "SEND_FIRST                     = 5'h00"
+      - "SEND_MIDDLE                    = 5'h01"
+      - "SEND_LAST                      = 5'h02"
+      - "SEND_LAST_WITH_IMMEDIATE       = 5'h03"
+      - "SEND_ONLY                      = 5'h04"
+      - "SEND_ONLY_WITH_IMMEDIATE       = 5'h05"
+      - "RDMA_WRITE_FIRST               = 5'h06"
+      - "RDMA_WRITE_MIDDLE              = 5'h07"
+      - "RDMA_WRITE_LAST                = 5'h08"
+      - "RDMA_WRITE_LAST_WITH_IMMEDIATE = 5'h09"
+      - "RDMA_WRITE_ONLY                = 5'h0a"
+      - "RDMA_WRITE_ONLY_WITH_IMMEDIATE = 5'h0b"
+      - "RDMA_READ_REQUEST              = 5'h0c"
+      - "RDMA_READ_RESPONSE_FIRST       = 5'h0d"
+      - "RDMA_READ_RESPONSE_MIDDLE      = 5'h0e"
+      - "RDMA_READ_RESPONSE_LAST        = 5'h0f"
+      - "RDMA_READ_RESPONSE_ONLY        = 5'h10"
+      - "ACKNOWLEDGE                    = 5'h11"
+      - "ATOMIC_ACKNOWLEDGE             = 5'h12"
+      - "COMPARE_SWAP                   = 5'h13"
+      - "FETCH_ADD                      = 5'h14"
+      - "RESYNC                         = 5'h15"
+      - "SEND_LAST_WITH_INVALIDATE      = 5'h16"
+      - "SEND_ONLY_WITH_INVALIDATE      = 5'h17"
+
+  - name: AethCode
+    description: AETH acknowledgment/error code (2 bits)
+    deriving: Bits, Bounded, Eq, FShow
+    variants:
+      - "AETH_CODE_ACK  = 2'b00"
+      - "AETH_CODE_RNR  = 2'b01"
+      - "AETH_CODE_RSVD = 2'b10"
+      - "AETH_CODE_NAK  = 2'b11"
+
+  - name: AethAckValueCreditCnt
+    description: AETH acknowledgment credit count value
+    deriving: Bits, Bounded, Eq
+    variants:
+      - "AETH_ACK_VALUE_INVALID_CREDIT_CNT = 5'b11111"
+
+  - name: AethNakValue
+    description: AETH NAK error code values (5 bits)
+    deriving: Bits, Bounded, Eq
+    variants:
+      - "AETH_NAK_SEQ_ERR = 5'h0"
+      - "AETH_NAK_INV_REQ = 5'h1"
+      - "AETH_NAK_RMT_ACC = 5'h2"
+      - "AETH_NAK_RMT_OP  = 5'h3"
+      - "AETH_NAK_INV_RD  = 5'h4"
+
+structs:
+  - name: BTH
+    description: >
+      Base Transport Header (12 bytes). Contains transport type, opcode,
+      packet sequence number, destination QP number, partition key, and flags.
+    deriving: Bits, Bounded, FShow
+    fields:
+      - name: trans
+        type: TransType
+        description: Transport type
+      - name: opcode
+        type: RdmaOpCode
+        description: RDMA operation code
+      - name: solicited
+        type: Bool
+        description: Solicited event flag
+      - name: migReq
+        type: ReservedZero#(1)
+        description: Migration request (not supported)
+      - name: padCnt
+        type: PAD
+        description: Padding byte count
+      - name: tver
+        type: ReservedZero#(4)
+        description: Transport header version
+      - name: pkey
+        type: PKEY
+        description: Partition key
+      - name: fecn
+        type: ReservedZero#(1)
+        description: Forward ECN (not used in RoCEv2)
+      - name: becn
+        type: ReservedZero#(1)
+        description: Backward ECN (not used in RoCEv2)
+      - name: resv6
+        type: ReservedZero#(6)
+        description: Reserved field (6 bits)
+      - name: dqpn
+        type: QPN
+        description: Destination Queue Pair Number
+      - name: ackReq
+        type: Bool
+        description: Acknowledge request flag
+      - name: resv7
+        type: ReservedZero#(7)
+        description: Reserved field (7 bits)
+      - name: psn
+        type: PSN
+        description: Packet Sequence Number
+
+  - name: AETH
+    description: >
+      Acknowledge Extended Transport Header (4 bytes). Used in RDMA responses
+      to carry acknowledgment information, credit counts, or NAK error codes.
+    deriving: Bits, Bounded, FShow
+    fields:
+      - name: rsvd
+        type: ReservedZero#(1)
+        description: Reserved
+      - name: code
+        type: AethCode
+        description: ACK/RNR/NAK code
+      - name: value
+        type: AethValue
+        description: ACK credit count or NAK error code
+      - name: msn
+        type: MSN
+        description: Message Sequence Number
+
+  - name: RETH
+    description: >
+      RDMA Extended Transport Header (16 bytes). Used in RDMA WRITE and READ
+      requests to specify the remote virtual address, remote key, and data length.
+    deriving: Bits, Bounded, FShow
+    fields:
+      - name: va
+        type: ADDR
+        description: Virtual address on remote node
+      - name: rkey
+        type: RKEY
+        description: Remote key for access control
+      - name: dlen
+        type: Length
+        description: Data length in bytes
+
+  - name: LETH
+    description: >
+      Local Extended Transport Header (16 bytes). Used in RDMA READ requests
+      to specify the local virtual address and local key for the response data.
+    deriving: Bits, Bounded, FShow
+    fields:
+      - name: va
+        type: ADDR
+        description: Virtual address on local node
+      - name: lkey
+        type: LKEY
+        description: Local key for access control
+      - name: dlen
+        type: Length
+        description: Data length in bytes
+
+  - name: AtomicEth
+    description: >
+      Atomic Extended Transport Header (28 bytes). Used in atomic operations
+      (Compare-and-Swap, Fetch-and-Add) to specify the remote address, key,
+      swap value, and compare value.
+    deriving: Bits, Bounded, FShow
+    fields:
+      - name: va
+        type: ADDR
+        description: Virtual address on remote node
+      - name: rkey
+        type: RKEY
+        description: Remote key
+      - name: swap
+        type: Long
+        description: Swap value (64-bit)
+      - name: comp
+        type: Long
+        description: Compare value (64-bit)
+
+  - name: AtomicAckEth
+    description: >
+      Atomic Acknowledge Extended Transport Header (8 bytes). Carries the
+      original value read during an atomic operation.
+    deriving: Bits, Bounded, FShow
+    fields:
+      - name: orig
+        type: Long
+        description: Original value before atomic operation
+
+  - name: ImmDt
+    description: >
+      Immediate Data Extended Transport Header (4 bytes). Carries 32 bits
+      of immediate data in RDMA Send with Immediate operations.
+    deriving: Bits, Bounded, FShow
+    fields:
+      - name: data
+        type: IMM
+        description: Immediate data value
+
+  - name: IETH
+    description: >
+      Invalidate Extended Transport Header (4 bytes). Used with Send with
+      Invalidate to specify the remote key to invalidate.
+    deriving: Bits, Bounded, FShow
+    fields:
+      - name: rkey
+        type: RKEY
+        description: Remote key to invalidate
+
+  - name: DETH
+    description: >
+      Datagram Extended Transport Header (8 bytes). Used in UD (Unreliable
+      Datagram) operations to carry the queue key and source QP number.
+    deriving: Bits, Bounded, FShow
+    fields:
+      - name: qkey
+        type: QKEY
+        description: Queue key
+      - name: rsvd
+        type: ReservedZero#(8)
+        description: Reserved
+      - name: sqpn
+        type: QPN
+        description: Source Queue Pair Number
+
+  - name: XRCETH
+    description: >
+      XRC Extended Transport Header (4 bytes). Used in XRC (eXtended Reliable
+      Connected) operations to carry the shared receive queue number.
+    deriving: Bits, Bounded, FShow
+    fields:
+      - name: rsvd
+        type: ReservedZero#(8)
+        description: Reserved
+      - name: srqn
+        type: QPN
+        description: Shared Receive Queue Number
+
+  - name: PayloadCNP
+    description: >
+      Congestion Notification Packet payload (16 bytes). Contains two reserved
+      64-bit fields.
+    deriving: Bits, Bounded, FShow
+    fields:
+      - name: rsvd1
+        type: ReservedZero#(LONG_WIDTH)
+        description: Reserved
+      - name: rsvd2
+        type: ReservedZero#(LONG_WIDTH)
+        description: Reserved
+
+functions:
+  - name: calcHeaderLenByTransTypeAndRdmaOpCode
+    return_type: Integer
+    args: TransType transType, RdmaOpCode rdmaOpCode
+    description: >
+      Calculate the total header length in bytes for a given transport type and RDMA opcode combination.
+      Uses a case statement on the concatenation of transport type and opcode.
+      Key rules:
+      - SEND_FIRST/MIDDLE/LAST/ONLY: BTH only (12 bytes)
+      - SEND with IMMEDIATE: BTH + ImmDt (12 + 4 = 16 bytes)
+      - RDMA_WRITE_FIRST/ONLY: BTH + RETH (12 + 16 = 28 bytes)
+      - RDMA_WRITE_MIDDLE/LAST: BTH only (12 bytes)
+      - RDMA_WRITE with IMMEDIATE: BTH + RETH + ImmDt (12 + 16 + 4 = 32 bytes)
+      - RDMA_READ_REQUEST: BTH + RETH (12 + 16 = 28 bytes)
+      - COMPARE_SWAP/FETCH_ADD: BTH + AtomicEth (12 + 28 = 40 bytes)
+      - SEND with INVALIDATE: BTH + IETH (12 + 4 = 16 bytes)
+      - READ_RESPONSE_FIRST/LAST/ONLY: BTH + AETH (12 + 4 = 16 bytes)
+      - READ_RESPONSE_MIDDLE: BTH only (12 bytes)
+      - ACKNOWLEDGE: BTH + AETH (12 + 4 = 16 bytes)
+      - ATOMIC_ACKNOWLEDGE: BTH + AETH + AtomicAckEth (12 + 4 + 8 = 24 bytes)
+      - XRC variants: add XRCETH (4 bytes) to corresponding RC sizes
+      - UD_SEND_ONLY: BTH + DETH (12 + 8 = 20 bytes)
+      - UD with IMMEDIATE: BTH + DETH + ImmDt (12 + 8 + 4 = 24 bytes)
+      - CNP: BTH + PayloadCNP (12 + 16 = 28 bytes)
+      Use the corresponding BYTE_WIDTH constants (BTH_BYTE_WIDTH, RETH_BYTE_WIDTH, etc.) defined via SizeOf# and TDiv# after each struct.
+      Use fromInteger(valueOf(...)) to convert opcode constants to Integer for case matching.
+      Use '{' pack(transType), pack(rdmaOpCode) '}' as the case discriminant.
+      default: return 0.
+
+  - name: rdmaOpCodeHasPayload
+    return_type: Bool
+    args: RdmaOpCode opcode
+    description: >
+      Returns True if the given RDMA opcode carries a data payload.
+      Payload-carrying opcodes include:
+      - All SEND variants (SEND_FIRST through SEND_ONLY_WITH_INVALIDATE)
+      - All RDMA_WRITE variants (RDMA_WRITE_FIRST through RDMA_WRITE_ONLY_WITH_IMMEDIATE)
+      - All RDMA_READ_RESPONSE variants (READ_RESPONSE_FIRST through READ_RESPONSE_ONLY)
+      All other opcodes return False (ACKNOWLEDGE, ATOMIC_ACKNOWLEDGE, etc.)
+      Use a case statement with the opcode directly; list all True opcodes and default to False.
