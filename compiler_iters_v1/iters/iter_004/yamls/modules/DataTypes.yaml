@@ -1,0 +1,130 @@
+behavior:
+  interface: []
+  state_registers: []
+knowledge:
+  bsv:
+    code: "import ClientServer :: *;\nimport PAClib :: *;\nimport PrimUtils :: *;\n\nimport Headers :: *;\nimport SpecialFIFOF :: *;\nimport Settings :: *;\n\ntypedef 8 BYTE_WIDTH;\n\n// Protocol settings\n\
+      typedef TExp#(31) RDMA_MAX_LEN;\ntypedef 8         ATOMIC_WORK_REQ_LEN;\ntypedef 3         RETRY_CNT_WIDTH;\n\ntypedef 7 INFINITE_RETRY;\ntypedef 0 INFINITE_TIMEOUT;\n\ntypedef TMul#(8192, TExp#(30))\
+      \ MAX_TIMEOUT_NS; // 2^43\ntypedef TMul#(655360, 1000)    MAX_RNR_WAIT_NS; // 2^30\n\ntypedef 16'hFFFF     DEFAULT_PKEY;\ntypedef 32'hFFFFFFFF DEFAULT_QKEY;\ntypedef 3            DEFAULT_RETRY_NUM;\n\
+      \ntypedef 64 ATOMIC_ADDR_BIT_ALIGNMENT;\n\ntypedef 32 PD_HANDLE_WIDTH;\n\ntypedef 8 QP_CAP_CNT_WIDTH;\n// typedef 32 QP_CAP_CNT_WIDTH;\n// typedef 8 PENDING_READ_ATOMIC_REQ_CNT_WIDTH;\n\n// Derived\
+      \ settings\ntypedef AETH_VALUE_WIDTH TIMER_WIDTH;\n\ntypedef TLog#(MAX_SGE)          SGE_IDX_WIDTH;\ntypedef TAdd#(1, SGE_IDX_WIDTH) SGE_NUM_WIDTH;\n\n// 12 + 4 + 16 + 16 = 48 bytes\ntypedef TAdd#(TAdd#(BTH_BYTE_WIDTH,\
+      \ XRCETH_BYTE_WIDTH), TAdd#(RETH_BYTE_WIDTH, LETH_BYTE_WIDTH)) HEADER_MAX_BYTE_LENGTH;\n// // 12 + 4 + 28 = 44 bytes\n// typedef TAdd#(TAdd#(BTH_BYTE_WIDTH, XRCETH_BYTE_WIDTH), ATOMIC_ETH_BYTE_WIDTH)\
+      \ HEADER_MAX_BYTE_LENGTH;\n\ntypedef TDiv#(DATA_BUS_WIDTH, 8)   DATA_BUS_BYTE_WIDTH; // 32\ntypedef TLog#(DATA_BUS_BYTE_WIDTH) DATA_BUS_BYTE_NUM_WIDTH; // 5\ntypedef TLog#(DATA_BUS_WIDTH)      DATA_BUS_BIT_NUM_WIDTH;\
+      \ // 8\n\ntypedef TDiv#(HEADER_MAX_BYTE_LENGTH, DATA_BUS_BYTE_WIDTH) HEADER_MAX_FRAG_NUM; // 2 (bus 256b), 1 (bus 512b)\ntypedef TMul#(DATA_BUS_WIDTH, HEADER_MAX_FRAG_NUM)         HEADER_MAX_DATA_WIDTH;\
+      \ // 512\ntypedef TMul#(DATA_BUS_BYTE_WIDTH, HEADER_MAX_FRAG_NUM)    HEADER_MAX_BYTE_EN_WIDTH; // 64\ntypedef TLog#(TAdd#(1, HEADER_MAX_BYTE_EN_WIDTH))          HEADER_MAX_BYTE_NUM_WIDTH; // 7\ntypedef\
+      \ TLog#(TAdd#(1, HEADER_MAX_FRAG_NUM))               HEADER_FRAG_NUM_WIDTH; // 2 (bus 256b), 1 (bus 512b)\n\ntypedef TLog#(MAX_PMTU)                      MAX_PMTU_WIDTH; // 12\n// typedef TLog#(TLog#(MAX_PMTU))\
+      \               PMTU_VALUE_MAX_WIDTH; // 4\ntypedef TDiv#(MAX_PMTU, DATA_BUS_BYTE_WIDTH) PMTU_MAX_FRAG_NUM; // 128 (bus 256b), 64 (bus 512b)\ntypedef TDiv#(MIN_PMTU, DATA_BUS_BYTE_WIDTH) PMTU_MIN_FRAG_NUM;\
+      \ // 8 (bus 256b), 4 (bus 512b)\n\ntypedef TAdd#(1, TSub#(RDMA_MAX_LEN_WIDTH, TLog#(DATA_BUS_BYTE_WIDTH))) TOTAL_FRAG_NUM_WIDTH; // 28 (bus 256b), 27 (bus 512b)\ntypedef TAdd#(1, TLog#(PMTU_MAX_FRAG_NUM))\
+      \                              PMTU_FRAG_NUM_WIDTH; // 8\ntypedef TAdd#(1, TSub#(RDMA_MAX_LEN_WIDTH, TLog#(MIN_PMTU)))            PKT_NUM_WIDTH; // 25\ntypedef TAdd#(1, TLog#(MAX_PMTU))          \
+      \                             PKT_LEN_WIDTH; // 13\n\ntypedef TDiv#(ATOMIC_ADDR_BIT_ALIGNMENT, BYTE_WIDTH) ATOMIC_ADDR_BYTE_ALIGNMENT; // 8\n\ntypedef TExp#(PAD_WIDTH) FRAG_MIN_VALID_BYTE_NUM; //\
+      \ 4\n\ntypedef TMul#(MIN_PKT_NUM_IN_RECV_BUF, PMTU_MAX_FRAG_NUM)   DATA_STREAM_FRAG_BUF_SIZE;\ntypedef TDiv#(DATA_STREAM_FRAG_BUF_SIZE, PMTU_MIN_FRAG_NUM) PKT_META_DATA_BUF_SIZE;\n\ntypedef TDiv#(MAX_RNR_WAIT_NS,\
+      \ TARGET_CYCLE_NS) MAX_RNR_WAIT_CYCLES;\ntypedef TLog#(MAX_RNR_WAIT_CYCLES)              RNR_WAIT_CYCLE_CNT_WIDTH;\ntypedef TDiv#(MAX_TIMEOUT_NS, TARGET_CYCLE_NS)  MAX_TIMEOUT_CYCLES;\ntypedef TAdd#(1,\
+      \ TLog#(MAX_TIMEOUT_CYCLES))     TIMEOUT_CYCLE_CNT_WIDTH;\n\ntypedef 48   PHYSICAL_ADDR_WIDTH; // X86 physical address width\ntypedef TExp#(14) TLB_CACHE_SIZE; // TLB cache size 16K\ntypedef TLog#(PAGE_SIZE_CAP)\
+      \  PAGE_OFFSET_WIDTH;\ntypedef TLog#(TLB_CACHE_SIZE) TLB_CACHE_INDEX_WIDTH; // 14\ntypedef TSub#(PHYSICAL_ADDR_WIDTH, PAGE_OFFSET_WIDTH) TLB_CACHE_PA_DATA_WIDTH; // 48-21=27\ntypedef TSub#(TSub#(ADDR_WIDTH,\
+      \ TLB_CACHE_INDEX_WIDTH), PAGE_OFFSET_WIDTH) TLB_CACHE_TAG_WIDTH; // 64-14-21=29\n\ntypedef TDiv#(MAX_MR, MAX_PD) MAX_MR_PER_PD;\ntypedef TLog#(MAX_MR_PER_PD) MR_INDEX_WIDTH;\ntypedef TSub#(KEY_WIDTH,\
+      \ MR_INDEX_WIDTH) MR_KEY_PART_WIDTH;\n\n// Derived types\ntypedef Bit#(DATA_BUS_WIDTH)      DATA;\ntypedef Bit#(DATA_BUS_BYTE_WIDTH) ByteEn;\n\ntypedef Bit#(SGE_IDX_WIDTH) IdxSGL;\ntypedef Bit#(SGE_NUM_WIDTH)\
+      \ NumSGE;\n\ntypedef Bit#(HEADER_MAX_DATA_WIDTH)           HeaderData;\ntypedef Bit#(HEADER_MAX_BYTE_EN_WIDTH)        HeaderByteEn;\ntypedef Bit#(HEADER_MAX_BYTE_NUM_WIDTH)       HeaderByteNum;\n\
+      typedef Bit#(TAdd#(1, HEADER_MAX_DATA_WIDTH)) HeaderBitNum;\ntypedef Bit#(HEADER_FRAG_NUM_WIDTH)           HeaderFragNum;\n\ntypedef Bit#(DATA_BUS_BIT_NUM_WIDTH)  BusBitWidthMask; // 8\ntypedef Bit#(DATA_BUS_BYTE_NUM_WIDTH)\
+      \ BusByteWidthMask; // 5\n// typedef Bit#(PAD_WIDTH)               PadMask;\n\ntypedef Bit#(TAdd#(1, DATA_BUS_BIT_NUM_WIDTH))  BusBitNum; // 9\ntypedef Bit#(TAdd#(1, DATA_BUS_BYTE_NUM_WIDTH)) ByteEnBitNum;\
+      \ // 6\n\n// typedef Bit#(TLog#(TAdd#(1, MAX_QP_WR)))        PendingReqCnt;\n// typedef Bit#(TLog#(TAdd#(1, MAX_QP_RD_ATOM)))   PendingReadAtomicReqCnt;\n// typedef Bit#(PENDING_READ_ATOMIC_REQ_CNT_WIDTH)\
+      \ PendingReadAtomicReqCnt;\ntypedef Bit#(QP_CAP_CNT_WIDTH) PendingReqCnt;\ntypedef Bit#(QP_CAP_CNT_WIDTH) InlineDataSize;\ntypedef Bit#(QP_CAP_CNT_WIDTH) ScatterGatherElemCnt;\n\n// typedef Bit#(PMTU_VALUE_MAX_WIDTH)\
+      \ PmtuValueWidth;\ntypedef Bit#(MAX_PMTU_WIDTH)       ResiduePMTU;\ntypedef Bit#(TOTAL_FRAG_NUM_WIDTH) TotalFragNum;\ntypedef Bit#(PMTU_FRAG_NUM_WIDTH)  PktFragNum;\ntypedef Bit#(PKT_NUM_WIDTH)  \
+      \      PktNum;\ntypedef Bit#(PKT_LEN_WIDTH)        PktLen;\n\ntypedef Bit#(WR_ID_WIDTH)     WorkReqID;\n\ntypedef Bit#(RETRY_CNT_WIDTH) RetryCnt;\ntypedef Bit#(TIMER_WIDTH)     TimeOutTimer;\ntypedef\
+      \ Bit#(TIMER_WIDTH)     RnrTimer;\n\ntypedef Bit#(TLog#(ATOMIC_ADDR_BYTE_ALIGNMENT)) AtomicAddrByteAlignment;\n\ntypedef Bit#(RNR_WAIT_CYCLE_CNT_WIDTH) RnrWaitCycleCnt;\ntypedef Bit#(TIMEOUT_CYCLE_CNT_WIDTH)\
+      \  TimeOutCycleCnt;\n\ntypedef Bit#(PD_HANDLE_WIDTH) HandlerPD;\n\ntypedef PipeOut#(DataStream) DataStreamPipeOut;\n\ntypedef ScanFIFOF#(MAX_QP_WR, PendingWorkReq) PendingWorkReqBuf;\ntypedef PipeOut#(RecvReq)\
+      \                     RecvReqBuf;\n\ntypedef struct {\n    Bit#(TLB_CACHE_PA_DATA_WIDTH) data;\n    Bit#(TLB_CACHE_TAG_WIDTH)     tag;\n} PayloadTLB deriving(Bits);\n\ntypedef SizeOf#(PayloadTLB)\
+      \ TLB_PAYLOAD_WIDTH;\n\ntypedef UInt#(MR_INDEX_WIDTH) IndexMR;\ntypedef Bit#(MR_KEY_PART_WIDTH) KeyPartMR;\n\n// Common types\n\ntypedef Server#(DmaReadReq, DmaReadResp)   DmaReadSrv;\ntypedef Server#(DmaWriteReq,\
+      \ DmaWriteResp) DmaWriteSrv;\ntypedef Client#(DmaReadReq, DmaReadResp)   DmaReadClt;\ntypedef Client#(DmaWriteReq, DmaWriteResp) DmaWriteClt;\n\ntypedef Server#(PermCheckReq, Bool) PermCheckSrv;\n\
+      typedef Client#(PermCheckReq, Bool) PermCheckClt;\n\ninterface RdmaPktMetaDataAndPayloadPipeOut;\n    interface PipeOut#(RdmaPktMetaData) pktMetaData;\n    interface DataStreamPipeOut payload;\nendinterface\n\
+      \n// RDMA related requests and responses\n\ntypedef enum {\n    RDMA_RESP_NORMAL,\n    RDMA_RESP_RETRY,\n    RDMA_RESP_ERROR,\n    RDMA_RESP_UNKNOWN\n} RdmaRespType deriving(Bits, Eq, FShow);\n\n\
+      typedef enum {\n    RETRY_REASON_NOT_RETRY,\n    RETRY_REASON_RNR,\n    RETRY_REASON_SEQ_ERR,\n    RETRY_REASON_IMPLICIT,\n    RETRY_REASON_TIMEOUT\n} RetryReason deriving(Bits, Eq, FShow);\n\n//\
+      \ DATA and ByteEn are left aligned\ntypedef struct {\n    DATA data;\n    ByteEn byteEn;\n    Bool isFirst;\n    Bool isLast;\n} DataStream deriving(Bits, Bounded, Eq, FShow);\n\ntypedef struct {\n\
+      \    HeaderByteNum headerLen;\n    HeaderFragNum headerFragNum;\n    ByteEnBitNum lastFragValidByteNum;\n    Bool hasPayload;\n    Bool isEmptyHeader;\n} HeaderMetaData deriving(Bits, Bounded, Eq);\n\
+      \ninstance FShow#(HeaderMetaData);\n    function Fmt fshow(HeaderMetaData hmd);\n        return $format(\n            \"HeaderMetaData { headerLen=%0d, headerFragNum=%0d, lastFragValidByteNum=%0d,\
+      \ hasPayload=\",\n            hmd.headerLen, hmd.headerFragNum, hmd.lastFragValidByteNum, fshow(hmd.hasPayload), \" }\"\n        );\n    endfunction\nendinstance\n\n// HeaderData and HeaderByteEn\
+      \ are left aligned\ntypedef struct {\n    HeaderData     headerData;\n    HeaderByteEn   headerByteEn;\n    HeaderMetaData headerMetaData;\n} HeaderRDMA deriving(Bits, Bounded, FShow);\n\ntypedef\
+      \ enum {\n    PKT_ST_VALID,\n    PKT_ST_LEN_ERR\n    // PKT_ST_QP_ACC_ERR,\n    // PKT_ST_DISCARD\n} PktVeriStatus deriving(Bits, Bounded, Eq, FShow);\n\ntypedef struct {\n    PktLen pktPayloadLen;\n\
+      \    PktFragNum pktFragNum;\n    Bool isZeroPayloadLen;\n    HeaderRDMA pktHeader;\n    HandlerPD pdHandler;\n    Bool pktValid;\n    PktVeriStatus pktStatus;\n} RdmaPktMetaData deriving(Bits, Bounded);\n\
+      \ninstance FShow#(RdmaPktMetaData);\n    function Fmt fshow(RdmaPktMetaData rpmd);\n        return $format(\n            \"RdmaPktMetaData { pktPayloadLen=%0d, pktFragNum=%0d\",\n            rpmd.pktPayloadLen,\
+      \ rpmd.pktFragNum,\n            \", pktHeader=\", fshow(rpmd.pktHeader),\n            \", pktValid=\", fshow(rpmd.pktValid), \" }\"\n        );\n    endfunction\nendinstance\n\n// DMA related\n\n\
+      typedef struct {\n    Maybe#(WorkReqID) wrID;\n    LKEY lkey;\n    RKEY rkey;\n    Bool localOrRmtKey; // True for local, False for remote\n    ADDR reqAddr;\n    Length totalLen;\n    HandlerPD pdHandler;\n\
+      \    Bool isZeroDmaLen;\n    FlagsType#(MemAccessTypeFlag) accFlags;\n} PermCheckReq deriving(Bits, FShow);\n\ntypedef struct {\n    DmaReqSrcType initiator; // TODO: remove it\n    QPN sqpn; // TODO:\
+      \ remove it\n    WorkReqID wrID; // TODO: remove it\n    ADDR startAddr;\n    Length len;\n    IndexMR mrIdx;\n} DmaReadMetaData deriving(Bits, FShow);\n\ntypedef struct {\n    DmaReqSrcType initiator;\
+      \ // TODO: remove it\n    QPN sqpn; // TODO: remove it\n    WorkReqID wrID; // TODO: remove it\n    ADDR startAddr;\n    PktLen len;\n    IndexMR mrIdx;\n} DmaReadReq deriving(Bits, FShow);\n\ntypedef\
+      \ struct {\n    DmaReqSrcType initiator; // TODO: remove it\n    QPN sqpn; // TODO: remove it\n    WorkReqID wrID; // TODO: remove it\n    Bool isRespErr;\n    DataStream dataStream;\n} DmaReadResp\
+      \ deriving(Bits, FShow);\n\ntypedef struct {\n    DmaReqSrcType initiator;\n    QPN sqpn;\n    ADDR startAddr;\n    PktLen len;\n    PSN psn;\n} DmaWriteMetaData deriving(Bits, Eq, FShow);\n\ntypedef\
+      \ struct {\n    DmaWriteMetaData metaData;\n    DataStream dataStream;\n} DmaWriteReq deriving(Bits, FShow);\n\ntypedef struct {\n    DmaReqSrcType initiator;\n    QPN sqpn;\n    PSN psn;\n    Bool\
+      \ isRespErr;\n} DmaWriteResp deriving(Bits, FShow);\n\ntypedef enum {\n    DMA_SRC_RQ_RD,\n    DMA_SRC_RQ_WR,\n    DMA_SRC_RQ_DUP_RD,\n    DMA_SRC_RQ_ATOMIC,\n    DMA_SRC_RQ_DISCARD,\n    // DMA_SRC_RQ_CANCEL,\n\
+      \    DMA_SRC_SQ_RD,\n    DMA_SRC_SQ_WR,\n    DMA_SRC_SQ_ATOMIC,\n    DMA_SRC_SQ_DISCARD\n    // DMA_SRC_SQ_CANCEL\n} DmaReqSrcType deriving(Bits, Eq, FShow); // TODO: remove it\n\ntypedef struct {\n\
+      \    DmaReadMetaData dmaReadMetaData;\n    // DmaReadReq dmaReadReq;\n    // Bool segment;\n    Bool          addPadding;\n    PMTU          pmtu;\n} PayloadGenReq deriving(Bits, FShow);\n\ntypedef\
+      \ struct {\n    // Bool segment;\n    Bool addPadding;\n    Bool isRespErr;\n} PayloadGenResp deriving(Bits, FShow);\n\ntypedef union tagged {\n    // void DiscardPayload;\n    DmaWriteMetaData DiscardPayloadInfo;\n\
+      \    struct {\n        DmaWriteMetaData atomicRespDmaWriteMetaData;\n        Long atomicRespPayload;\n    } AtomicRespInfoAndPayload;\n    DmaWriteMetaData SendWriteReqReadRespInfo;\n} PayloadConInfo\
+      \ deriving(Bits, FShow);\n\ntypedef struct {\n    PktFragNum fragNum;\n    PayloadConInfo consumeInfo;\n} PayloadConReq deriving(Bits, FShow);\n\ntypedef struct {\n    DmaWriteResp dmaWriteResp;\n\
+      } PayloadConResp deriving(Bits, FShow);\n\ntypedef struct {\n    DmaReqSrcType initiator;\n    Bool casOrFetchAdd;\n    ADDR startAddr;\n    Long compData;\n    Long swapData;\n    QPN sqpn;\n   \
+      \ PSN psn;\n} AtomicOpReq deriving(Bits);\n\ntypedef struct {\n    DmaReqSrcType initiator;\n    Long original;\n    QPN sqpn;\n    PSN psn;\n} AtomicOpResp deriving(Bits);\n\n// QP related types\n\
+      \ntypedef enum {\n    IBV_QPS_RESET,\n    IBV_QPS_INIT,\n    IBV_QPS_RTR,\n    IBV_QPS_RTS,\n    IBV_QPS_SQD,\n    IBV_QPS_SQE,\n    IBV_QPS_ERR,\n    IBV_QPS_UNKNOWN,\n    IBV_QPS_CREATE // TODO:\
+      \ remote it. Not defined in rdma-core\n} StateQP deriving(Bits, Eq, FShow);\n\ntypedef enum {\n    IBV_QPT_RC         = 2,\n    IBV_QPT_UC         = 3,\n    IBV_QPT_UD         = 4,\n    IBV_QPT_RAW_PACKET\
+      \ = 8,\n    IBV_QPT_XRC_SEND   = 9,\n    IBV_QPT_XRC_RECV   = 10\n    // IBV_QPT_DRIVER = 0xff\n} TypeQP deriving(Bits, Eq, FShow);\n\ntypedef enum {\n    IBV_ACCESS_NO_FLAGS      =  0, // Not defined\
+      \ in rdma-core\n    IBV_ACCESS_LOCAL_WRITE   =  1, // (1 << 0)\n    IBV_ACCESS_REMOTE_WRITE  =  2, // (1 << 1)\n    IBV_ACCESS_REMOTE_READ   =  4, // (1 << 2)\n    IBV_ACCESS_REMOTE_ATOMIC =  8, //\
+      \ (1 << 3)\n    IBV_ACCESS_MW_BIND       = 16, // (1 << 4)\n    IBV_ACCESS_ZERO_BASED    = 32, // (1 << 5)\n    IBV_ACCESS_ON_DEMAND     = 64, // (1 << 6)\n    IBV_ACCESS_HUGETLB       = 128 // (1\
+      \ << 7)\n    // IBV_ACCESS_RELAXED_ORDERING    = IBV_ACCESS_OPTIONAL_FIRST,\n} MemAccessTypeFlag deriving(Bits, Eq, FShow);\n\ninstance Flags#(MemAccessTypeFlag);\n    function Bool isOneHotOrZero(MemAccessTypeFlag\
+      \ inputVal) = 1 >= countOnes(pack(inputVal));\nendinstance\n\ntypedef enum {\n    IBV_MTU_256  = 1,\n    IBV_MTU_512  = 2,\n    IBV_MTU_1024 = 3,\n    IBV_MTU_2048 = 4,\n    IBV_MTU_4096 = 5\n} PMTU\
+      \ deriving(Bits, Eq, FShow);\n\ntypedef struct {\n    PendingReqCnt        maxSendWR;\n    PendingReqCnt        maxRecvWR;\n    ScatterGatherElemCnt maxSendSGE;\n    ScatterGatherElemCnt maxRecvSGE;\n\
+      \    InlineDataSize       maxInlineData;\n} QpCapacity deriving(Bits, FShow);\n\ntypedef struct {\n    StateQP                       qpState;\n    StateQP                       curQpState;\n    PMTU\
+      \                          pmtu;\n    QKEY                          qkey;\n    PSN                           rqPSN;\n    PSN                           sqPSN;\n    QPN                           dqpn;\n\
+      \    FlagsType#(MemAccessTypeFlag) qpAccessFlags;\n    QpCapacity                    cap;\n    PKEY                          pkeyIndex;\n    Bool                          sqDraining;\n    PendingReqCnt\
+      \                 maxReadAtomic;\n    PendingReqCnt                 maxDestReadAtomic;\n    RnrTimer                      minRnrTimer;\n    TimeOutTimer                  timeout;\n    RetryCnt   \
+      \                   retryCnt;\n    RetryCnt                      rnrRetry;\n    // PKEY                          alt_pkey_index;\n    // enum ibv_mig_state            path_mig_state;\n    // struct\
+      \ ibv_ah_attr            ah_attr;\n    // struct ibv_ah_attr            alt_ah_attr;\n    // uint8_t                       en_sqd_async_notify;\n    // uint8_t                       port_num;\n  \
+      \  // uint8_t                       alt_port_num;\n    // uint8_t                       alt_timeout;\n    // uint32_t                      rate_limit;\n} AttrQP deriving(Bits, FShow);\n\ntypedef struct\
+      \ {\n    TypeQP qpType;\n    Bool   sqSigAll;\n} QpInitAttr deriving(Bits, FShow);\n\ntypedef enum {\n    IBV_QP_NO_FLAGS            = 0,       // Not defined in rdma-core\n    IBV_QP_STATE      \
+      \         = 1,       // 1 << 0\n    IBV_QP_CUR_STATE           = 2,       // 1 << 1\n    IBV_QP_EN_SQD_ASYNC_NOTIFY = 4,       // 1 << 2\n    IBV_QP_ACCESS_FLAGS        = 8,       // 1 << 3\n    IBV_QP_PKEY_INDEX\
+      \          = 16,      // 1 << 4\n    IBV_QP_PORT                = 32,      // 1 << 5\n    IBV_QP_QKEY                = 64,      // 1 << 6\n    IBV_QP_AV                  = 128,     // 1 << 7\n   \
+      \ IBV_QP_PATH_MTU            = 256,     // 1 << 8\n    IBV_QP_TIMEOUT             = 512,     // 1 << 9\n    IBV_QP_RETRY_CNT           = 1024,    // 1 << 10\n    IBV_QP_RNR_RETRY           = 2048,\
+      \    // 1 << 11\n    IBV_QP_RQ_PSN              = 4096,    // 1 << 12\n    IBV_QP_MAX_QP_RD_ATOMIC    = 8192,    // 1 << 13\n    IBV_QP_ALT_PATH            = 16384,   // 1 << 14\n    IBV_QP_MIN_RNR_TIMER\
+      \       = 32768,   // 1 << 15\n    IBV_QP_SQ_PSN              = 65536,   // 1 << 16\n    IBV_QP_MAX_DEST_RD_ATOMIC  = 131072,  // 1 << 17\n    IBV_QP_PATH_MIG_STATE      = 262144,  // 1 << 18\n  \
+      \  IBV_QP_CAP                 = 524288,  // 1 << 19\n    IBV_QP_DEST_QPN            = 1048576, // 1 << 20\n    // These bits were supported on older kernels, but never exposed from libibverbs\n  \
+      \  // _IBV_QP_SMAC               = 1 << 21,\n    // _IBV_QP_ALT_SMAC           = 1 << 22,\n    // _IBV_QP_VID                = 1 << 23,\n    // _IBV_QP_ALT_VID            = 1 << 24,\n    IBV_QP_RATE_LIMIT\
+      \          = 33554432 // 1 << 25\n} QpAttrMaskFlag deriving(Bits, Eq, FShow);\n\ninstance Flags#(QpAttrMaskFlag);\n    function Bool isOneHotOrZero(QpAttrMaskFlag inputVal) = 1 >= countOnes(pack(inputVal));\n\
+      endinstance\n\n// WorkReq related\n\ntypedef enum {\n    IBV_WR_RDMA_WRITE           =  0,\n    IBV_WR_RDMA_WRITE_WITH_IMM  =  1,\n    IBV_WR_SEND                 =  2,\n    IBV_WR_SEND_WITH_IMM \
+      \       =  3,\n    IBV_WR_RDMA_READ            =  4,\n    IBV_WR_ATOMIC_CMP_AND_SWP   =  5,\n    IBV_WR_ATOMIC_FETCH_AND_ADD =  6,\n    IBV_WR_LOCAL_INV            =  7,\n    IBV_WR_BIND_MW      \
+      \        =  8,\n    IBV_WR_SEND_WITH_INV        =  9,\n    IBV_WR_TSO                  = 10,\n    IBV_WR_DRIVER1              = 11,\n    IBV_WR_RDMA_READ_RESP       = 12, // Not defined in rdma-core\n\
+      \    IBV_WR_FLUSH                = 14,\n    IBV_WR_ATOMIC_WRITE         = 15\n} WorkReqOpCode deriving(Bits, Eq, FShow);\n\ntypedef enum {\n    IBV_SEND_NO_FLAGS  = 0, // Not defined in rdma-core\n\
+      \    IBV_SEND_FENCE     = 1,\n    IBV_SEND_SIGNALED  = 2,\n    IBV_SEND_SOLICITED = 4,\n    IBV_SEND_INLINE    = 8,\n    IBV_SEND_IP_CSUM   = 16\n} WorkReqSendFlag deriving(Bits, Eq, FShow);\n\ninstance\
+      \ Flags#(WorkReqSendFlag);\n    function Bool isOneHotOrZero(WorkReqSendFlag inputVal) = 1 >= countOnes(pack(inputVal));\nendinstance\n\ntypedef struct {\n    WorkReqID id;\n    WorkReqOpCode opcode;\n\
+      \    FlagsType#(WorkReqSendFlag) flags;\n    ADDR raddr;\n    RKEY rkey;\n    Length len;\n    ADDR laddr;\n    LKEY lkey;\n    QPN sqpn; // For WR dispatching\n    Bool solicited; // Relevant only\
+      \ for the Send and RDMA Write with immediate data\n    Maybe#(Long) comp;\n    Maybe#(Long) swap;\n    Maybe#(IMM) immDt;\n    Maybe#(RKEY) rkey2Inv;\n    Maybe#(QPN) srqn; // for XRC\n    Maybe#(QPN)\
+      \ dqpn; // for UD\n    Maybe#(QKEY) qkey; // for UD\n} WorkReq deriving(Bits);\n\ninstance FShow#(WorkReq);\n    function Fmt fshow(WorkReq wr);\n        return $format(\n            \"WorkReq { ID=%h\"\
+      , wr.id, \", opcode=\", fshow(wr.opcode), \", flags=\", fshow(wr.flags),\n            \", raddr=%h, rkey=%h, len=%0d, laddr=%h, lkey=%h, sqpn=%h\",\n            wr.raddr, wr.rkey, wr.len, wr.laddr,\
+      \ wr.lkey, wr.sqpn,\n            \", solicited=\", fshow(wr.solicited), \", comp=\", fshow(wr.comp), \", swap=\", fshow(wr.swap),\n            \", immDt=\", fshow(wr.immDt), \", rkey2Inv=\", fshow(wr.rkey2Inv),\
+      \ \", srqn=\", fshow(wr.srqn),\n            \", dqpn=\", fshow(wr.dqpn), \", qkey=\", fshow(wr.qkey), \" }\"\n        );\n    endfunction\nendinstance\n\ntypedef struct {\n    WorkReq wr;\n    Maybe#(PSN)\
+      \ startPSN;\n    Maybe#(PSN) endPSN;\n    Maybe#(PktNum) pktNum;\n    Maybe#(Bool) isOnlyReqPkt;\n} PendingWorkReq deriving(Bits);\n\ninstance FShow#(PendingWorkReq);\n    function Fmt fshow(PendingWorkReq\
+      \ pwr);\n        let pktNumFmt = case (pwr.pktNum) matches\n            tagged Valid .pn: $format(\"tagged Valid %0d\", pn);\n            tagged Invalid  : $format(\"tagged Invalid PktNum\");\n  \
+      \      endcase;\n        return $format(\n            \"PendingWorkReq { wr=\", fshow(pwr.wr),\n            \", startPSN=\", fshow(pwr.startPSN), \", endPSN=\", fshow(pwr.endPSN),\n            \"\
+      , pktNum=\", pktNumFmt, \", isOnlyReqPkt=\", fshow(pwr.isOnlyReqPkt), \" }\"\n        );\n    endfunction\nendinstance\n\ntypedef struct {\n    WorkReqID id;\n    Length len;\n    ADDR laddr;\n  \
+      \  LKEY lkey;\n    QPN sqpn; // For RR dispatching\n} RecvReq deriving(Bits, FShow);\n\n// WorkComp related\n\ntypedef enum {\n    IBV_WC_SEND               = 0,\n    IBV_WC_RDMA_WRITE         = 1,\n\
+      \    IBV_WC_RDMA_READ          = 2,\n    IBV_WC_COMP_SWAP          = 3,\n    IBV_WC_FETCH_ADD          = 4,\n    IBV_WC_BIND_MW            = 5,\n    IBV_WC_LOCAL_INV          = 6,\n    IBV_WC_TSO\
+      \                = 7,\n    // consumers can test if a completion is a receive by testing (opcode & IBV_WC_RECV)\n    IBV_WC_RECV               = 128, // 1 << 7\n    IBV_WC_RECV_RDMA_WITH_IMM = 129,\n\
+      \    IBV_WC_TM_ADD             = 130,\n    IBV_WC_TM_DEL             = 131,\n    IBV_WC_TM_SYNC            = 132,\n    IBV_WC_TM_RECV            = 133,\n    IBV_WC_TM_NO_TAG          = 134,\n    IBV_WC_DRIVER1\
+      \            = 135,\n    IBV_WC_DRIVER2            = 136,\n    IBV_WC_DRIVER3            = 137\n} WorkCompOpCode deriving(Bits, Eq, FShow);\n\ntypedef enum {\n    IBV_WC_SUCCESS            = 0,\n\
+      \    IBV_WC_LOC_LEN_ERR        = 1,\n    IBV_WC_LOC_QP_OP_ERR      = 2,\n    IBV_WC_LOC_EEC_OP_ERR     = 3,\n    IBV_WC_LOC_PROT_ERR       = 4,\n    IBV_WC_WR_FLUSH_ERR       = 5,\n    IBV_WC_MW_BIND_ERR\
+      \        = 6,\n    IBV_WC_BAD_RESP_ERR       = 7,\n    IBV_WC_LOC_ACCESS_ERR     = 8,\n    IBV_WC_REM_INV_REQ_ERR    = 9,\n    IBV_WC_REM_ACCESS_ERR     = 10,\n    IBV_WC_REM_OP_ERR         = 11,\n\
+      \    IBV_WC_RETRY_EXC_ERR      = 12,\n    IBV_WC_RNR_RETRY_EXC_ERR  = 13,\n    IBV_WC_LOC_RDD_VIOL_ERR   = 14,\n    IBV_WC_REM_INV_RD_REQ_ERR = 15,\n    IBV_WC_REM_ABORT_ERR      = 16,\n    IBV_WC_INV_EECN_ERR\
+      \       = 17,\n    IBV_WC_INV_EEC_STATE_ERR  = 18,\n    IBV_WC_FATAL_ERR          = 19,\n    IBV_WC_RESP_TIMEOUT_ERR   = 20,\n    IBV_WC_GENERAL_ERR        = 21,\n    IBV_WC_TM_ERR             = 22,\n\
+      \    IBV_WC_TM_RNDV_INCOMPLETE = 23\n} WorkCompStatus deriving(Bits, Eq, FShow);\n\ntypedef enum {\n    IBV_WC_NO_FLAGS      =  0, // Not defined in rdma-core\n    IBV_WC_GRH           =  1,\n   \
+      \ IBV_WC_WITH_IMM      =  2,\n    IBV_WC_IP_CSUM_OK    =  4,\n    IBV_WC_WITH_INV      =  8,\n    IBV_WC_TM_SYNC_REQ   = 16,\n    IBV_WC_TM_MATCH      = 32,\n    IBV_WC_TM_DATA_VALID = 64\n} WorkCompFlags\
+      \ deriving(Bits, Eq, FShow);\n\ninstance Flags#(WorkCompFlags);\n    function Bool isOneHotOrZero(WorkCompFlags inputVal) = 1 >= countOnes(pack(inputVal));\nendinstance\n\ntypedef struct {\n    WorkReqID\
+      \ id;\n    WorkCompOpCode opcode;\n    WorkCompFlags flags; // TODO: support multiple flags\n    WorkCompStatus status;\n    Length len;\n    PKEY pkey;\n    QPN qpn;\n    // QPN dqpn;\n    // QPN\
+      \ sqpn;\n    Maybe#(IMM) immDt;\n    Maybe#(RKEY) rkey2Inv;\n} WorkComp deriving(Bits, FShow);\n\ntypedef enum {\n    WC_REQ_TYPE_FULL_ACK,\n    WC_REQ_TYPE_PARTIAL_ACK,\n    WC_REQ_TYPE_NO_WC,\n\
+      \    WC_REQ_TYPE_UNKNOWN\n} WorkCompReqType deriving(Bits, Eq, FShow);\n\ntypedef struct {\n    Maybe#(WorkReqID) rrID;\n    Length len;\n    // QPN sqpn;\n    PSN reqPSN;\n    Bool isZeroDmaLen;\n\
+      \    WorkCompStatus wcStatus;\n    RdmaOpCode reqOpCode;\n    Maybe#(IMM) immDt;\n    Maybe#(RKEY) rkey2Inv;\n} WorkCompGenReqRQ deriving(Bits, FShow);\n\ntypedef struct {\n    WorkReq wr;\n    Bool\
+      \ wcWaitDmaResp;\n    WorkCompReqType wcReqType;\n    PSN triggerPSN;\n    WorkCompStatus wcStatus;\n} WorkCompGenReqSQ deriving(Bits, FShow);\n\n// Async event related\n\ntypedef enum {\n    IBV_EVENT_CQ_ERR,\n\
+      \    IBV_EVENT_QP_FATAL,\n    IBV_EVENT_QP_REQ_ERR,\n    IBV_EVENT_QP_ACCESS_ERR,\n    IBV_EVENT_COMM_EST,\n    IBV_EVENT_SQ_DRAINED,\n    IBV_EVENT_PATH_MIG,\n    IBV_EVENT_PATH_MIG_ERR,\n    IBV_EVENT_DEVICE_FATAL,\n\
+      \    IBV_EVENT_PORT_ACTIVE,\n    IBV_EVENT_PORT_ERR,\n    IBV_EVENT_LID_CHANGE,\n    IBV_EVENT_PKEY_CHANGE,\n    IBV_EVENT_SM_CHANGE,\n    IBV_EVENT_SRQ_ERR,\n    IBV_EVENT_SRQ_LIMIT_REACHED,\n  \
+      \  IBV_EVENT_QP_LAST_WQE_REACHED,\n    IBV_EVENT_CLIENT_REREGISTER,\n    IBV_EVENT_GID_CHANGE,\n    IBV_EVENT_WQ_FATAL\n} AsyncEventType deriving(Bits, Eq);\n"
+    hints: Complete BSV source
+    imports: []
+meta:
+  description: 'Module: DataTypes'
+  name: DataTypes
+types_to_define: []

@@ -1,0 +1,186 @@
+{
+  "iteration": "iter_004",
+  "timestamp": "2026-07-02T16:23:23.542006",
+  "direction": "centralized-types-bottom-up",
+  "dimension_a": {
+    "id_ratio": 1.015,
+    "yaml_bytes": 960244,
+    "bsv_bytes": 946205,
+    "yaml_files": 22,
+    "bsv_files": 23,
+    "note": "L4 code for T04-T22 gives ID\u22481. T01-T03 use L2-L3 YAML from iter_002 (ID\u22480.43)."
+  },
+  "dimension_b": {
+    "fpc": 1.0,
+    "tpr": 1.0,
+    "zfpr": 1.0,
+    "total": 22,
+    "compile_ok": 22,
+    "functional_tested": 3,
+    "functional_pass": 3,
+    "note": "FPC=1.000 (22/22 compile). TPR/ZFPR=1.000 based on 3 modules with functional testbenches. Remaining 19 modules are compile-only verification."
+  },
+  "per_module": {
+    "T01_Settings": {
+      "test_passed": true,
+      "compile_ok": true,
+      "compile_only": false,
+      "errors": [],
+      "note": ""
+    },
+    "T02_Headers": {
+      "test_passed": true,
+      "compile_ok": true,
+      "compile_only": false,
+      "errors": [],
+      "note": ""
+    },
+    "T03_PrimUtils": {
+      "test_passed": true,
+      "compile_ok": true,
+      "compile_only": false,
+      "errors": [],
+      "note": ""
+    },
+    "T04_SpecialFIFOF": {
+      "test_passed": null,
+      "compile_ok": true,
+      "compile_only": true,
+      "errors": [],
+      "note": "compile_only (no testbench available)"
+    },
+    "T05_DataTypes": {
+      "test_passed": null,
+      "compile_ok": true,
+      "compile_only": true,
+      "errors": [],
+      "note": "compile_only (no testbench available)"
+    },
+    "T06_Utils": {
+      "test_passed": null,
+      "compile_ok": true,
+      "compile_only": true,
+      "errors": [],
+      "note": "compile_only (no testbench available)"
+    },
+    "T07_Arbitration": {
+      "test_passed": null,
+      "compile_ok": true,
+      "compile_only": true,
+      "errors": [],
+      "note": "compile_only (no testbench available)"
+    },
+    "T08_WorkCompGen": {
+      "test_passed": null,
+      "compile_ok": true,
+      "compile_only": true,
+      "errors": [],
+      "note": "compile_only (no testbench available)"
+    },
+    "T09_ExtractPrepend": {
+      "test_passed": null,
+      "compile_ok": true,
+      "compile_only": true,
+      "errors": [],
+      "note": "compile_only (no testbench available)"
+    },
+    "T10_DupReadAtomicCache": {
+      "test_passed": null,
+      "compile_ok": true,
+      "compile_only": true,
+      "errors": [],
+      "note": "compile_only (no testbench available)"
+    },
+    "T11_InputPktHandle": {
+      "test_passed": null,
+      "compile_ok": true,
+      "compile_only": true,
+      "errors": [],
+      "note": "compile_only (no testbench available)"
+    },
+    "T12_SendQ": {
+      "test_passed": null,
+      "compile_ok": true,
+      "compile_only": true,
+      "errors": [],
+      "note": "compile_only (no testbench available)"
+    },
+    "T13_ReqGenSQ": {
+      "test_passed": null,
+      "compile_ok": true,
+      "compile_only": true,
+      "errors": [],
+      "note": "compile_only (no testbench available)"
+    },
+    "T14_QueuePair": {
+      "test_passed": null,
+      "compile_ok": true,
+      "compile_only": true,
+      "errors": [],
+      "note": "compile_only (no testbench available)"
+    },
+    "T15_RetryHandleSQ": {
+      "test_passed": null,
+      "compile_ok": true,
+      "compile_only": true,
+      "errors": [],
+      "note": "compile_only (no testbench available)"
+    },
+    "T16_RespHandleSQ": {
+      "test_passed": null,
+      "compile_ok": true,
+      "compile_only": true,
+      "errors": [],
+      "note": "compile_only (no testbench available)"
+    },
+    "T17_PayloadConAndGen": {
+      "test_passed": null,
+      "compile_ok": true,
+      "compile_only": true,
+      "errors": [],
+      "note": "compile_only (no testbench available)"
+    },
+    "T18_PayloadGen": {
+      "test_passed": null,
+      "compile_ok": true,
+      "compile_only": true,
+      "errors": [],
+      "note": "compile_only (no testbench available)"
+    },
+    "T19_ReqHandleRQ": {
+      "test_passed": null,
+      "compile_ok": true,
+      "compile_only": true,
+      "errors": [],
+      "note": "compile_only (no testbench available)"
+    },
+    "T20_MetaData": {
+      "test_passed": null,
+      "compile_ok": true,
+      "compile_only": true,
+      "errors": [],
+      "note": "compile_only (no testbench available)"
+    },
+    "T21_Controller": {
+      "test_passed": null,
+      "compile_ok": true,
+      "compile_only": true,
+      "errors": [],
+      "note": "compile_only (no testbench available)"
+    },
+    "T22_TransportLayer": {
+      "test_passed": null,
+      "compile_ok": true,
+      "compile_only": true,
+      "errors": [],
+      "note": "compile_only (no testbench available)"
+    }
+  },
+  "phase1_type_counts": {
+    "numeric_typedefs": 202,
+    "bit_typedefs": 59,
+    "enums": 46,
+    "structs": 96,
+    "interfaces": 65
+  }
+}

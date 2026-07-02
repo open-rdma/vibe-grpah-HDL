@@ -1,19 +1,26 @@
 {
-  "iteration": "iter_003",
-  "total_iterations": 3,
+  "iteration": "iter_004",
+  "total_iterations": 4,
   "status": "completed",
   "stale_count": 0,
   "zfpr_current": 1.0,
   "fpc_current": 1.0,
-  "direction": "standalone-testing-v1",
-  "active_test_targets": [
-    "T01",
-    "T02",
-    "T03"
+  "direction": "centralized-types-bottom-up",
+  "active_test_targets": ["T01","T02","T03","T04","T05","T06","T07","T08","T09","T10","T11","T12","T13","T14","T15","T16","T17","T18","T19","T20","T21","T22"],
+  "last_update": "2026-07-02T16:23:00Z",
+  "summary": "iter_004: Two-Phase compiler with centralized type registry. FPC=1.0 (22/22). Phase 1 extracted 468 types. Phase 2 generated 22 BSV modules. ZFPR=1.0 on 3/22 functionally-tested modules, 19/22 compile-only verified.",
+  "id_current": 1.015,
+  "tpr_current": 1.0,
+  "key_findings": [
+    "Phase 1 type registry successfully extracted 468 type definitions (202 numeric, 59 bit, 46 enums, 96 structs, 65 interfaces)",
+    "Phase 2 YAML→BSV pipeline verified at scale: all 22 modules compile",
+    "ID ratio 1.015 for L4 approach, degraded from 0.43 for L2-L3 approach (iter_002)",
+    "19/22 modules lack functional testbenches — ZFPR measured on only 3 modules",
+    "Module compilation time varies: T01-T03 <5s, complex modules (PayloadGen, TransportLayer) 60-120s"
   ],
-  "last_update": "2026-07-02T16:03:00Z",
-  "summary": "iter_003: First ZFPR=1.0 achieved! All 3 modules pass simulation with standalone testbenches",
-  "id_current": 0.43,
-  "id_improvement": "50.7% reduction from iter_001",
-  "tpr_current": 1.0
+  "next_direction_hints": [
+    "Create standalone functional testbenches for T04-T09 to expand ZFPR coverage",
+    "Move T04-T09 YAML from L4 → L3 (pseudocode) to improve ID ratio",
+    "Experiment with different Phase 2 generation strategies (bottom-up vs parallel)"
+  ]
 }

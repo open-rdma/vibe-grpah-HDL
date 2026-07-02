@@ -4,3 +4,4 @@
 {"ts":"2026-07-02T15:34:00Z","source":"compiler","level":"info","event":"compile_success","detail":"Workspace-based compilation successful for all 3 generated files"}
 {"ts":"2026-07-02T15:35:00Z","source":"compiler","level":"warn","event":"sim_skip","detail":"Simulation skipped: original test framework has pre-existing dependency issues in QueuePair/RetryHandleSQ"}
 {"ts":"2026-07-02T15:37:00Z","source":"compiler","level":"decision","event":"iter_001_complete","detail":"iter_001 complete: FPC=1.0, ID=1.186. Baseline established. Next: reduce abstraction level, add LLM generation, create minimal testbenches."}
+{"ts":"2026-07-02T16:30:00Z","source":"orchestrator","level":"decision","event":"iter_004_start","detail":"Starting Two-Phase compiler with centralized type registry. Direction: centralized-types-bottom-up. Target: all 20 modules with batch parallel testing."}

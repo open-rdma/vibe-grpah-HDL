@@ -1,0 +1,149 @@
+behavior:
+  interface: []
+  state_registers: []
+knowledge:
+  bsv:
+    code: "import FIFOF :: *;\nimport GetPut :: *;\nimport PAClib :: *;\n\nimport Controller :: *;\nimport DataTypes :: *;\nimport Headers :: *;\nimport PrimUtils :: *;\nimport SpecialFIFOF :: *;\nimport\
+      \ Settings :: *;\nimport Utils :: *;\n\n// WC for SQ\n\nfunction Maybe#(WorkComp) genWorkComp4WorkReq(\n    CntrlStatus cntrlStatus, WorkCompGenReqSQ wcGenReqSQ\n);\n    let wr = wcGenReqSQ.wr;\n\
+      \    let maybeWorkCompOpCode = workReqOpCode2WorkCompOpCode4SQ(wr.opcode);\n    // TODO: how to set WC flags in SQ?\n    // let wcFlags = workReqOpCode2WorkCompFlags(wr.opcode);\n    let wcFlags =\
+      \ IBV_WC_NO_FLAGS;\n\n    if (maybeWorkCompOpCode matches tagged Valid .opcode) begin\n        let workComp = WorkComp {\n            id      : wr.id,\n            opcode  : opcode,\n            flags\
+      \   : wcFlags,\n            status  : wcGenReqSQ.wcStatus,\n            len     : wr.len,\n            pkey    : cntrlStatus.comm.getPKEY,\n            qpn    : cntrlStatus.comm.getSQPN,\n       \
+      \     // dqpn    : cntrlStatus.comm.getSQPN,\n            // sqpn    : cntrlStatus.comm.getDQPN,\n            immDt   : tagged Invalid,\n            rkey2Inv: tagged Invalid\n        };\n        return\
+      \ tagged Valid workComp;\n    end\n    else begin\n        return tagged Invalid;\n    end\nendfunction\n\n// function Maybe#(WorkComp) genErrFlushWorkComp4WorkReq(\n//     CntrlStatus cntrlStatus,\
+      \ WorkReq wr\n// );\n//     let maybeWorkCompOpCode = workReqOpCode2WorkCompOpCode4SQ(wr.opcode);\n\n//     if (maybeWorkCompOpCode matches tagged Valid .opcode) begin\n//         let workComp = WorkComp\
+      \ {\n//             id      : wr.id,\n//             opcode  : opcode,\n//             flags   : IBV_WC_NO_FLAGS,\n//             status  : IBV_WC_WR_FLUSH_ERR,\n//             len     : wr.len,\n\
+      //             pkey    : cntrlStatus.comm.getPKEY,\n//             dqpn    : cntrlStatus.comm.getSQPN,\n//             sqpn    : cntrlStatus.comm.getDQPN,\n//             immDt   : tagged Invalid,\n\
+      //             rkey2Inv: tagged Invalid\n//         };\n//         return tagged Valid workComp;\n//     end\n//     else begin\n//         return tagged Invalid;\n//     end\n// endfunction\n\ntypedef\
+      \ struct {\n    WorkCompGenReqSQ wcGenReqSQ;\n    WorkComp         workComp;\n    Bool             isWorkCompSuccess;\n    Bool             needWorkCompWhenNormal;\n} PendingWorkCompSQ deriving(Bits);\n\
+      \ntypedef enum {\n    WC_GEN_ST_STOP,\n    WC_GEN_ST_NORMAL,\n    WC_GEN_ST_ERR_FLUSH\n} WorkCompGenState deriving(Bits, Eq);\n\ninterface WorkCompGen;\n    interface PipeOut#(WorkComp) workCompPipeOut;\n\
+      \    method Bool hasErr();\nendinterface\n\nmodule mkWorkCompGenSQ#(\n    CntrlStatus cntrlStatus,\n    Get#(PayloadConResp) payloadConRespPort,\n    // PipeOut#(PayloadConResp)   payloadConRespPipeIn,\n\
+      \    PipeOut#(WorkCompGenReqSQ) wcGenReqPipeInFromReqGenInSQ,\n    PipeOut#(WorkCompGenReqSQ) wcGenReqPipeInFromRespHandleInSQ\n    // PipeOut#(WorkCompStatus)   workCompStatusPipeInFromRQ\n)(WorkCompGen);\n\
+      \    // Output FIFO for PipeOut\n    FIFOF#(WorkComp)             workCompOutQ4SQ <- mkSizedFIFOF(valueOf(MAX_CQE));\n\n    // Pipeline FIFO\n    FIFOF#(PendingWorkCompSQ)        dmaWaitingQ <- mkFIFOF;\n\
+      \    FIFOF#(PendingWorkCompSQ)       genWorkCompQ <- mkFIFOF;\n    FIFOF#(WorkCompGenReqSQ) pendingWorkCompQ4SQ <- mkSizedFIFOF(valueOf(MAX_PENDING_WORK_COMP_NUM));\n\n    // Reg#(Bool)          \
+      \            rqHasErrReg[2] <- mkCReg(2, False);\n    Reg#(WorkCompGenState)     workCompGenStateReg <- mkReg(WC_GEN_ST_STOP);\n    Reg#(Bool)      isFirstErrPartialAckWorkReqReg <- mkRegU;\n    Reg#(WorkReqID)\
+      \ firstErrPartialAckWorkReqIdReg <- mkRegU;\n\n    let inNormalState = cntrlStatus.comm.isStableRTS && workCompGenStateReg == WC_GEN_ST_NORMAL;\n    let inErrorState  = cntrlStatus.comm.isERR || workCompGenStateReg\
+      \ == WC_GEN_ST_ERR_FLUSH;\n\n    (* no_implicit_conditions, fire_when_enabled *)\n    rule resetAndClear if (cntrlStatus.comm.isReset);\n        workCompOutQ4SQ.clear;\n\n        dmaWaitingQ.clear;\n\
+      \        genWorkCompQ.clear;\n        pendingWorkCompQ4SQ.clear;\n\n        // rqHasErrReg[1]      <= False;\n        workCompGenStateReg <= WC_GEN_ST_STOP;\n\n        // $display(\"time=%0t: reset\
+      \ and clear mkWorkCompGenSQ\", $time);\n    endrule\n\n    (* no_implicit_conditions, fire_when_enabled *)\n    rule start if (cntrlStatus.comm.isRTS && workCompGenStateReg == WC_GEN_ST_STOP);\n \
+      \       workCompGenStateReg <= WC_GEN_ST_NORMAL;\n    endrule\n\n                        // recvWorkCompStatusRQ, \\\n    (* conflict_free = \"recvWorkCompGenReqSQ, \\\n                        genPendingWorkCompSQ,\
+      \ \\\n                        waitDmaDoneSQ, \\\n                        genWorkCompSQ, \\\n                        noDmaWaitSQ, \\\n                        errFlushSQ, \\\n                      \
+      \  discardPayloadConRespSQ\" *)\n    rule recvWorkCompGenReqSQ if (inNormalState || inErrorState);\n        if (wcGenReqPipeInFromReqGenInSQ.notEmpty) begin\n            let wcGenReqSQ = wcGenReqPipeInFromReqGenInSQ.first;\n\
+      \            wcGenReqPipeInFromReqGenInSQ.deq;\n            pendingWorkCompQ4SQ.enq(wcGenReqSQ);\n        end\n        else if (wcGenReqPipeInFromRespHandleInSQ.notEmpty) begin\n            let wcGenReqSQ\
+      \ = wcGenReqPipeInFromRespHandleInSQ.first;\n            wcGenReqPipeInFromRespHandleInSQ.deq;\n            pendingWorkCompQ4SQ.enq(wcGenReqSQ);\n\n            // $display(\n            //     \"\
+      time=%0t: wcGenReqPipeInFromRespHandleInSQ.notEmpty=\",\n            //     $time, fshow(wcGenReqPipeInFromRespHandleInSQ.notEmpty),\n            //     \", wcGenReqSQ=\", fshow(wcGenReqSQ)\n    \
+      \        // );\n        end\n    endrule\n\n    // rule recvWorkCompStatusRQ if (inNormalState);\n    //     let wcStatusRQ = workCompStatusPipeInFromRQ.first;\n    //     workCompStatusPipeInFromRQ.deq;\n\
+      \n    //     if (wcStatusRQ != IBV_WC_SUCCESS) begin\n    //         rqHasErrReg[0] <= True;\n    //     end\n    // endrule\n\n    rule genPendingWorkCompSQ if (inNormalState || inErrorState);\n\
+      \        let wcGenReqSQ = pendingWorkCompQ4SQ.first;\n        pendingWorkCompQ4SQ.deq;\n\n        let maybeWorkComp = genWorkComp4WorkReq(cntrlStatus, wcGenReqSQ);\n\n        let wcReqType = wcGenReqSQ.wcReqType;\n\
+      \        let isWorkCompSuccess = wcGenReqSQ.wcStatus == IBV_WC_SUCCESS;\n        // if (inErrorState) begin\n        //     maybeWorkComp = genErrFlushWorkComp4WorkReq(ccntrlStatus, wcGenReqSQ.wr);\n\
+      \        // end\n        immAssert(\n            isValid(maybeWorkComp),\n            \"maybeWorkComp assertion @ mkWorkCompGenSQ\",\n            $format(\"maybeWorkComp=\", fshow(maybeWorkComp),\
+      \ \" should be valid\")\n        );\n\n        let workComp = unwrapMaybe(maybeWorkComp);\n        let needWorkCompWhenNormal =\n            wcGenReqSQ.wcReqType == WC_REQ_TYPE_FULL_ACK &&\n     \
+      \       (workReqNeedWorkCompSQ(wcGenReqSQ.wr) || cntrlStatus.comm.getSigAll);\n\n        let pendingWorkCompSQ = PendingWorkCompSQ {\n            wcGenReqSQ            : wcGenReqSQ,\n            workComp\
+      \              : workComp,\n            isWorkCompSuccess     : isWorkCompSuccess,\n            needWorkCompWhenNormal: needWorkCompWhenNormal\n        };\n        dmaWaitingQ.enq(pendingWorkCompSQ);\n\
+      \        // $display(\n        //     \"time=%0t: wcGenReqSQ=\", $time, fshow(wcGenReqSQ),\n        //     \", needWorkCompWhenNormal=\", fshow(needWorkCompWhenNormal)\n        // );\n    endrule\n\
+      \n    rule waitDmaDoneSQ if (inNormalState);\n        let pendingWorkCompSQ = dmaWaitingQ.first;\n        dmaWaitingQ.deq;\n\n        let wcGenReqSQ             = pendingWorkCompSQ.wcGenReqSQ;\n \
+      \       let isWorkCompSuccess      = pendingWorkCompSQ.isWorkCompSuccess;\n        let wcWaitDmaResp          = wcGenReqSQ.wcWaitDmaResp;\n        // let workComp               = pendingWorkCompSQ.workComp;\n\
+      \        // let needWorkCompWhenNormal = pendingWorkCompSQ.needWorkCompWhenNormal;\n\n        if (isWorkCompSuccess && wcWaitDmaResp) begin\n            // TODO: report error if waiting too long for\
+      \ DMA write response\n            let payloadConResp <- payloadConRespPort.get;\n            // let payloadConResp = payloadConRespPipeIn.first;\n            // payloadConRespPipeIn.deq;\n\n     \
+      \       // TODO: better error handling\n            let dmaRespPsnMatch = payloadConResp.dmaWriteResp.psn == wcGenReqSQ.triggerPSN;\n            immAssert (\n                dmaRespPsnMatch,\n   \
+      \             \"WC triggerPSN assertion @ mkWorkCompGenSQ\",\n                $format(\n                    \"dmaRespPsnMatch=\", fshow(dmaRespPsnMatch),\n                    \" should either be true,\
+      \ payloadConResp.dmaWriteResp.psn=%h should == wcGenReqSQ.triggerPSN=%h\",\n                    payloadConResp.dmaWriteResp.psn, wcGenReqSQ.triggerPSN\n                )\n            );\n        end\n\
+      \n        genWorkCompQ.enq(pendingWorkCompSQ);\n    endrule\n\n    rule genWorkCompSQ if (inNormalState);\n        let pendingWorkCompSQ = genWorkCompQ.first;\n        genWorkCompQ.deq;\n\n      \
+      \  let wcGenReqSQ             = pendingWorkCompSQ.wcGenReqSQ;\n        let workComp               = pendingWorkCompSQ.workComp;\n        let isWorkCompSuccess      = pendingWorkCompSQ.isWorkCompSuccess;\n\
+      \        let needWorkCompWhenNormal = pendingWorkCompSQ.needWorkCompWhenNormal;\n        let wcWaitDmaResp          = wcGenReqSQ.wcWaitDmaResp;\n\n        if (isWorkCompSuccess) begin\n          \
+      \  if (needWorkCompWhenNormal) begin\n                // if (workCompOutQ4SQ.notFull) begin\n                workCompOutQ4SQ.enq(workComp);\n                // end\n                // else begin\n\
+      \                //     isCompQueueFull = True;\n                // end\n            end\n        end\n        else begin\n            // if (workCompOutQ4SQ.notFull) begin\n            workCompOutQ4SQ.enq(workComp);\n\
+      \            // end\n            // else begin\n            //     isCompQueueFull = True;\n            // end\n        end\n\n        // TODO: handle CQ full\n        // let hasErrWorkCompOrCompQueueFullSQ\
+      \ = !isWorkCompSuccess || isCompQueueFull;\n        if (!isWorkCompSuccess) begin\n        // if (!isWorkCompSuccess || rqHasErrReg[1]) begin\n            // cntrl.setStateErr;\n            workCompGenStateReg\
+      \ <= WC_GEN_ST_ERR_FLUSH;\n            isFirstErrPartialAckWorkReqReg <=\n                wcGenReqSQ.wcReqType == WC_REQ_TYPE_PARTIAL_ACK;\n            firstErrPartialAckWorkReqIdReg <= wcGenReqSQ.wr.id;\n\
+      \n            // $display(\n            //     \"time=%0t:\", $time,\n            //     \" set mkWorkCompGenSQ to error state, workComp.status=\",\n            //     fshow(workComp.status),\n  \
+      \          //     \", isWorkCompSuccess=\", fshow(isWorkCompSuccess),\n            //     // \", rqHasErrReg[1]=\", fshow(rqHasErrReg[1]),\n            //     // \", hasErrWorkCompOrCompQueueFullSQ=\"\
+      ,\n            //     // fshow(hasErrWorkCompOrCompQueueFullSQ),\n            //     \", wcGenReqSQ=\", fshow(wcGenReqSQ)\n            // );\n        end\n    endrule\n\n    rule noDmaWaitSQ if (inErrorState);\n\
+      \        let pendingWorkCompRQ = dmaWaitingQ.first;\n        dmaWaitingQ.deq;\n\n        genWorkCompQ.enq(pendingWorkCompRQ);\n    endrule\n\n    rule errFlushSQ if (inErrorState);\n        let pendingWorkCompSQ\
+      \ = genWorkCompQ.first;\n        genWorkCompQ.deq;\n\n        let wcGenReqSQ = pendingWorkCompSQ.wcGenReqSQ;\n        let errFlushWC = pendingWorkCompSQ.workComp;\n        errFlushWC.flags  = IBV_WC_NO_FLAGS;\n\
+      \        errFlushWC.status = IBV_WC_WR_FLUSH_ERR;\n\n        // TODO: use formal to check no partial ACK after NAK\n        immAssert(\n            wcGenReqSQ.wcReqType == WC_REQ_TYPE_FULL_ACK,\n\
+      \            \"wcGenReqSQ.wcReqType assertion @ mkWorkCompGenSQ\",\n            $format(\n                \"wcGenReqSQ.wcReqType=\", fshow(wcGenReqSQ.wcReqType),\n                \" should == WC_REQ_TYPE_FULL_ACK,\
+      \ when error flush\"\n            )\n        );\n\n        // let isCompQueueFull = False;\n        if (isFirstErrPartialAckWorkReqReg) begin\n            // If the first error response is partial\
+      \ ACK to WR,\n            // then skip the first full ACK to the WR,\n            // since the WR has generated error WC.\n            isFirstErrPartialAckWorkReqReg <= False;\n            immAssert(\n\
+      \                wcGenReqSQ.wr.id == firstErrPartialAckWorkReqIdReg,\n                \"wcGenReqSQ.wr.id assertion @ mkWorkCompGenSQ\",\n                $format(\n                    \"wcGenReqSQ.wr.id=%h\
+      \ should == firstErrPartialAckWorkReqIdReg=%h\",\n                    wcGenReqSQ.wr.id, firstErrPartialAckWorkReqIdReg,\n                    \", when error flush and isFirstErrPartialAckWorkReqReg=\"\
+      ,\n                    fshow(isFirstErrPartialAckWorkReqReg)\n                )\n            );\n        end\n        // else if (workCompOutQ4SQ.notFull) begin\n        //     isCompQueueFull = True;\n\
+      \        // end\n        else begin\n            // let pendingWorkCompSQ = PendingWorkCompSQ {\n            //     wcGenReqSQ            : wcGenReqSQ,\n            //     workComp              :\
+      \ errFlushWC,\n            //     isWorkCompSuccess     : False,\n            //     needWorkCompWhenNormal: False\n            // };\n            // dmaWaitingQ.enq(pendingWorkCompSQ);\n        \
+      \    workCompOutQ4SQ.enq(errFlushWC);\n        end\n        // $display(\n        //     \"time=%0t: flush pendingWorkCompQ4SQ, errFlushWC=\",\n        //     $time, fshow(errFlushWC), \", wcGenReqSQ=\"\
+      , fshow(wcGenReqSQ)\n        // );\n    endrule\n\n    rule discardPayloadConRespSQ if (inErrorState);\n        let payloadConResp <- payloadConRespPort.get;\n        // let payloadConResp = payloadConRespPipeIn.first;\n\
+      \        // payloadConRespPipeIn.deq;\n    endrule\n\n    interface workCompPipeOut = toPipeOut(workCompOutQ4SQ);\n    method Bool hasErr() = workCompGenStateReg == WC_GEN_ST_ERR_FLUSH;\nendmodule\n\
+      \n// WC for RQ\n\nfunction Maybe#(WorkComp) genWorkComp4RecvReq(\n    CntrlStatus cntrlStatus, WorkCompGenReqRQ wcGenReqRQ\n);\n    let maybeWorkCompOpCode = rdmaOpCode2WorkCompOpCode4RQ(wcGenReqRQ.reqOpCode);\n\
+      \    let wcFlags = rdmaOpCode2WorkCompFlagsRQ(wcGenReqRQ.reqOpCode);\n    if (\n        maybeWorkCompOpCode matches tagged Valid .opcode &&&\n        wcGenReqRQ.rrID matches tagged Valid .rrID\n \
+      \   ) begin\n        let workComp = WorkComp {\n            id      : rrID,\n            opcode  : opcode,\n            flags   : wcFlags,\n            status  : wcGenReqRQ.wcStatus,\n           \
+      \ len     : wcGenReqRQ.len,\n            pkey    : cntrlStatus.comm.getPKEY,\n            qpn     : cntrlStatus.comm.getSQPN,\n            // dqpn    : cntrlStatus.comm.getSQPN,\n            // sqpn\
+      \    : cntrlStatus.comm.getDQPN,\n            immDt   : wcGenReqRQ.immDt,\n            rkey2Inv: wcGenReqRQ.rkey2Inv\n        };\n        return tagged Valid workComp;\n    end\n    else begin\n \
+      \       return tagged Invalid;\n    end\nendfunction\n\n// function Maybe#(WorkComp) genErrFlushWorkComp4WorkCompGenReqRQ(\n//     CntrlStatus cntrlStatus, WorkCompGenReqRQ wcGenReqRQ\n// );\n// \
+      \    let maybeWorkCompOpCode = rdmaOpCode2WorkCompOpCode4RQ(wcGenReqRQ.reqOpCode);\n//     let wcFlags = rdmaOpCode2WorkCompFlagsRQ(wcGenReqRQ.reqOpCode);\n//     if (\n//         maybeWorkCompOpCode\
+      \ matches tagged Valid .opcode &&&\n//         wcGenReqRQ.rrID matches tagged Valid .rrID\n//     ) begin\n//         let workComp = WorkComp {\n//             id      : rrID,\n//             opcode\
+      \  : opcode,\n//             flags   : wcFlags,\n//             status  : IBV_WC_WR_FLUSH_ERR,\n//             len     : wcGenReqRQ.len,\n//             pkey    : cntrlStatus.comm.getPKEY,\n//   \
+      \          dqpn    : cntrlStatus.comm.getSQPN,\n//             sqpn    : cntrlStatus.comm.getDQPN,\n//             immDt   : wcGenReqRQ.immDt,\n//             rkey2Inv: wcGenReqRQ.rkey2Inv\n//   \
+      \      };\n//         return tagged Valid workComp;\n//     end\n//     else begin\n//         return tagged Invalid;\n//     end\n// endfunction\n\n// function WorkComp genErrFlushWorkComp4RecvReq(\n\
+      //     CntrlStatus cntrlStatus, RecvReq rr\n// );\n//     let workComp = WorkComp {\n//         id      : rr.id,\n//         opcode  : IBV_WC_RECV,\n//         flags   : IBV_WC_NO_FLAGS,\n//     \
+      \    status  : IBV_WC_WR_FLUSH_ERR,\n//         len     : rr.len,\n//         pkey    : cntrlStatus.comm.getPKEY,\n//         dqpn    : cntrlStatus.comm.getSQPN,\n//         sqpn    : cntrlStatus.comm.getDQPN,\n\
+      //         immDt   : tagged Invalid,\n//         rkey2Inv: tagged Invalid\n//     };\n//     return workComp;\n// endfunction\n\ntypedef struct {\n    WorkCompGenReqRQ wcGenReqRQ;\n    Maybe#(WorkComp)\
+      \ maybeWorkComp;\n    Bool             isSendReq;\n    Bool             isWriteReq;\n    Bool             isWriteImmReq;\n    Bool             isFirstOrOnlyReq;\n    Bool             isLastOrOnlyReq;\n\
+      \    Bool             isWorkCompSuccess;\n    Bool             needWaitDmaWriteResp;\n} PendingWorkCompRQ deriving(Bits);\n\n// interface WorkCompGenRQ;\n//     interface PipeOut#(WorkComp) workCompPipeOut;\n\
+      //     interface PipeOut#(WorkCompStatus) workCompStatusPipeOutRQ;\n// endinterface\n\nmodule mkWorkCompGenRQ#(\n    CntrlStatus cntrlStatus,\n    Get#(PayloadConResp) payloadConRespPort,\n    //\
+      \ PipeOut#(PayloadConResp) payloadConRespPipeIn,\n    PipeOut#(WorkCompGenReqRQ) wcGenReqPipeInFromRQ\n)(WorkCompGen);\n    // Output FIFO for PipeOut\n    FIFOF#(WorkComp)      workCompOutQ4RQ <-\
+      \ mkSizedFIFOF(valueOf(MAX_CQE));\n    FIFOF#(WorkCompStatus)   wcStatusQ4SQ <- mkFIFOF;\n\n    // Pipeline FIFO\n    FIFOF#(PendingWorkCompRQ) dmaWaitingQ <- mkFIFOF;\n    FIFOF#(PendingWorkCompRQ)\
+      \ genWorkCompQ <- mkFIFOF;\n\n    Reg#(WorkCompGenState) workCompGenStateReg <- mkReg(WC_GEN_ST_STOP);\n\n    let inNormalState = cntrlStatus.comm.isNonErr && workCompGenStateReg == WC_GEN_ST_NORMAL;\n\
+      \    let inErrorState  = cntrlStatus.comm.isERR || workCompGenStateReg == WC_GEN_ST_ERR_FLUSH;\n\n    (* no_implicit_conditions, fire_when_enabled *)\n    rule resetAndClear if (cntrlStatus.comm.isReset);\n\
+      \        workCompOutQ4RQ.clear;\n        wcStatusQ4SQ.clear;\n\n        dmaWaitingQ.clear;\n        genWorkCompQ.clear;\n\n        workCompGenStateReg <= WC_GEN_ST_STOP;\n\n        // $display(\"\
+      time=%0t: reset and clear mkWorkCompGenRQ\", $time);\n    endrule\n\n    (* no_implicit_conditions, fire_when_enabled *)\n    rule start if (cntrlStatus.comm.isNonErr && workCompGenStateReg == WC_GEN_ST_STOP);\n\
+      \        workCompGenStateReg <= WC_GEN_ST_NORMAL;\n    endrule\n\n    (* conflict_free = \"recvWorkCompReqRQ, \\\n                        waitDmaDoneRQ, \\\n                        genWorkCompRQ,\
+      \ \\\n                        noDmaWaitRQ, \\\n                        errFlushRQ, \\\n                        discardPayloadConRespRQ\" *)\n    rule recvWorkCompReqRQ if (inNormalState || inErrorState);\n\
+      \        let wcGenReqRQ = wcGenReqPipeInFromRQ.first;\n        wcGenReqPipeInFromRQ.deq;\n\n        let reqOpCode   = wcGenReqRQ.reqOpCode;\n        let isSendReq   = isSendReqRdmaOpCode(reqOpCode);\n\
+      \        let isWriteReq  = isWriteReqRdmaOpCode(reqOpCode);\n        let isWriteImmReq    = isWriteImmReqRdmaOpCode(reqOpCode);\n        let isFirstOrOnlyReq = isFirstOrOnlyRdmaOpCode(reqOpCode);\n\
+      \        let isLastOrOnlyReq  = isLastOrOnlyRdmaOpCode(reqOpCode);\n\n        let maybeWorkComp             = genWorkComp4RecvReq(cntrlStatus, wcGenReqRQ);\n        let isWorkCompSuccess         =\
+      \ wcGenReqRQ.wcStatus == IBV_WC_SUCCESS;\n        let needWaitDmaWriteResp = !wcGenReqRQ.isZeroDmaLen && (isSendReq || isWriteReq);\n\n        let pendingWorkCompRQ = PendingWorkCompRQ {\n       \
+      \     wcGenReqRQ               : wcGenReqRQ,\n            maybeWorkComp            : maybeWorkComp,\n            isSendReq                : isSendReq,\n            isWriteReq               : isWriteReq,\n\
+      \            isWriteImmReq            : isWriteImmReq,\n            isFirstOrOnlyReq         : isFirstOrOnlyReq,\n            isLastOrOnlyReq          : isLastOrOnlyReq,\n            isWorkCompSuccess\
+      \        : isWorkCompSuccess,\n            needWaitDmaWriteResp: needWaitDmaWriteResp\n        };\n\n        dmaWaitingQ.enq(pendingWorkCompRQ);\n        // $display(\n        //     \"time=%0t: recvWorkCompReqRQ,\
+      \ wcGenReqRQ=\", $time, fshow(wcGenReqRQ),\n        //     \", maybeWorkComp=\", fshow(maybeWorkComp),\n        //     \", needWaitDmaWriteResp=\", fshow(needWaitDmaWriteResp)\n        // );\n   \
+      \ endrule\n\n    rule waitDmaDoneRQ if (inNormalState);\n        let pendingWorkCompRQ = dmaWaitingQ.first;\n        dmaWaitingQ.deq;\n\n        let wcGenReqRQ                = pendingWorkCompRQ.wcGenReqRQ;\n\
+      \        let maybeWorkComp             = pendingWorkCompRQ.maybeWorkComp;\n        let isSendReq                 = pendingWorkCompRQ.isSendReq;\n        // let isWriteReq                = pendingWorkCompRQ.isWriteReq;\n\
+      \        let isWriteImmReq             = pendingWorkCompRQ.isWriteImmReq;\n        let isLastOrOnlyReq           = pendingWorkCompRQ.isLastOrOnlyReq;\n        let isWorkCompSuccess         = pendingWorkCompRQ.isWorkCompSuccess;\n\
+      \        let needWaitDmaWriteResp = pendingWorkCompRQ.needWaitDmaWriteResp;\n\n        if (isWorkCompSuccess) begin\n            if (isLastOrOnlyReq && (isSendReq || isWriteImmReq)) begin\n      \
+      \          genWorkCompQ.enq(pendingWorkCompRQ);\n            end\n\n            if (needWaitDmaWriteResp) begin\n                // TODO: report error if waiting too long for DMA write response\n\
+      \                let payloadConResp <- payloadConRespPort.get;\n                // let payloadConResp = payloadConRespPipeIn.first;\n                // payloadConRespPipeIn.deq;\n\n              \
+      \  // TODO: better error handling\n                let dmaRespPsnMatch = payloadConResp.dmaWriteResp.psn == wcGenReqRQ.reqPSN;\n                immAssert (\n                    dmaRespPsnMatch,\n\
+      \                    \"dmaWriteRespMatchPSN assertion @ mkWorkCompGenRQ\",\n                    $format(\n                        \"dmaRespPsnMatch=\", fshow(dmaRespPsnMatch),\n                  \
+      \      \" should either be true, payloadConResp.dmaWriteResp.psn=%h should == wcGenReqRQ.reqPSN=%h\",\n                        payloadConResp.dmaWriteResp.psn, wcGenReqRQ.reqPSN,\n               \
+      \         \", reqOpCode=\", fshow(wcGenReqRQ.reqOpCode)\n                    )\n                );\n                // $display(\n                //     \"time=%0t: payloadConResp=\", $time, fshow(payloadConResp),\n\
+      \                //     \", needWaitDmaWriteResp=\", fshow(needWaitDmaWriteResp)\n                // );\n            end\n        end\n        else begin\n            wcStatusQ4SQ.enq(wcGenReqRQ.wcStatus);\n\
+      \            genWorkCompQ.enq(pendingWorkCompRQ);\n        end\n        // $display(\n        //     \"time=%0t: waitDmaDoneRQ, wcGenReqRQ=\", $time, fshow(wcGenReqRQ),\n        //     \", isWorkCompSuccess=\"\
+      , fshow(isWorkCompSuccess),\n        //     \", needWaitDmaWriteResp=\", fshow(needWaitDmaWriteResp)\n        // );\n    endrule\n\n    rule genWorkCompRQ if (inNormalState);\n        let pendingWorkCompRQ\
+      \ = genWorkCompQ.first;\n        genWorkCompQ.deq;\n\n        let wcGenReqRQ        = pendingWorkCompRQ.wcGenReqRQ;\n        let maybeWorkComp     = pendingWorkCompRQ.maybeWorkComp;\n        let isWorkCompSuccess\
+      \ = pendingWorkCompRQ.isWorkCompSuccess;\n\n        // TODO: handle CQ full\n        // let isCompQueueFull = False;\n        if (isWorkCompSuccess) begin\n            immAssert(\n               \
+      \ isValid(maybeWorkComp),\n                \"maybeWorkComp assertion @ mkWorkCompGenRQ\",\n                $format(\n                    \"maybeWorkComp=\", fshow(maybeWorkComp),\n               \
+      \     \" should be valid when wcGenReqRQ=\", fshow(wcGenReqRQ)\n                )\n            );\n\n            let workComp = unwrapMaybe(maybeWorkComp);\n            // if (workCompOutQ4RQ.notFull)\
+      \ begin\n            workCompOutQ4RQ.enq(workComp);\n            // end\n            // else begin\n            //     isCompQueueFull = True;\n            // end\n        end\n        else begin\n\
+      \            // wcStatusQ4SQ.enq(wcGenReqRQ.wcStatus);\n            workCompGenStateReg <= WC_GEN_ST_ERR_FLUSH;\n\n            // As for RQ, error requests might not correspond to RecvReq\n      \
+      \      if (maybeWorkComp matches tagged Valid .workComp) begin\n                // if (workCompOutQ4RQ.notFull) begin\n                workCompOutQ4RQ.enq(workComp);\n                // end\n    \
+      \            // else begin\n                //     isCompQueueFull = True;\n                // end\n            end\n            // $display(\n            //     \"time=%0t: set mkWorkCompGenRQ to\
+      \ error state\", $time,\n            //     \", wcStatus=\", fshow(wcGenReqRQ.wcStatus),\n            //     \", isWorkCompSuccess=\", fshow(isWorkCompSuccess),\n            //     \", wcGenReqRQ=\"\
+      , fshow(wcGenReqRQ)\n            // );\n        end\n\n        // $display(\n        //     \"time=%0t: genWorkCompRQ, wcGenReqRQ=\", $time, fshow(wcGenReqRQ),\n        //     \", maybeWorkComp=\"\
+      , fshow(maybeWorkComp),\n        //     \", isWorkCompSuccess=\", fshow(isWorkCompSuccess)\n        // );\n    endrule\n\n    rule noDmaWaitRQ if (inErrorState);\n        let pendingWorkCompRQ = dmaWaitingQ.first;\n\
+      \        dmaWaitingQ.deq;\n\n        genWorkCompQ.enq(pendingWorkCompRQ);\n    endrule\n\n    rule errFlushRQ if (inErrorState);\n        let pendingWorkCompRQ = genWorkCompQ.first;\n        genWorkCompQ.deq;\n\
+      \n        let wcGenReqRQ       = pendingWorkCompRQ.wcGenReqRQ;\n        let maybeErrFlushWC  = pendingWorkCompRQ.maybeWorkComp;\n        let reqOpCode        = wcGenReqRQ.reqOpCode;\n        let isSendReq\
+      \        = pendingWorkCompRQ.isSendReq;\n        let isWriteImmReq    = pendingWorkCompRQ.isWriteImmReq;\n        let isFirstOrOnlyReq = pendingWorkCompRQ.isFirstOrOnlyReq;\n        // let isCompQueueFull\
+      \  = False;\n\n        if (maybeErrFlushWC matches tagged Valid .wc) begin\n            let errFlushWC = wc;\n            errFlushWC.flags  = IBV_WC_NO_FLAGS;\n            errFlushWC.status = IBV_WC_WR_FLUSH_ERR;\n\
+      \n            immAssert(\n                isSendReq || isWriteImmReq,\n                \"isSendReq or isWriteImmReq assertion @ mkWorkCompGenRQ\",\n                $format(\n                    \"\
+      maybeErrFlushWC=\", fshow(maybeErrFlushWC),\n                    \" should be valid, when reqOpCode=\", fshow(reqOpCode),\n                    \" should be send or write with imm\"\n             \
+      \   )\n            );\n\n            // When error, generate WC in RQ on first or only send request packets,\n            // since the middle or last send request packets might be discarded.\n   \
+      \         if ((isSendReq && isFirstOrOnlyReq) || isWriteImmReq) begin\n                // if (workCompOutQ4RQ.notFull) begin\n                workCompOutQ4RQ.enq(errFlushWC);\n                // end\n\
+      \                // else begin\n                //     isCompQueueFull = True;\n                // end\n            end\n        end\n\n        // $display(\n        //     \"time=%0t: errFlushRQ\"\
+      , $time,\n        //     \", wcGenReqRQ=\", fshow(wcGenReqRQ),\n        //     \", maybeErrFlushWC=\", fshow(maybeErrFlushWC)\n        // );\n    endrule\n\n    rule discardPayloadConRespRQ if (inErrorState);\n\
+      \        let payloadConResp <- payloadConRespPort.get;\n        // let payloadConResp = payloadConRespPipeIn.first;\n        // payloadConRespPipeIn.deq;\n    endrule\n\n    interface workCompPipeOut\
+      \ = toPipeOut(workCompOutQ4RQ);\n    method Bool hasErr() = workCompGenStateReg == WC_GEN_ST_ERR_FLUSH;\n    // interface workCompStatusPipeOutRQ = toPipeOut(wcStatusQ4SQ);\nendmodule\n"
+    hints: Complete BSV source
+    imports: []
+meta:
+  description: 'Module: WorkCompGen'
+  name: WorkCompGen
+types_to_define: []
