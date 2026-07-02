@@ -1,0 +1,358 @@
+_reference_bsv: "import FIFOF :: *;\nimport PAClib :: *;\n\ntypedef 2 TWO;\ntypedef\
+  \ 4 FOUR;\n\nfunction Bool isZero(Bit#(nSz) bits); // provisos(Add#(1, anysize,\
+  \ nSz));\n    Bool ret = unpack(|bits);\n    return !ret;\nendfunction\n\n// TODO:\
+  \ consider using fold\nfunction Bool isZeroR(Bit#(nSz) bits) provisos(\n    NumAlias#(TDiv#(nSz,\
+  \ 2), halfSz)\n);\n    if (valueOf(halfSz) > 1) begin\n        Tuple2#(Bit#(TSub#(nSz,\
+  \ halfSz)), Bit#(halfSz)) pair = split(bits);\n        let { left, right } = pair;\n\
+  \        return isZeroR(left) && isZeroR(right);\n    end\n    else begin\n    \
+  \    return isZero(bits);\n    end\nendfunction\n\nfunction Bool isZeroByteEn(Bit#(nSz)\
+  \ byteEn); // provisos(Add#(1, anysize, nSz));\n    return isZero({ msb(byteEn),\
+  \ lsb(byteEn) });\nendfunction\n\nfunction Bool isLessOrEqOne(Bit#(nSz) bits); //\
+  \ provisos(Add#(1, anysize, nSz));\n    Bool ret = isZero(bits >> 1);\n    // Bool\
+  \ ret = isZero(bits >> 1) && unpack(bits[0]);\n    return ret;\nendfunction\n\n\
+  function Bool isLessOrEqOneR(Bit#(nSz) bits); // provisos(Add#(1, anysize, nSz));\n\
+  \    Bool ret = isZeroR(bits >> 1);\n    return ret;\nendfunction\n\nfunction Bool\
+  \ isOne(Bit#(nSz) bits); // provisos(Add#(1, anysize, nSz));\n    return isLessOrEqOne(bits)\
+  \ && unpack(lsb(bits));\nendfunction\n\nfunction Bool isOneR(Bit#(nSz) bits); //\
+  \ provisos(Add#(1, anysize, nSz));\n    return isLessOrEqOneR(bits) && unpack(lsb(bits));\n\
+  endfunction\n\nfunction Bool isTwo(Bit#(nSz) bits) provisos(Add#(2, anysize, nSz));\n\
+  \    return isZero(bits >> 2) && unpack(bits[1]) && !unpack(lsb(bits));\nendfunction\n\
+  \nfunction Bool isTwoR(Bit#(nSz) bits) provisos(Add#(2, anysize, nSz));\n    return\
+  \ isZero(bits >> 2) && unpack(bits[1]) && !unpack(lsb(bits));\nendfunction\n\n//\
+  \ function Bool isAllOnes(Bit#(nSz) bits);\n//     Bool ret = unpack(&bits);\n//\
+  \     return ret;\n// endfunction\n\nfunction Bool isAllOnesR(Bit#(nSz) bits) provisos(\n\
+  \    NumAlias#(TDiv#(nSz, 2), halfSz)\n);\n    if (valueOf(halfSz) > 1) begin\n\
+  \        Tuple2#(Bit#(TSub#(nSz, halfSz)), Bit#(halfSz)) pair = split(bits);\n \
+  \       let { left, right } = pair;\n        return isAllOnesR(left) && isAllOnesR(right);\n\
+  \    end\n    else begin\n        Bool ret = unpack(&bits);\n        return ret;\n\
+  \    end\nendfunction\n\nfunction Bool isLargerThanOne(Bit#(nSz) bits); // provisos(Add#(1,\
+  \ anysize, nSz));\n    return !isZero(bits >> 1);\nendfunction\n\n// 64 >= nSz >=\
+  \ 32\nfunction Tuple2#(Bool, Bool) isZero4LargeBits(Bit#(nSz) bits) provisos(\n\
+  \    Add#(32, anysizeJ, nSz),\n    Add#(nSz, anysizeK, 64),\n    NumAlias#(TDiv#(nSz,\
+  \ 2), lowPartSz),\n    NumAlias#(TSub#(nSz, lowPartSz), highPartSz),\n    Add#(anysizeL,\
+  \ TDiv#(nSz, 2), nSz),\n    // Add#(1, anysizeM, TDiv#(nSz, 2)),\n    // Add#(1,\
+  \ anysizeN, TSub#(nSz, TDiv#(nSz, 2))),\n    Add#(lowPartSz, highPartSz, nSz)\n\
+  );\n    Bit#(lowPartSz)   lowPartBits = truncate(bits);\n    Bit#(highPartSz) highPartBits\
+  \ = truncateLSB(bits);\n    let isLowPartZero  = isZero(lowPartBits);\n    let isHighPartZero\
+  \ = isZero(highPartBits);\n    return tuple2(isHighPartZero, isLowPartZero);\nendfunction\n\
+  \nfunction Bit#(nSz) zeroExtendLSB(Bit#(mSz) bits) provisos(Add#(mSz, anysize, nSz));\n\
+  \    return { bits, 0 };\nendfunction\n\nfunction Bit#(TSub#(nSz, 1)) removeMSB(Bit#(nSz)\
+  \ bits) provisos(Add#(1, anysize, nSz));\n    return truncateLSB(bits << 1);\nendfunction\n\
+  \nfunction anytype dontCareValue() provisos(Bits#(anytype, tSz));\n    return ?;\n\
+  endfunction\n\nfunction anytype unwrapMaybe(Maybe#(anytype) maybe) provisos(Bits#(anytype,\
+  \ tSz));\n    return fromMaybe(?, maybe);\nendfunction\n\nfunction anytype unwrapMaybeWithDefault(\n\
+  \    Maybe#(anytype) maybe, anytype defaultVal\n) provisos(Bits#(anytype, nSz));\n\
+  \    return fromMaybe(defaultVal, maybe);\nendfunction\n\nfunction anytype1 getTupleFirst(Tuple2#(anytype1,\
+  \ anytype2) tupleVal);\n    return tpl_1(tupleVal);\nendfunction\n\nfunction anytype2\
+  \ getTupleSecond(Tuple2#(anytype1, anytype2) tupleVal);\n    return tpl_2(tupleVal);\n\
+  endfunction\n\nfunction anytype3 getTupleThird(Tuple3#(anytype1, anytype2, anytype3)\
+  \ tupleVal);\n    return tpl_3(tupleVal);\nendfunction\n\nfunction anytype4 getTupleFourth(Tuple4#(anytype1,\
+  \ anytype2, anytype3, anytype4) tupleVal);\n    return tpl_4(tupleVal);\nendfunction\n\
+  \nfunction anytype5 getTupleFifth(Tuple5#(anytype1, anytype2, anytype3, anytype4,\
+  \ anytype5) tupleVal);\n    return tpl_5(tupleVal);\nendfunction\n\nfunction anytype6\
+  \ getTupleSixth(Tuple6#(anytype1, anytype2, anytype3, anytype4, anytype5, anytype6)\
+  \ tupleVal);\n    return tpl_6(tupleVal);\nendfunction\n\nfunction anytype identityFunc(anytype\
+  \ inputVal);\n    return inputVal;\nendfunction\n\nfunction Action immAssert(Bool\
+  \ condition, String assertName, Fmt assertFmtMsg);\n    action\n        let pos\
+  \ = printPosition(getStringPosition(assertName));\n        // let pos = printPosition(getEvalPosition(condition));\n\
+  \        if (!condition) begin\n            $error(\n                \"ImmAssert\
+  \ failed in %m @time=%0t: %s-- %s: \",\n                $time, pos, assertName,\
+  \ assertFmtMsg\n            );\n            $finish(1);\n        end\n    endaction\n\
+  endfunction\n\nfunction Action immFail(String assertName, Fmt assertFmtMsg);\n \
+  \   action\n        let pos = printPosition(getStringPosition(assertName));\n  \
+  \      // let pos = printPosition(getEvalPosition(condition));\n        $error(\n\
+  \            \"ImmAssert failed in %m @time=%0t: %s-- %s: \",\n            $time,\
+  \ pos, assertName, assertFmtMsg\n        );\n        $finish(1);\n    endaction\n\
+  endfunction\n\n// PipeOut related\n\nfunction PipeOut#(anytype) toPipeOut(FIFOF#(anytype)\
+  \ queue);\n    return f_FIFOF_to_PipeOut(queue);\nendfunction\n/*\nfunction PipeOut#(anytype)\
+  \ toPipeOutWithAction(\n    FIFOF#(anytype) queue,\n    function Action deqAction(anytype\
+  \ deqVal)\n);\n    return (interface PipeOut;\n        method anytype first();\n\
+  \            return queue.first;\n        endmethod\n        method Action deq();\n\
+  \            queue.deq;\n            deqAction(queue.first);\n        endmethod\n\
+  \        method Bool notEmpty();\n            return queue.notEmpty;\n        endmethod\n\
+  \    endinterface);\nendfunction\n*/\n// FlagsType related\n\ntypedef struct {\n\
+  \    Bit#(SizeOf#(enumType)) flags;\n} FlagsType#(type enumType) deriving(Bits,\
+  \ Bitwise, Eq);\n\ninstance FShow#(FlagsType#(enumType)) provisos(\n    Bits#(enumType,\
+  \ tSz),\n    FShow#(enumType)\n);\n    function Fmt fshow(FlagsType#(enumType) inputVal);\n\
+  \        Bit#(tSz) enumBits = pack(inputVal);\n\n        Fmt resultFmt = $format(\"\
+  FlagsType { flags: \", pack(inputVal), \" = \");\n        for (Integer idx = 0;\
+  \ idx < valueOf(tSz); idx = idx + 1) begin\n            Bool bitValid = unpack(enumBits[idx]);\n\
+  \            enumType enumVal = unpack(1 << idx);\n            if (bitValid) begin\n\
+  \                resultFmt = resultFmt + $format(fshow(enumVal), \" | \");\n   \
+  \         end\n        end\n\n        if (isZero(enumBits)) begin\n            enumType\
+  \ enumVal = unpack(0);\n            resultFmt = resultFmt + $format(fshow(enumVal),\
+  \ \" }\");\n        end\n        else begin\n            resultFmt = resultFmt +\
+  \ $format(\"}\");\n        end\n        return resultFmt;\n    endfunction\nendinstance\n\
+  \ntypeclass Flags#(type enumType);\n    function Bool isOneHotOrZero(enumType inputVal);\n\
+  endtypeclass\n\nfunction FlagsType#(enumType) enum2Flag(enumType inputVal) provisos(\n\
+  \    Bits#(enumType, tSz),\n    Flags#(enumType)\n);\n    // TODO: check inputVal\
+  \ is onehot or zero\n    // immAssert(\n    //     isOneHotOrZero(inputVal),\n \
+  \   //     \"numOnes assertion @ convert2Flag\",\n    //     $format(\n    //  \
+  \       \"inputVal=\", fshow(inputVal),\n    //         \" should be one-hot but\
+  \ its value=%0d\", pack(inputValue)\n    //     )\n    // );\n    return unpack(pack(inputVal));\n\
+  endfunction\n\n// Check flags1 contains flags2 or not\nfunction Bool containFlags(FlagsType#(enumType)\
+  \ flags1, FlagsType#(enumType) flags2) provisos(\n    Bits#(enumType, tSz),\n  \
+  \  Flags#(enumType)\n);\n    return (flags1 & flags2) == flags2;\n    // Bit#(tSz)\
+  \ bitWiseResult = pack((flags1 & flags2) ^ flags2);\n    // return isZero(bitWiseResult);\n\
+  endfunction\n\nfunction Bool containEnum(FlagsType#(enumType) flags, enumType enumVal)\
+  \ provisos(\n    Bits#(enumType, tSz),\n    Flags#(enumType)\n);\n    return !isZero(pack(flags\
+  \ & enum2Flag(enumVal)));\nendfunction\n\n// _read SB (incr CF decr) SB _write\n\
+  interface CountCF#(type anytype);\n    method Action incrOne();\n    method Action\
+  \ decrOne();\n    method Action _write (anytype write_val);\n    method anytype\
+  \ _read();\nendinterface\n\nmodule mkCountCF#(anytype resetVal)(CountCF#(anytype))\
+  \ provisos(\n    Arith#(anytype), Bits#(anytype, tSz)\n);\n    Reg#(anytype) cntReg\
+  \ <- mkReg(resetVal);\n    FIFOF#(Bool)   incrQ <- mkFIFOF;\n    FIFOF#(Bool)  \
+  \ decrQ <- mkFIFOF;\n\n    Reg#(Maybe#(anytype)) writeReg[2] <- mkCReg(2, tagged\
+  \ Invalid);\n    Reg#(Bool) incrReg[2] <- mkCReg(2, False);\n    Reg#(Bool) decrReg[2]\
+  \ <- mkCReg(2, False);\n\n    (* no_implicit_conditions, fire_when_enabled *)\n\
+  \    rule write if (writeReg[1] matches tagged Valid .writeVal);\n        cntReg\
+  \ <= writeVal;\n        incrQ.clear;\n        decrQ.clear;\n        writeReg[1]\
+  \ <= tagged Invalid;\n        incrReg[1]  <= False;\n        decrReg[1]  <= False;\n\
+  \    endrule\n\n    (* fire_when_enabled *)\n    rule increment if (!isValid(writeReg[1]));\n\
+  \        incrReg[0] <= True;\n        incrQ.deq;\n    endrule\n\n    (* fire_when_enabled\
+  \ *)\n    rule decrement if (!isValid(writeReg[1]));\n        decrReg[0] <= True;\n\
+  \        decrQ.deq;\n    endrule\n\n    (* no_implicit_conditions, fire_when_enabled\
+  \ *)\n    rule incrAndDecr if (!isValid(writeReg[1]));\n        if (incrReg[1] &&\
+  \ !decrReg[1]) begin\n            cntReg <= cntReg + 1;\n        end\n        else\
+  \ if (!incrReg[1] && decrReg[1]) begin\n            cntReg <= cntReg - 1;\n    \
+  \    end\n\n        incrReg[1] <= False;\n        decrReg[1] <= False;\n    endrule\n\
+  \n    method Action incrOne();\n        incrQ.enq(True);\n    endmethod\n    method\
+  \ Action decrOne();\n        decrQ.enq(True);\n    endmethod\n    method Action\
+  \ _write(anytype writeVal);\n        writeReg[0] <= tagged Valid writeVal;\n   \
+  \ endmethod\n    method anytype _read() = cntReg;\nendmodule\n/*\n// All Count interface\
+  \ methods of mkCountCF are CF\nmodule mkCountCF#(anytype resetVal)(Count#(anytype))\
+  \ provisos(\n    Arith#(anytype), ModArith#(anytype), Bits#(anytype, tSz)\n);\n\
+  \    Reg#(anytype)     cntReg <- mkReg(resetVal);\n    Reg#(anytype) incrReg[2]\
+  \ <- mkCReg(2, 0);\n    Reg#(anytype) decrReg[2] <- mkCReg(2, 0);\n\n    Reg#(Maybe#(anytype))\
+  \ writeReg[2] <- mkCReg(2, tagged Invalid);\n\n    (* no_implicit_conditions, fire_when_enabled\
+  \ *)\n    rule canonicalize;\n        if (writeReg[1] matches tagged Valid .writeVal)\
+  \ begin\n            cntReg <= writeVal;\n        end\n        else begin\n    \
+  \        cntReg <= cntReg + incrReg[1] - decrReg[1];\n        end\n\n        incrReg[1]\
+  \  <= 0;\n        decrReg[1]  <= 0;\n        writeReg[1] <= tagged Invalid;\n  \
+  \      // updateReg[1] <= tagged Invalid;\n    endrule\n\n    method Action incr(anytype\
+  \ incrVal);\n        incrReg[0] <= incrVal;\n    endmethod\n    method Action decr(anytype\
+  \ decrVal);\n        decrReg[0] <= decrVal;\n    endmethod\n    method Action update(anytype\
+  \ updateVal);\n        error(\"update is not defined for mkCountCF\");\n    endmethod\n\
+  \    method Action _write(anytype writeVal);\n        writeReg[0] <= tagged Valid\
+  \ writeVal;\n    endmethod\n    method anytype _read() = cntReg;\nendmodule\n*/"
+behavior:
+  description: "CountCF is a conflict-free counter module. It supports concurrent\
+    \ increment, decrement, and write operations without scheduling conflicts.\nImplementation\
+    \ approach: 1. Use mkCReg(2, ...) for all control state (writeReg, incrReg, decrReg)\
+    \ 2. Use mkFIFOF for incrQ and decrQ to buffer requests 3. Four rules with proper\
+    \ scheduling attributes:\n   - write: (* no_implicit_conditions, fire_when_enabled\
+    \ *) - priority over incr/decr\n   - increment: enqueues incr request, uses incrQ\n\
+    \   - decrement: enqueues decr request, uses decrQ\n   - incrAndDecr: applies\
+    \ pending incr/decr to cntReg\n\nThe Module is parameterized by anytype with Arith#\
+    \ and Bits# provisos.\n"
+design_knowledge:
+  description: 'Collection of primitive utility functions and types including: - Bit
+    manipulation: isZero, isOne, isAllOnes, isLessOrEqOne, isLargerThanOne - Recursive
+    bit check variants: isZeroR, isOneR, isAllOnesR - Byte enable checks: isZeroByteEn
+    - Tuple accessors: getTupleFirst through getTupleSixth - Assertions: immAssert
+    (compile-time), immFail - PipeOut conversion: toPipeOut - Generic FlagsType with
+    FShow instance - CountCF: conflict-free credit counter module (CF = Conflict Free)
+
+    '
+enums: []
+functions:
+- args: Bit#(nSz) bits
+  description: 'Returns True if all bits are zero. Uses reduction OR (|bits), then
+    logical NOT. Implementation: Bool ret = unpack(|bits); return !ret;
+
+    '
+  name: isZero
+  return_type: Bool
+- args: Bit#(nSz) bits
+  description: 'Recursive zero check using divide-and-conquer. Splits bits in half,
+    recursively checks each half. provisos: NumAlias#(TDiv#(nSz, 2), halfSz)
+
+    '
+  name: isZeroR
+  return_type: Bool
+- args: Bit#(nSz) byteEn
+  description: 'Checks if byte enable is all zeros. Combines MSB and LSB parts before
+    checking.
+
+    '
+  name: isZeroByteEn
+  return_type: Bool
+- args: Bit#(nSz) bits
+  description: 'Returns True if the value is 0 or 1. Shifts right by 1 and checks
+    if zero.
+
+    '
+  name: isLessOrEqOne
+  return_type: Bool
+- args: Bit#(nSz) bits
+  description: 'Returns True exactly when value is 1. Uses isLessOrEqOne AND checks
+    lsb is 1.
+
+    '
+  name: isOne
+  return_type: Bool
+- args: Bit#(nSz) bits
+  description: 'Recursive all-ones check. provisos: NumAlias#(TDiv#(nSz, 2), halfSz)
+
+    '
+  name: isAllOnesR
+  return_type: Bool
+- args: Bit#(nSz) bits
+  description: 'Returns True if value > 1. Checks bits>>1 is non-zero.
+
+    '
+  name: isLargerThanOne
+  return_type: Bool
+- args: Bit#(nSz) bits
+  description: 'For 32-64 bit values. Returns (isHighPartZero, isLowPartZero).
+
+    '
+  name: isZero4LargeBits
+  return_type: Tuple2#(Bool, Bool)
+- args: Bit#(mSz) bits
+  description: 'Zero-extend by appending 0 to LSB: { bits, 0 }. provisos: Add#(mSz,
+    anysize, nSz)
+
+    '
+  name: zeroExtendLSB
+  return_type: Bit#(nSz)
+- args: Bit#(nSz) bits
+  description: 'Remove most significant bit. provisos: Add#(1, anysize, nSz)
+
+    '
+  name: removeMSB
+  return_type: Bit#(TSub#(nSz, 1))
+- args: ''
+  description: 'Returns don''t-care value (?). provisos: Bits#(anytype, tSz)
+
+    '
+  name: dontCareValue
+  return_type: anytype
+- args: Maybe#(anytype) maybe
+  description: 'Unwrap Maybe: returns value if Valid, ? if Invalid. provisos: Bits#(anytype,
+    tSz)
+
+    '
+  name: unwrapMaybe
+  return_type: anytype
+- args: Maybe#(anytype) maybe, anytype defaultVal
+  description: 'Unwrap Maybe with explicit default value. provisos: Bits#(anytype,
+    nSz)
+
+    '
+  name: unwrapMaybeWithDefault
+  return_type: anytype
+- args: Tuple2#(anytype1, anytype2) tupleVal
+  description: Return first element of 2-tuple using tpl_1
+  name: getTupleFirst
+  return_type: anytype1
+- args: Tuple2#(anytype1, anytype2) tupleVal
+  description: Return second element of 2-tuple using tpl_2
+  name: getTupleSecond
+  return_type: anytype2
+- args: Bool condition, String assertName, Fmt assertFmtMsg
+  description: 'Immediate assertion: prints position and message, calls $finish(1)
+    on failure.
+
+    '
+  name: immAssert
+  return_type: Action
+- args: String assertName, Fmt assertFmtMsg
+  description: 'Always-fail assertion: prints position and message, calls $finish(1).
+
+    '
+  name: immFail
+  return_type: Action
+- args: FIFOF#(anytype) queue
+  description: Convert FIFOF to PipeOut interface
+  name: toPipeOut
+  return_type: PipeOut#(anytype)
+- args: enumType inputVal
+  description: 'Convert enum value to FlagsType. provisos: Bits#(enumType, tSz), Flags#(enumType)
+
+    '
+  name: enum2Flag
+  return_type: FlagsType#(enumType)
+- args: FlagsType#(enumType) flags1, FlagsType#(enumType) flags2
+  description: 'Check if flags1 contains all bits of flags2. provisos: Bits#(enumType,
+    tSz), Flags#(enumType)
+
+    '
+  name: containFlags
+  return_type: Bool
+- args: FlagsType#(enumType) flags, enumType enumVal
+  description: 'Check if flags contain a specific enum value. provisos: Bits#(enumType,
+    tSz), Flags#(enumType)
+
+    '
+  name: containEnum
+  return_type: Bool
+meta:
+  description: Primitive utility functions and types for the RDMA engine
+  name: PrimUtils
+module_def:
+  interface_name: CountCF
+  methods:
+  - args: ''
+    name: incrOne
+    return_type: Action
+  - args: ''
+    name: decrOne
+    return_type: Action
+  - args: anytype write_val
+    name: _write
+    return_type: Action
+  - args: ''
+    name: _read
+    return_type: anytype
+  name: mkCountCF
+module_type: typedef_and_functions
+project_context: 'PrimUtils provides foundational utility functions used throughout
+  the RDMA engine. Includes bit manipulation helpers (isZero, isOne, isAllOnes), tuple
+  accessors, immediate assertions, the FlagsType generic, and the CountCF credit counter
+  module.
+
+  '
+rules:
+- description: When writeReg[1] has valid value, write it to cntReg and clear all
+    pending incr/decr
+  name: write
+- description: Dequeue from incrQ and set incrReg[0]
+  name: increment
+- description: Dequeue from decrQ and set decrReg[0]
+  name: decrement
+- description: Apply pending incr/decr to cntReg based on incrReg[1] and decrReg[1]
+    flags
+  name: incrAndDecr
+state_elements:
+- init: resetVal
+  name: cntReg
+  type: Reg#(anytype)
+- name: incrQ
+  type: FIFOF#(Bool)
+- name: decrQ
+  type: FIFOF#(Bool)
+- init: mkCReg(2, tagged Invalid)
+  name: writeReg
+  type: Reg#(Maybe#(anytype))[2]
+- init: mkCReg(2, False)
+  name: incrReg
+  type: Reg#(Bool)[2]
+- init: mkCReg(2, False)
+  name: decrReg
+  type: Reg#(Bool)[2]
+structs:
+- deriving: Bits, Bitwise, Eq
+  description: 'Generic flags wrapper type. Wraps a Bit vector where each bit corresponds
+    to an enum variant. Parameterized by the enum type.
+
+    '
+  fields:
+  - name: flags
+    type: Bit#(SizeOf#(enumType))
+  name: FlagsType
+typedefs:
+- name: TWO
+  value: '2'
+- name: FOUR
+  value: '4'
