@@ -1,12 +1,1 @@
-{
-  "iteration": 2,
-  "total_findings": 9,
-  "status": "active",
-  "stale_count": 0,
-  "zfpr": 1.0,
-  "last_update": "2026-07-02T00:03:00Z",
-  "active_module": "T03_Utils_PSN",
-  "phase": 2,
-  "latest_direction": "declarative-yaml-llm-compiler",
-  "trend": "AL improving (0.0→0.5), LIS fixed (20→0), ID worsening (1.24→3.75)"
-}
+{"iteration":4,"total_findings":15,"status":"active","stale_count":0,"zfpr":1.0,"last_update":"2026-07-02T00:06:00Z","active_module":"T05_Arbitration","phase":3,"latest_direction":"structural-plus-hints","trend":"ID consistently <1.0 since iter_003. AL≥0.7 maintained. LIS=0 confirmed."}

@@ -13,3 +13,6 @@
 {"iter": "iter_003","finding":"YAML 120 lines vs original 139 lines - structural descriptions are inherently more compact than code","category":"YAML format","significance":"high"}
 {"iter": "iter_003","finding":"Module-level abstractions work well for data-flow patterns (cache, FIFO) - algorithmic logic may need hints","category":"limitation","significance":"medium"}
 {"iter": "iter_003","finding":"Interface method signatures + port descriptions provide enough context for LLM to infer scheduling rules","category":"compiler design","significance":"medium"}
+{"iter": "iter_004","finding":"Hybrid YAML (structural + algorithmic hints) achieves FPC=1.0 for algorithmic modules","category":"YAML format","significance":"high"}
+{"iter": "iter_004","finding":"ID=0.75 maintained for algorithmic modules - structural descriptions are inherently compact","category":"metrics","significance":"high"}
+{"iter": "iter_004","finding":"BSV-specific patterns (Vector indexing, pack, fire_when_enabled) correctly inferred by LLM","category":"compiler capability","significance":"medium"}
