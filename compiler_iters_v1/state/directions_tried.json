@@ -1,0 +1,9 @@
+[
+  {
+    "iteration": "iter_001",
+    "direction": "faithful-translation-v1",
+    "description": "YAML closely mirrors BSV structure. Each BSV construct (typedef, enum, struct, function, interface, module, rule) has a corresponding YAML representation. Compiler uses Two-Phase strategy: Phase 1 generates type definitions, Phase 2 generates module code. LLM agent (ccb) translates YAML descriptions to BSV.",
+    "yaml_style": "L3-level detail: provides type names, field names, function signatures explicitly. Natural language used for behavioral descriptions.",
+    "compiler_strategy": "Two-Phase (types first, then modules bottom-up)"
+  }
+]

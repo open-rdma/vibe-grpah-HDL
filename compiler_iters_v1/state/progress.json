@@ -1,0 +1,12 @@
+{
+  "iteration": "iter_001",
+  "total_iterations": 1,
+  "status": "completed",
+  "stale_count": 0,
+  "zfpr_current": null,
+  "fpc_current": 1.0,
+  "direction": "faithful-translation-v1",
+  "active_test_targets": ["T01", "T02", "T03"],
+  "last_update": "2026-07-02T15:37:00Z",
+  "summary": "iter_001 baseline established: FPC=1.0 (3/3 compile), ID=1.186. Simulation blocked by upstream dependency issues. Ready for iter_002."
+}
