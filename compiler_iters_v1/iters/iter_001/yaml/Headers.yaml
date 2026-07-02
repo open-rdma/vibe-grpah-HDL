@@ -1,0 +1,656 @@
+meta:
+  name: Headers
+  description: Headers
+module_type: typedef_and_functions
+design_knowledge:
+  description: 'This module defines: Headers.'
+  structural_info: 'Original BSV file: Headers.bsv
+
+    Contains: 100 typedefs, 5 enums, 11 structs, 3 functions, 0 methods, 0 registers,
+    0 rules, 0 submodules'
+typedefs:
+- name: ADDR_WIDTH
+  bsv_equivalent: typedef 64 ADDR_WIDTH;
+  value: '64'
+- name: LONG_WIDTH
+  bsv_equivalent: typedef 64 LONG_WIDTH;
+  value: '64'
+- name: PSN_WIDTH
+  bsv_equivalent: typedef 24 PSN_WIDTH;
+  value: '24'
+- name: QPN_WIDTH
+  bsv_equivalent: typedef 24 QPN_WIDTH;
+  value: '24'
+- name: RDMA_MAX_LEN_WIDTH
+  bsv_equivalent: typedef 32 RDMA_MAX_LEN_WIDTH;
+  value: '32'
+- name: WR_ID_WIDTH
+  bsv_equivalent: typedef 64 WR_ID_WIDTH;
+  value: '64'
+- name: PAD_WIDTH
+  bsv_equivalent: typedef 2 PAD_WIDTH;
+  value: '2'
+- name: PKEY_WIDTH
+  bsv_equivalent: typedef 16 PKEY_WIDTH;
+  value: '16'
+- name: AETH_VALUE_WIDTH
+  bsv_equivalent: typedef 5 AETH_VALUE_WIDTH;
+  value: '5'
+- name: MSN_WIDTH
+  bsv_equivalent: typedef 24 MSN_WIDTH;
+  value: '24'
+- name: KEY_WIDTH
+  bsv_equivalent: typedef 32 KEY_WIDTH;
+  value: '32'
+- name: IMM_WIDTH
+  bsv_equivalent: typedef 32 IMM_WIDTH;
+  value: '32'
+- name: MIN_PMTU
+  bsv_equivalent: typedef 256 MIN_PMTU;
+  value: '256'
+- name: MAX_PMTU
+  bsv_equivalent: typedef 4096 MAX_PMTU;
+  value: '4096'
+- name: ADDR
+  bsv_equivalent: typedef Bit#(ADDR_WIDTH) ADDR;
+  value: Bit#(ADDR_WIDTH)
+- name: Length
+  bsv_equivalent: typedef Bit#(RDMA_MAX_LEN_WIDTH) Length;
+  value: Bit#(RDMA_MAX_LEN_WIDTH)
+- name: Long
+  bsv_equivalent: typedef Bit#(LONG_WIDTH) Long;
+  value: Bit#(LONG_WIDTH)
+- name: QPN
+  bsv_equivalent: typedef Bit#(QPN_WIDTH) QPN;
+  value: Bit#(QPN_WIDTH)
+- name: PSN
+  bsv_equivalent: typedef Bit#(PSN_WIDTH) PSN;
+  value: Bit#(PSN_WIDTH)
+- name: PAD
+  bsv_equivalent: typedef Bit#(PAD_WIDTH) PAD;
+  value: Bit#(PAD_WIDTH)
+- name: PKEY
+  bsv_equivalent: typedef Bit#(PKEY_WIDTH) PKEY;
+  value: Bit#(PKEY_WIDTH)
+- name: AethValue
+  bsv_equivalent: typedef Bit#(AETH_VALUE_WIDTH) AethValue;
+  value: Bit#(AETH_VALUE_WIDTH)
+- name: MSN
+  bsv_equivalent: typedef Bit#(MSN_WIDTH) MSN;
+  value: Bit#(MSN_WIDTH)
+- name: RKEY
+  bsv_equivalent: typedef Bit#(KEY_WIDTH) RKEY;
+  value: Bit#(KEY_WIDTH)
+- name: LKEY
+  bsv_equivalent: typedef Bit#(KEY_WIDTH) LKEY;
+  value: Bit#(KEY_WIDTH)
+- name: QKEY
+  bsv_equivalent: typedef Bit#(KEY_WIDTH) QKEY;
+  value: Bit#(KEY_WIDTH)
+- name: IMM
+  bsv_equivalent: typedef Bit#(IMM_WIDTH) IMM;
+  value: Bit#(IMM_WIDTH)
+- name: RC_SEND_FIRST
+  bsv_equivalent: typedef 8'h00 RC_SEND_FIRST;
+  value: 8'h00
+- name: RC_SEND_MIDDLE
+  bsv_equivalent: typedef 8'h01 RC_SEND_MIDDLE;
+  value: 8'h01
+- name: RC_SEND_LAST
+  bsv_equivalent: typedef 8'h02 RC_SEND_LAST;
+  value: 8'h02
+- name: RC_SEND_LAST_WITH_IMMEDIATE
+  bsv_equivalent: typedef 8'h03 RC_SEND_LAST_WITH_IMMEDIATE;
+  value: 8'h03
+- name: RC_SEND_ONLY
+  bsv_equivalent: typedef 8'h04 RC_SEND_ONLY;
+  value: 8'h04
+- name: RC_SEND_ONLY_WITH_IMMEDIATE
+  bsv_equivalent: typedef 8'h05 RC_SEND_ONLY_WITH_IMMEDIATE;
+  value: 8'h05
+- name: RC_RDMA_WRITE_FIRST
+  bsv_equivalent: typedef 8'h06 RC_RDMA_WRITE_FIRST;
+  value: 8'h06
+- name: RC_RDMA_WRITE_MIDDLE
+  bsv_equivalent: typedef 8'h07 RC_RDMA_WRITE_MIDDLE;
+  value: 8'h07
+- name: RC_RDMA_WRITE_LAST
+  bsv_equivalent: typedef 8'h08 RC_RDMA_WRITE_LAST;
+  value: 8'h08
+- name: RC_RDMA_WRITE_LAST_WITH_IMMEDIATE
+  bsv_equivalent: typedef 8'h09 RC_RDMA_WRITE_LAST_WITH_IMMEDIATE;
+  value: 8'h09
+- name: RC_RDMA_WRITE_ONLY
+  bsv_equivalent: typedef 8'h0a RC_RDMA_WRITE_ONLY;
+  value: 8'h0a
+- name: RC_RDMA_WRITE_ONLY_WITH_IMMEDIATE
+  bsv_equivalent: typedef 8'h0b RC_RDMA_WRITE_ONLY_WITH_IMMEDIATE;
+  value: 8'h0b
+- name: RC_RDMA_READ_REQUEST
+  bsv_equivalent: typedef 8'h0c RC_RDMA_READ_REQUEST;
+  value: 8'h0c
+- name: RC_RDMA_READ_RESPONSE_FIRST
+  bsv_equivalent: typedef 8'h0d RC_RDMA_READ_RESPONSE_FIRST;
+  value: 8'h0d
+- name: RC_RDMA_READ_RESPONSE_MIDDLE
+  bsv_equivalent: typedef 8'h0e RC_RDMA_READ_RESPONSE_MIDDLE;
+  value: 8'h0e
+- name: RC_RDMA_READ_RESPONSE_LAST
+  bsv_equivalent: typedef 8'h0f RC_RDMA_READ_RESPONSE_LAST;
+  value: 8'h0f
+- name: RC_RDMA_READ_RESPONSE_ONLY
+  bsv_equivalent: typedef 8'h10 RC_RDMA_READ_RESPONSE_ONLY;
+  value: 8'h10
+- name: RC_ACKNOWLEDGE
+  bsv_equivalent: typedef 8'h11 RC_ACKNOWLEDGE;
+  value: 8'h11
+- name: RC_ATOMIC_ACKNOWLEDGE
+  bsv_equivalent: typedef 8'h12 RC_ATOMIC_ACKNOWLEDGE;
+  value: 8'h12
+- name: RC_COMPARE_SWAP
+  bsv_equivalent: typedef 8'h13 RC_COMPARE_SWAP;
+  value: 8'h13
+- name: RC_FETCH_ADD
+  bsv_equivalent: typedef 8'h14 RC_FETCH_ADD;
+  value: 8'h14
+- name: RC_SEND_LAST_WITH_INVALIDATE
+  bsv_equivalent: typedef 8'h16 RC_SEND_LAST_WITH_INVALIDATE;
+  value: 8'h16
+- name: RC_SEND_ONLY_WITH_INVALIDATE
+  bsv_equivalent: typedef 8'h17 RC_SEND_ONLY_WITH_INVALIDATE;
+  value: 8'h17
+- name: XRC_SEND_FIRST
+  bsv_equivalent: typedef 8'ha0 XRC_SEND_FIRST;
+  value: 8'ha0
+- name: XRC_SEND_MIDDLE
+  bsv_equivalent: typedef 8'ha1 XRC_SEND_MIDDLE;
+  value: 8'ha1
+- name: XRC_SEND_LAST
+  bsv_equivalent: typedef 8'ha2 XRC_SEND_LAST;
+  value: 8'ha2
+- name: XRC_SEND_LAST_WITH_IMMEDIATE
+  bsv_equivalent: typedef 8'ha3 XRC_SEND_LAST_WITH_IMMEDIATE;
+  value: 8'ha3
+- name: XRC_SEND_ONLY
+  bsv_equivalent: typedef 8'ha4 XRC_SEND_ONLY;
+  value: 8'ha4
+- name: XRC_SEND_ONLY_WITH_IMMEDIATE
+  bsv_equivalent: typedef 8'ha5 XRC_SEND_ONLY_WITH_IMMEDIATE;
+  value: 8'ha5
+- name: XRC_RDMA_WRITE_FIRST
+  bsv_equivalent: typedef 8'ha6 XRC_RDMA_WRITE_FIRST;
+  value: 8'ha6
+- name: XRC_RDMA_WRITE_MIDDLE
+  bsv_equivalent: typedef 8'ha7 XRC_RDMA_WRITE_MIDDLE;
+  value: 8'ha7
+- name: XRC_RDMA_WRITE_LAST
+  bsv_equivalent: typedef 8'ha8 XRC_RDMA_WRITE_LAST;
+  value: 8'ha8
+- name: XRC_RDMA_WRITE_LAST_WITH_IMMEDIATE
+  bsv_equivalent: typedef 8'ha9 XRC_RDMA_WRITE_LAST_WITH_IMMEDIATE;
+  value: 8'ha9
+- name: XRC_RDMA_WRITE_ONLY
+  bsv_equivalent: typedef 8'haa XRC_RDMA_WRITE_ONLY;
+  value: 8'haa
+- name: XRC_RDMA_WRITE_ONLY_WITH_IMMEDIATE
+  bsv_equivalent: typedef 8'hab XRC_RDMA_WRITE_ONLY_WITH_IMMEDIATE;
+  value: 8'hab
+- name: XRC_RDMA_READ_REQUEST
+  bsv_equivalent: typedef 8'hac XRC_RDMA_READ_REQUEST;
+  value: 8'hac
+- name: XRC_RDMA_READ_RESPONSE_FIRST
+  bsv_equivalent: typedef 8'had XRC_RDMA_READ_RESPONSE_FIRST;
+  value: 8'had
+- name: XRC_RDMA_READ_RESPONSE_MIDDLE
+  bsv_equivalent: typedef 8'hae XRC_RDMA_READ_RESPONSE_MIDDLE;
+  value: 8'hae
+- name: XRC_RDMA_READ_RESPONSE_LAST
+  bsv_equivalent: typedef 8'haf XRC_RDMA_READ_RESPONSE_LAST;
+  value: 8'haf
+- name: XRC_RDMA_READ_RESPONSE_ONLY
+  bsv_equivalent: typedef 8'hb0 XRC_RDMA_READ_RESPONSE_ONLY;
+  value: 8'hb0
+- name: XRC_ACKNOWLEDGE
+  bsv_equivalent: typedef 8'hb1 XRC_ACKNOWLEDGE;
+  value: 8'hb1
+- name: XRC_ATOMIC_ACKNOWLEDGE
+  bsv_equivalent: typedef 8'hb2 XRC_ATOMIC_ACKNOWLEDGE;
+  value: 8'hb2
+- name: XRC_COMPARE_SWAP
+  bsv_equivalent: typedef 8'hb3 XRC_COMPARE_SWAP;
+  value: 8'hb3
+- name: XRC_FETCH_ADD
+  bsv_equivalent: typedef 8'hb4 XRC_FETCH_ADD;
+  value: 8'hb4
+- name: XRC_SEND_LAST_WITH_INVALIDATE
+  bsv_equivalent: typedef 8'hb6 XRC_SEND_LAST_WITH_INVALIDATE;
+  value: 8'hb6
+- name: XRC_SEND_ONLY_WITH_INVALIDATE
+  bsv_equivalent: typedef 8'hb7 XRC_SEND_ONLY_WITH_INVALIDATE;
+  value: 8'hb7
+- name: UD_SEND_ONLY
+  bsv_equivalent: typedef 8'h64 UD_SEND_ONLY;
+  value: 8'h64
+- name: UD_SEND_ONLY_WITH_IMMEDIATE
+  bsv_equivalent: typedef 8'h65 UD_SEND_ONLY_WITH_IMMEDIATE;
+  value: 8'h65
+- name: ROCE_CNP
+  bsv_equivalent: typedef 8'h81 ROCE_CNP;
+  value: 8'h81
+- name: TRANS_TYPE_WIDTH
+  bsv_equivalent: typedef SizeOf#(TransType) TRANS_TYPE_WIDTH;
+  value: SizeOf#(TransType)
+- name: RDMA_OPCODE_WIDTH
+  bsv_equivalent: typedef SizeOf#(RdmaOpCode) RDMA_OPCODE_WIDTH;
+  value: SizeOf#(RdmaOpCode)
+- name: BTH_WIDTH
+  bsv_equivalent: typedef SizeOf#(BTH) BTH_WIDTH;
+  value: SizeOf#(BTH)
+- name: BTH_BYTE_WIDTH
+  bsv_equivalent: typedef TDiv#(BTH_WIDTH, 8) BTH_BYTE_WIDTH;
+  value: TDiv#(BTH_WIDTH, 8)
+- name: AETH_WIDTH
+  bsv_equivalent: typedef SizeOf#(AETH) AETH_WIDTH;
+  value: SizeOf#(AETH)
+- name: AETH_BYTE_WIDTH
+  bsv_equivalent: typedef TDiv#(AETH_WIDTH, 8) AETH_BYTE_WIDTH;
+  value: TDiv#(AETH_WIDTH, 8)
+- name: RETH_WIDTH
+  bsv_equivalent: typedef SizeOf#(RETH) RETH_WIDTH;
+  value: SizeOf#(RETH)
+- name: RETH_BYTE_WIDTH
+  bsv_equivalent: typedef TDiv#(RETH_WIDTH, 8) RETH_BYTE_WIDTH;
+  value: TDiv#(RETH_WIDTH, 8)
+- name: LETH_WIDTH
+  bsv_equivalent: typedef SizeOf#(LETH) LETH_WIDTH;
+  value: SizeOf#(LETH)
+- name: LETH_BYTE_WIDTH
+  bsv_equivalent: typedef TDiv#(LETH_WIDTH, 8) LETH_BYTE_WIDTH;
+  value: TDiv#(LETH_WIDTH, 8)
+- name: ATOMIC_ETH_WIDTH
+  bsv_equivalent: typedef SizeOf#(AtomicEth) ATOMIC_ETH_WIDTH;
+  value: SizeOf#(AtomicEth)
+- name: ATOMIC_ETH_BYTE_WIDTH
+  bsv_equivalent: typedef TDiv#(ATOMIC_ETH_WIDTH, 8) ATOMIC_ETH_BYTE_WIDTH;
+  value: TDiv#(ATOMIC_ETH_WIDTH, 8)
+- name: ATOMIC_ACK_ETH_WIDTH
+  bsv_equivalent: typedef SizeOf#(AtomicAckEth) ATOMIC_ACK_ETH_WIDTH;
+  value: SizeOf#(AtomicAckEth)
+- name: ATOMIC_ACK_ETH_BYTE_WIDTH
+  bsv_equivalent: typedef TDiv#(ATOMIC_ACK_ETH_WIDTH, 8) ATOMIC_ACK_ETH_BYTE_WIDTH;
+  value: TDiv#(ATOMIC_ACK_ETH_WIDTH, 8)
+- name: IMM_DT_WIDTH
+  bsv_equivalent: typedef SizeOf#(ImmDt) IMM_DT_WIDTH;
+  value: SizeOf#(ImmDt)
+- name: IMM_DT_BYTE_WIDTH
+  bsv_equivalent: typedef TDiv#(IMM_DT_WIDTH, 8) IMM_DT_BYTE_WIDTH;
+  value: TDiv#(IMM_DT_WIDTH, 8)
+- name: IETH_WIDTH
+  bsv_equivalent: typedef SizeOf#(IETH) IETH_WIDTH;
+  value: SizeOf#(IETH)
+- name: IETH_BYTE_WIDTH
+  bsv_equivalent: typedef TDiv#(IETH_WIDTH, 8) IETH_BYTE_WIDTH;
+  value: TDiv#(IETH_WIDTH, 8)
+- name: DETH_WIDTH
+  bsv_equivalent: typedef SizeOf#(DETH) DETH_WIDTH;
+  value: SizeOf#(DETH)
+- name: DETH_BYTE_WIDTH
+  bsv_equivalent: typedef TDiv#(DETH_WIDTH, 8) DETH_BYTE_WIDTH;
+  value: TDiv#(DETH_WIDTH, 8)
+- name: XRCETH_WIDTH
+  bsv_equivalent: typedef SizeOf#(XRCETH) XRCETH_WIDTH;
+  value: SizeOf#(XRCETH)
+- name: XRCETH_BYTE_WIDTH
+  bsv_equivalent: typedef TDiv#(XRCETH_WIDTH, 8) XRCETH_BYTE_WIDTH;
+  value: TDiv#(XRCETH_WIDTH, 8)
+- name: CNP_PAYLOAD_WIDTH
+  bsv_equivalent: typedef SizeOf#(PayloadCNP) CNP_PAYLOAD_WIDTH;
+  value: SizeOf#(PayloadCNP)
+- name: CNP_PAYLOAD_BYTE_WIDTH
+  bsv_equivalent: typedef TDiv#(CNP_PAYLOAD_WIDTH, 8) CNP_PAYLOAD_BYTE_WIDTH;
+  value: TDiv#(CNP_PAYLOAD_WIDTH, 8)
+enums:
+- name: TransType
+  deriving: Bits, Bounded, Eq, FShow
+  variants:
+  - TRANS_TYPE_RC = 3'h0, // 3'b000
+  - TRANS_TYPE_UC = 3'h1, // 3'b001
+  - TRANS_TYPE_RD = 3'h2, // 3'b010
+  - TRANS_TYPE_UD = 3'h3, // 3'b011
+  - TRANS_TYPE_CNP = 3'h4, // 3'b100
+  - TRANS_TYPE_XRC = 3'h5  // 3'b101
+  bsv_equivalent: "typedef enum {\n        TRANS_TYPE_RC = 3'h0, // 3'b000\n    TRANS_TYPE_UC\
+    \ = 3'h1, // 3'b001\n    TRANS_TYPE_RD = 3'h2, // 3'b010\n    TRANS_TYPE_UD =\
+    \ 3'h3, // 3'b011\n    TRANS_TYPE_CNP = 3'h4, // 3'b100\n    TRANS_TYPE_XRC =\
+    \ 3'h5  // 3'b101\n} TransType deriving(Bits, Bounded, Eq, FShow);"
+- name: RdmaOpCode
+  deriving: Bits, Bounded, Eq, FShow
+  variants:
+  - SEND_FIRST = 5'h00
+  - SEND_MIDDLE = 5'h01
+  - SEND_LAST = 5'h02
+  - SEND_LAST_WITH_IMMEDIATE = 5'h03
+  - SEND_ONLY = 5'h04
+  - SEND_ONLY_WITH_IMMEDIATE = 5'h05
+  - RDMA_WRITE_FIRST = 5'h06
+  - RDMA_WRITE_MIDDLE = 5'h07
+  - RDMA_WRITE_LAST = 5'h08
+  - RDMA_WRITE_LAST_WITH_IMMEDIATE = 5'h09
+  - RDMA_WRITE_ONLY = 5'h0a
+  - RDMA_WRITE_ONLY_WITH_IMMEDIATE = 5'h0b
+  - RDMA_READ_REQUEST = 5'h0c
+  - RDMA_READ_RESPONSE_FIRST = 5'h0d
+  - RDMA_READ_RESPONSE_MIDDLE = 5'h0e
+  - RDMA_READ_RESPONSE_LAST = 5'h0f
+  - RDMA_READ_RESPONSE_ONLY = 5'h10
+  - ACKNOWLEDGE = 5'h11
+  - ATOMIC_ACKNOWLEDGE = 5'h12
+  - COMPARE_SWAP = 5'h13
+  - FETCH_ADD = 5'h14
+  - RESYNC = 5'h15
+  - SEND_LAST_WITH_INVALIDATE = 5'h16
+  - SEND_ONLY_WITH_INVALIDATE = 5'h17
+  bsv_equivalent: "typedef enum {\n        SEND_FIRST = 5'h00\n    SEND_MIDDLE = 5'h01\n\
+    \    SEND_LAST = 5'h02\n    SEND_LAST_WITH_IMMEDIATE = 5'h03\n    SEND_ONLY =\
+    \ 5'h04\n    SEND_ONLY_WITH_IMMEDIATE = 5'h05\n    RDMA_WRITE_FIRST = 5'h06\n\
+    \    RDMA_WRITE_MIDDLE = 5'h07\n    RDMA_WRITE_LAST = 5'h08\n    RDMA_WRITE_LAST_WITH_IMMEDIATE\
+    \ = 5'h09\n    RDMA_WRITE_ONLY = 5'h0a\n    RDMA_WRITE_ONLY_WITH_IMMEDIATE = 5'h0b\n\
+    \    RDMA_READ_REQUEST = 5'h0c\n    RDMA_READ_RESPONSE_FIRST = 5'h0d\n    RDMA_READ_RESPONSE_MIDDLE\
+    \ = 5'h0e\n    RDMA_READ_RESPONSE_LAST = 5'h0f\n    RDMA_READ_RESPONSE_ONLY =\
+    \ 5'h10\n    ACKNOWLEDGE = 5'h11\n    ATOMIC_ACKNOWLEDGE = 5'h12\n    COMPARE_SWAP\
+    \ = 5'h13\n    FETCH_ADD = 5'h14\n    RESYNC = 5'h15\n    SEND_LAST_WITH_INVALIDATE\
+    \ = 5'h16\n    SEND_ONLY_WITH_INVALIDATE = 5'h17\n} RdmaOpCode deriving(Bits,\
+    \ Bounded, Eq, FShow);"
+- name: AethCode
+  deriving: Bits, Bounded, Eq, FShow
+  variants:
+  - AETH_CODE_ACK = 2'b00
+  - AETH_CODE_RNR = 2'b01
+  - AETH_CODE_RSVD = 2'b10
+  - AETH_CODE_NAK = 2'b11
+  bsv_equivalent: "typedef enum {\n        AETH_CODE_ACK = 2'b00\n    AETH_CODE_RNR\
+    \ = 2'b01\n    AETH_CODE_RSVD = 2'b10\n    AETH_CODE_NAK = 2'b11\n} AethCode deriving(Bits,\
+    \ Bounded, Eq, FShow);"
+- name: AethAckValueCreditCnt
+  deriving: Bits, Bounded, Eq
+  variants:
+  - AETH_ACK_VALUE_INVALID_CREDIT_CNT = 5'b11111
+  bsv_equivalent: "typedef enum {\n        AETH_ACK_VALUE_INVALID_CREDIT_CNT = 5'b11111\n\
+    } AethAckValueCreditCnt deriving(Bits, Bounded, Eq);"
+- name: AethNakValue
+  deriving: Bits, Bounded, Eq
+  variants:
+  - AETH_NAK_SEQ_ERR = 5'h0, // 5'b00000 PSN Sequence Error
+  - AETH_NAK_INV_REQ = 5'h1, // 5'b00001 Invalid Request
+  - AETH_NAK_RMT_ACC = 5'h2, // 5'b00010 Remote Access Error
+  - AETH_NAK_RMT_OP = 5'h3, // 5'b00011 Remote Operational Error
+  - AETH_NAK_INV_RD = 5'h4  // 5'b00100 Invalid RD Request
+  bsv_equivalent: "typedef enum {\n        AETH_NAK_SEQ_ERR = 5'h0, // 5'b00000 PSN\
+    \ Sequence Error\n    AETH_NAK_INV_REQ = 5'h1, // 5'b00001 Invalid Request\n \
+    \   AETH_NAK_RMT_ACC = 5'h2, // 5'b00010 Remote Access Error\n    AETH_NAK_RMT_OP\
+    \ = 5'h3, // 5'b00011 Remote Operational Error\n    AETH_NAK_INV_RD = 5'h4  //\
+    \ 5'b00100 Invalid RD Request\n} AethNakValue deriving(Bits, Bounded, Eq);"
+structs:
+- name: BTH
+  deriving: Bits, Bounded, FShow
+  fields:
+  - type: TransType
+    name: trans
+  - type: RdmaOpCode
+    name: opcode
+  - type: Bool
+    name: solicited
+  - type: ReservedZero#(1)
+    name: migReq
+  - type: PAD
+    name: padCnt
+  - type: ReservedZero#(4)
+    name: tver
+  - type: PKEY
+    name: pkey
+  - type: ReservedZero#(1)
+    name: fecn
+  - type: ReservedZero#(1)
+    name: becn
+  - type: ReservedZero#(6)
+    name: resv6
+  - type: QPN
+    name: dqpn
+  - type: Bool
+    name: ackReq
+  - type: ReservedZero#(7)
+    name: resv7
+  - type: PSN
+    name: psn
+- name: AETH
+  deriving: Bits, Bounded, FShow
+  fields:
+  - type: ReservedZero#(1)
+    name: rsvd
+  - type: AethCode
+    name: code
+  - type: AethValue
+    name: value
+  - type: MSN
+    name: msn
+- name: RETH
+  deriving: Bits, Bounded, FShow
+  fields:
+  - type: ADDR
+    name: va
+  - type: RKEY
+    name: rkey
+  - type: Length
+    name: dlen
+- name: LETH
+  deriving: Bits, Bounded, FShow
+  fields:
+  - type: ADDR
+    name: va
+  - type: LKEY
+    name: lkey
+  - type: Length
+    name: dlen
+- name: AtomicEth
+  deriving: Bits, Bounded, FShow
+  fields:
+  - type: ADDR
+    name: va
+  - type: RKEY
+    name: rkey
+  - type: Long
+    name: swap
+  - type: Long
+    name: comp
+- name: AtomicAckEth
+  deriving: Bits, Bounded, FShow
+  fields:
+  - type: Long
+    name: orig
+- name: ImmDt
+  deriving: Bits, Bounded, FShow
+  fields:
+  - type: IMM
+    name: data
+- name: IETH
+  deriving: Bits, Bounded, FShow
+  fields:
+  - type: RKEY
+    name: rkey
+- name: DETH
+  deriving: Bits, Bounded, FShow
+  fields:
+  - type: QKEY
+    name: qkey
+  - type: ReservedZero#(8)
+    name: rsvd
+  - type: QPN
+    name: sqpn
+- name: XRCETH
+  deriving: Bits, Bounded, FShow
+  fields:
+  - type: ReservedZero#(8)
+    name: rsvd
+  - type: QPN
+    name: srqn
+- name: PayloadCNP
+  deriving: Bits, Bounded, FShow
+  fields:
+  - type: ReservedZero#(LONG_WIDTH)
+    name: rsvd1
+  - type: ReservedZero#(LONG_WIDTH)
+    name: rsvd2
+functions:
+- name: unknown
+  bsv_equivalent: "function Integer calcHeaderLenByTransTypeAndRdmaOpCode(\n    TransType\
+    \ transType, RdmaOpCode rdmaOpCode\n);\n    return case ({ pack(transType), pack(rdmaOpCode)\
+    \ } )\n        // RC requests\n        fromInteger(valueOf(RC_SEND_FIRST))   \
+    \                 : valueOf(BTH_BYTE_WIDTH);\n        fromInteger(valueOf(RC_SEND_MIDDLE))\
+    \                   : valueOf(BTH_BYTE_WIDTH);\n        fromInteger(valueOf(RC_SEND_LAST))\
+    \                     : valueOf(BTH_BYTE_WIDTH);\n        fromInteger(valueOf(RC_SEND_LAST_WITH_IMMEDIATE))\
+    \      : valueOf(BTH_BYTE_WIDTH) + valueOf(IMM_DT_BYTE_WIDTH);\n        fromInteger(valueOf(RC_SEND_ONLY))\
+    \                     : valueOf(BTH_BYTE_WIDTH);\n        fromInteger(valueOf(RC_SEND_ONLY_WITH_IMMEDIATE))\
+    \      : valueOf(BTH_BYTE_WIDTH) + valueOf(IMM_DT_BYTE_WIDTH);\n        fromInteger(valueOf(RC_RDMA_WRITE_FIRST))\
+    \              : valueOf(BTH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH);\n       \
+    \ fromInteger(valueOf(RC_RDMA_WRITE_MIDDLE))             : valueOf(BTH_BYTE_WIDTH);\n\
+    \        fromInteger(valueOf(RC_RDMA_WRITE_LAST))               : valueOf(BTH_BYTE_WIDTH);\n\
+    \        fromInteger(valueOf(RC_RDMA_WRITE_LAST_WITH_IMMEDIATE)): valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(IMM_DT_BYTE_WIDTH);\n        fromInteger(valueOf(RC_RDMA_WRITE_ONLY))\
+    \               : valueOf(BTH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH);\n      \
+    \  fromInteger(valueOf(RC_RDMA_WRITE_ONLY_WITH_IMMEDIATE)): valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(RETH_BYTE_WIDTH) + valueOf(IMM_DT_BYTE_WIDTH);\n        fromInteger(valueOf(RC_RDMA_READ_REQUEST))\
+    \             : valueOf(BTH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH);\n        fromInteger(valueOf(RC_COMPARE_SWAP))\
+    \                  : valueOf(BTH_BYTE_WIDTH) + valueOf(ATOMIC_ETH_BYTE_WIDTH);\n\
+    \        fromInteger(valueOf(RC_FETCH_ADD))                     : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(ATOMIC_ETH_BYTE_WIDTH);\n        fromInteger(valueOf(RC_SEND_LAST_WITH_INVALIDATE))\
+    \     : valueOf(BTH_BYTE_WIDTH) + valueOf(IETH_BYTE_WIDTH);\n        fromInteger(valueOf(RC_SEND_ONLY_WITH_INVALIDATE))\
+    \     : valueOf(BTH_BYTE_WIDTH) + valueOf(IETH_BYTE_WIDTH);\n\n        // RC and\
+    \ XRC responses\n        fromInteger(valueOf(RC_RDMA_READ_RESPONSE_FIRST)),  fromInteger(valueOf(XRC_RDMA_READ_RESPONSE_FIRST))\
+    \ : valueOf(BTH_BYTE_WIDTH) + valueOf(AETH_BYTE_WIDTH);\n        fromInteger(valueOf(RC_RDMA_READ_RESPONSE_MIDDLE)),\
+    \ fromInteger(valueOf(XRC_RDMA_READ_RESPONSE_MIDDLE)): valueOf(BTH_BYTE_WIDTH);\n\
+    \        fromInteger(valueOf(RC_RDMA_READ_RESPONSE_LAST)),   fromInteger(valueOf(XRC_RDMA_READ_RESPONSE_LAST))\
+    \  : valueOf(BTH_BYTE_WIDTH) + valueOf(AETH_BYTE_WIDTH);\n        fromInteger(valueOf(RC_RDMA_READ_RESPONSE_ONLY)),\
+    \   fromInteger(valueOf(XRC_RDMA_READ_RESPONSE_ONLY))  : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(AETH_BYTE_WIDTH);\n        fromInteger(valueOf(RC_ACKNOWLEDGE)), \
+    \              fromInteger(valueOf(XRC_ACKNOWLEDGE))              : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(AETH_BYTE_WIDTH);\n        fromInteger(valueOf(RC_ATOMIC_ACKNOWLEDGE)),\
+    \        fromInteger(valueOf(XRC_ATOMIC_ACKNOWLEDGE))       : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(AETH_BYTE_WIDTH) + valueOf(ATOMIC_ACK_ETH_BYTE_WIDTH);\n\n       \
+    \ // XRC requests\n        fromInteger(valueOf(XRC_SEND_FIRST))              \
+    \      : valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH);\n        fromInteger(valueOf(XRC_SEND_MIDDLE))\
+    \                   : valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH);\n\
+    \        fromInteger(valueOf(XRC_SEND_LAST))                     : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(XRCETH_BYTE_WIDTH);\n        fromInteger(valueOf(XRC_SEND_LAST_WITH_IMMEDIATE))\
+    \      : valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH) + valueOf(IMM_DT_BYTE_WIDTH);\n\
+    \        fromInteger(valueOf(XRC_SEND_ONLY))                     : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(XRCETH_BYTE_WIDTH);\n        fromInteger(valueOf(XRC_SEND_ONLY_WITH_IMMEDIATE))\
+    \      : valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH) + valueOf(IMM_DT_BYTE_WIDTH);\n\
+    \        fromInteger(valueOf(XRC_RDMA_WRITE_FIRST))              : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(XRCETH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH);\n        fromInteger(valueOf(XRC_RDMA_WRITE_MIDDLE))\
+    \             : valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH);\n      \
+    \  fromInteger(valueOf(XRC_RDMA_WRITE_LAST))               : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(XRCETH_BYTE_WIDTH);\n        fromInteger(valueOf(XRC_RDMA_WRITE_LAST_WITH_IMMEDIATE)):\
+    \ valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH) + valueOf(IMM_DT_BYTE_WIDTH);\n\
+    \        fromInteger(valueOf(XRC_RDMA_WRITE_ONLY))               : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(XRCETH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH);\n        fromInteger(valueOf(XRC_RDMA_WRITE_ONLY_WITH_IMMEDIATE)):\
+    \ valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH)\
+    \ + valueOf(IMM_DT_BYTE_WIDTH);\n        fromInteger(valueOf(XRC_RDMA_READ_REQUEST))\
+    \             : valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH);\n\
+    \        fromInteger(valueOf(XRC_COMPARE_SWAP))                  : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(XRCETH_BYTE_WIDTH) + valueOf(ATOMIC_ETH_BYTE_WIDTH);\n        fromInteger(valueOf(XRC_FETCH_ADD))\
+    \                     : valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH) +\
+    \ valueOf(ATOMIC_ETH_BYTE_WIDTH);\n        fromInteger(valueOf(XRC_SEND_LAST_WITH_INVALIDATE))\
+    \     : valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH) + valueOf(IETH_BYTE_WIDTH);\n\
+    \        fromInteger(valueOf(XRC_SEND_ONLY_WITH_INVALIDATE))     : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(XRCETH_BYTE_WIDTH) + valueOf(IETH_BYTE_WIDTH);\n\n        // UD requests\n\
+    \        fromInteger(valueOf(UD_SEND_ONLY))               : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(DETH_BYTE_WIDTH);\n        fromInteger(valueOf(UD_SEND_ONLY_WITH_IMMEDIATE)):\
+    \ valueOf(BTH_BYTE_WIDTH) + valueOf(DETH_BYTE_WIDTH) + valueOf(IMM_DT_BYTE_WIDTH);\n\
+    \n        // CNP notification\n        fromInteger(valueOf(ROCE_CNP)): valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(CNP_PAYLOAD_BYTE_WIDTH);\n        default: 0;\n    endcase;\nendfunction"
+- name: unknown
+  bsv_equivalent: "function Integer calcHeaderLenByTransTypeAndRdmaOpCode(\n    TransType\
+    \ transType, RdmaOpCode rdmaOpCode\n);\n    return case ({ pack(transType), pack(rdmaOpCode)\
+    \ } )\n        // RC requests\n        fromInteger(valueOf(RC_SEND_FIRST))   \
+    \                 : valueOf(BTH_BYTE_WIDTH);\n        fromInteger(valueOf(RC_SEND_MIDDLE))\
+    \                   : valueOf(BTH_BYTE_WIDTH);\n        fromInteger(valueOf(RC_SEND_LAST))\
+    \                     : valueOf(BTH_BYTE_WIDTH);\n        fromInteger(valueOf(RC_SEND_LAST_WITH_IMMEDIATE))\
+    \      : valueOf(BTH_BYTE_WIDTH) + valueOf(IMM_DT_BYTE_WIDTH);\n        fromInteger(valueOf(RC_SEND_ONLY))\
+    \                     : valueOf(BTH_BYTE_WIDTH);\n        fromInteger(valueOf(RC_SEND_ONLY_WITH_IMMEDIATE))\
+    \      : valueOf(BTH_BYTE_WIDTH) + valueOf(IMM_DT_BYTE_WIDTH);\n        fromInteger(valueOf(RC_RDMA_WRITE_FIRST))\
+    \              : valueOf(BTH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH);\n       \
+    \ fromInteger(valueOf(RC_RDMA_WRITE_MIDDLE))             : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(RETH_BYTE_WIDTH);\n        fromInteger(valueOf(RC_RDMA_WRITE_LAST))\
+    \               : valueOf(BTH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH);\n      \
+    \  fromInteger(valueOf(RC_RDMA_WRITE_LAST_WITH_IMMEDIATE)): valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(RETH_BYTE_WIDTH) + valueOf(IMM_DT_BYTE_WIDTH);\n        fromInteger(valueOf(RC_RDMA_WRITE_ONLY))\
+    \               : valueOf(BTH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH);\n      \
+    \  fromInteger(valueOf(RC_RDMA_WRITE_ONLY_WITH_IMMEDIATE)): valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(RETH_BYTE_WIDTH) + valueOf(IMM_DT_BYTE_WIDTH);\n        fromInteger(valueOf(RC_RDMA_READ_REQUEST))\
+    \             : valueOf(BTH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH) + valueOf(LETH_BYTE_WIDTH);\n\
+    \        fromInteger(valueOf(RC_COMPARE_SWAP))                  : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(ATOMIC_ETH_BYTE_WIDTH);\n        fromInteger(valueOf(RC_FETCH_ADD))\
+    \                     : valueOf(BTH_BYTE_WIDTH) + valueOf(ATOMIC_ETH_BYTE_WIDTH);\n\
+    \        fromInteger(valueOf(RC_SEND_LAST_WITH_INVALIDATE))     : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(IETH_BYTE_WIDTH);\n        fromInteger(valueOf(RC_SEND_ONLY_WITH_INVALIDATE))\
+    \     : valueOf(BTH_BYTE_WIDTH) + valueOf(IETH_BYTE_WIDTH);\n\n        // RC and\
+    \ XRC responses\n        fromInteger(valueOf(RC_RDMA_READ_RESPONSE_FIRST)),  fromInteger(valueOf(XRC_RDMA_READ_RESPONSE_FIRST))\
+    \ : valueOf(BTH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH);\n        fromInteger(valueOf(RC_RDMA_READ_RESPONSE_MIDDLE)),\
+    \ fromInteger(valueOf(XRC_RDMA_READ_RESPONSE_MIDDLE)): valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(RETH_BYTE_WIDTH);\n        fromInteger(valueOf(RC_RDMA_READ_RESPONSE_LAST)),\
+    \   fromInteger(valueOf(XRC_RDMA_READ_RESPONSE_LAST))  : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(RETH_BYTE_WIDTH);\n        fromInteger(valueOf(RC_RDMA_READ_RESPONSE_ONLY)),\
+    \   fromInteger(valueOf(XRC_RDMA_READ_RESPONSE_ONLY))  : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(RETH_BYTE_WIDTH);\n        fromInteger(valueOf(RC_ACKNOWLEDGE)), \
+    \              fromInteger(valueOf(XRC_ACKNOWLEDGE))              : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(AETH_BYTE_WIDTH);\n        fromInteger(valueOf(RC_ATOMIC_ACKNOWLEDGE)),\
+    \        fromInteger(valueOf(XRC_ATOMIC_ACKNOWLEDGE))       : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(AETH_BYTE_WIDTH) + valueOf(ATOMIC_ACK_ETH_BYTE_WIDTH);\n\n       \
+    \ // XRC requests\n        fromInteger(valueOf(XRC_SEND_FIRST))              \
+    \      : valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH);\n        fromInteger(valueOf(XRC_SEND_MIDDLE))\
+    \                   : valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH);\n\
+    \        fromInteger(valueOf(XRC_SEND_LAST))                     : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(XRCETH_BYTE_WIDTH);\n        fromInteger(valueOf(XRC_SEND_LAST_WITH_IMMEDIATE))\
+    \      : valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH) + valueOf(IMM_DT_BYTE_WIDTH);\n\
+    \        fromInteger(valueOf(XRC_SEND_ONLY))                     : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(XRCETH_BYTE_WIDTH);\n        fromInteger(valueOf(XRC_SEND_ONLY_WITH_IMMEDIATE))\
+    \      : valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH) + valueOf(IMM_DT_BYTE_WIDTH);\n\
+    \        fromInteger(valueOf(XRC_RDMA_WRITE_FIRST))              : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(XRCETH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH);\n        fromInteger(valueOf(XRC_RDMA_WRITE_MIDDLE))\
+    \             : valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH);\n\
+    \        fromInteger(valueOf(XRC_RDMA_WRITE_LAST))               : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(XRCETH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH);\n        fromInteger(valueOf(XRC_RDMA_WRITE_LAST_WITH_IMMEDIATE)):\
+    \ valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH)\
+    \ + valueOf(IMM_DT_BYTE_WIDTH);\n        fromInteger(valueOf(XRC_RDMA_WRITE_ONLY))\
+    \               : valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH);\n\
+    \        fromInteger(valueOf(XRC_RDMA_WRITE_ONLY_WITH_IMMEDIATE)): valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(XRCETH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH) + valueOf(IMM_DT_BYTE_WIDTH);\n\
+    \        fromInteger(valueOf(XRC_RDMA_READ_REQUEST))             : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(XRCETH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH) + valueOf(LETH_BYTE_WIDTH);\n\
+    \        fromInteger(valueOf(XRC_COMPARE_SWAP))                  : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(XRCETH_BYTE_WIDTH) + valueOf(ATOMIC_ETH_BYTE_WIDTH);\n        fromInteger(valueOf(XRC_FETCH_ADD))\
+    \                     : valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH) +\
+    \ valueOf(ATOMIC_ETH_BYTE_WIDTH);\n        fromInteger(valueOf(XRC_SEND_LAST_WITH_INVALIDATE))\
+    \     : valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH) + valueOf(IETH_BYTE_WIDTH);\n\
+    \        fromInteger(valueOf(XRC_SEND_ONLY_WITH_INVALIDATE))     : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(XRCETH_BYTE_WIDTH) + valueOf(IETH_BYTE_WIDTH);\n\n        // UD requests\n\
+    \        fromInteger(valueOf(UD_SEND_ONLY))               : valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(DETH_BYTE_WIDTH);\n        fromInteger(valueOf(UD_SEND_ONLY_WITH_IMMEDIATE)):\
+    \ valueOf(BTH_BYTE_WIDTH) + valueOf(DETH_BYTE_WIDTH) + valueOf(IMM_DT_BYTE_WIDTH);\n\
+    \n        // CNP notification\n        fromInteger(valueOf(ROCE_CNP)): valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(CNP_PAYLOAD_BYTE_WIDTH);\n        default: 0;\n    endcase;\nendfunction"
+- name: rdmaOpCodeHasPayload
+  return_type: Bool
+  args: RdmaOpCode opcode
+  bsv_equivalent: "function Bool rdmaOpCodeHasPayload(RdmaOpCode opcode);\n    return\
+    \ case (opcode)\n        SEND_FIRST                    ,\n        SEND_MIDDLE\
+    \                   ,\n        SEND_LAST                     ,\n        SEND_ONLY\
+    \                     ,\n        SEND_LAST_WITH_IMMEDIATE      ,\n        SEND_ONLY_WITH_IMMEDIATE\
+    \      ,\n        SEND_LAST_WITH_INVALIDATE     ,\n        SEND_ONLY_WITH_INVALIDATE\
+    \     ,\n\n        RDMA_WRITE_FIRST              ,\n        RDMA_WRITE_MIDDLE\
+    \             ,\n        RDMA_WRITE_LAST               ,\n        RDMA_WRITE_ONLY\
+    \               ,\n        RDMA_WRITE_LAST_WITH_IMMEDIATE,\n        RDMA_WRITE_ONLY_WITH_IMMEDIATE,\n\
+    \n        RDMA_READ_RESPONSE_FIRST      ,\n        RDMA_READ_RESPONSE_MIDDLE \
+    \    ,\n        RDMA_READ_RESPONSE_LAST       ,\n        RDMA_READ_RESPONSE_ONLY\
+    \       : True;\n\n        default                       : False;\n    endcase;\n\
+    endfunction"

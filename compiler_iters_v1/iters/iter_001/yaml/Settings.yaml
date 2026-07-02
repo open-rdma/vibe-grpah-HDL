@@ -1,0 +1,79 @@
+meta:
+  name: Settings
+  description: 'Adjustible settings
+
+    typedef 500 TARGET_FREQ_MHZ;'
+module_type: typedef_only
+design_knowledge:
+  description: 'This module defines: Settings.'
+  structural_info: 'Original BSV file: Settings.bsv
+
+    Contains: 22 typedefs, 0 enums, 0 structs, 0 functions, 0 methods, 0 registers,
+    0 rules, 0 submodules'
+typedefs:
+- name: TARGET_FREQ_MHZ
+  bsv_equivalent: typedef 500 TARGET_FREQ_MHZ;
+  value: '500'
+- name: TARGET_CYCLE_NS
+  bsv_equivalent: typedef 2 TARGET_CYCLE_NS;
+  value: '2'
+- name: MIN_PKT_NUM_IN_RECV_BUF
+  bsv_equivalent: typedef 2 MIN_PKT_NUM_IN_RECV_BUF;
+  value: '2'
+- name: MAX_PENDING_WORK_COMP_NUM
+  bsv_equivalent: typedef TMul#(2, MAX_QP_WR) MAX_PENDING_WORK_COMP_NUM;
+  value: TMul#(2, MAX_QP_WR)
+- name: DATA_BUS_WIDTH
+  bsv_equivalent: typedef 256 DATA_BUS_WIDTH;
+  value: '256'
+- name: MAX_MR_SIZE
+  bsv_equivalent: typedef TExp#(31) MAX_MR_SIZE;
+  value: TExp#(31)
+- name: PAGE_SIZE_CAP
+  bsv_equivalent: typedef TExp#(21) PAGE_SIZE_CAP;
+  value: TExp#(21)
+- name: MAX_QP
+  bsv_equivalent: typedef 4 MAX_QP;
+  value: '4'
+- name: MAX_QP_WR
+  bsv_equivalent: typedef 32 MAX_QP_WR;
+  value: '32'
+- name: MAX_SGE
+  bsv_equivalent: typedef 8 MAX_SGE;
+  value: '8'
+- name: MAX_CQ
+  bsv_equivalent: typedef 8 MAX_CQ;
+  value: '8'
+- name: MAX_CQE
+  bsv_equivalent: typedef MAX_QP_WR MAX_CQE;
+  value: MAX_QP_WR
+- name: MAX_MR
+  bsv_equivalent: typedef 256 MAX_MR;
+  value: '256'
+- name: MAX_PD
+  bsv_equivalent: typedef 2 MAX_PD;
+  value: '2'
+- name: MAX_QP_RD_ATOM
+  bsv_equivalent: typedef TDiv#(MAX_QP_WR, 2) MAX_QP_RD_ATOM;
+  value: TDiv#(MAX_QP_WR, 2)
+- name: MAX_QP_DST_RD_ATOM
+  bsv_equivalent: typedef TDiv#(MAX_QP_WR, 2) MAX_QP_DST_RD_ATOM;
+  value: TDiv#(MAX_QP_WR, 2)
+- name: MAX_SRQ
+  bsv_equivalent: typedef 0 MAX_SRQ;
+  value: '0'
+- name: MAX_SRQ_WR
+  bsv_equivalent: typedef MAX_QP_WR MAX_SRQ_WR;
+  value: MAX_QP_WR
+- name: MAX_SRQ_SGE
+  bsv_equivalent: typedef MAX_SGE MAX_SRQ_SGE;
+  value: MAX_SGE
+- name: MAX_SEND_SGE
+  bsv_equivalent: typedef 1 MAX_SEND_SGE;
+  value: '1'
+- name: MAX_RECV_SGE
+  bsv_equivalent: typedef 1 MAX_RECV_SGE;
+  value: '1'
+- name: MAX_INLINE_DATA
+  bsv_equivalent: typedef 0 MAX_INLINE_DATA;
+  value: '0'
