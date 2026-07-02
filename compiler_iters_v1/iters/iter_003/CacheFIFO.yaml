@@ -1,0 +1,120 @@
+# Iteration 003 - Pure Declarative Structure YAML
+# Direction: "pure-declarative-no-logic"
+# Hypothesis: YAML only describes WHAT (structure, types, connections),
+# LLM infers HOW (implementation logic) from structural context.
+# Target: Simplified cache FIFO with search capability
+
+meta:
+  name: CacheFIFO
+  description: >
+    A fixed-size cache FIFO that supports push/clear operations and
+    search-by-comparison. Elements are stored in a vector. A tag vector
+    tracks which slots are occupied. Search compares an input item against
+    all cached items using a user-supplied comparison function and returns
+    the matching item if found.
+
+knowledge:
+  bsv:
+    imports:
+      - FIFOF
+      - Vector
+      - Reserved
+    provisos:
+      - Bits#(anytype, tSz)
+      - Bits#(cmpResultType, cmpResultTypeSz)
+      - NumAlias#(TLog#(qSz), cntSz)
+      - Add#(TLog#(qSz), 1, TLog#(TAdd#(1, qSz)))
+    params:
+      - { name: qSz, kind: numeric_type, desc: "Queue capacity (power of 2)" }
+      - { name: anytype, kind: type, desc: "Element type stored in cache" }
+      - { name: cmpResultType, kind: type, desc: "Result type of comparison function" }
+    func_params:
+      - { name: compareFunc, kind: function, desc: "Compares search item against cached item, returns cmpResultType" }
+      - { name: checkCompareResult, kind: function, desc: "Returns True if cmpResultType indicates a match" }
+      - { name: compareResult2SearchResp, kind: function, desc: "Converts cmpResultType to matched item value" }
+
+ports:
+  - name: push_req
+    direction: input
+    type: anytype
+    description: "Push a new element into the cache (via CacheIfc.push method)"
+
+  - name: search_req
+    direction: input
+    type: anytype
+    description: "Item to search for in the cache (via SearchIfc.searchReq method)"
+
+  - name: search_resp
+    direction: output
+    type: Maybe#(anytype)
+    description: "Search result - Valid with matching item or Invalid if not found"
+
+  - name: clear
+    direction: input
+    type: Bool
+    description: "Clear all cached entries"
+
+nodes:
+  - id: data_vec
+    ref: Vector#(qSz, Reg#(anytype))
+    description: "Storage vector for cached elements"
+
+  - id: tag_vec
+    ref: Vector#(qSz, Reg#(Bool))
+    description: "Tag vector - True means slot is occupied"
+
+  - id: enq_ptr
+    ref: Reg#(Bit#(cntSz))
+    description: "Enqueue pointer for circular buffer insertion"
+
+  - id: search_req_q
+    ref: FIFOF#(anytype)
+    description: "Queue for incoming search requests"
+
+  - id: search_resp_q
+    ref: FIFOF#(Maybe#(anytype))
+    description: "Queue for search responses"
+
+  - id: search_stage_q
+    ref: FIFOF#(Tuple2#(Bool, Vector#(qSz, Tuple2#(Bool, cmpResultType))))
+    description: "Pipeline stage: search comparison results"
+
+  - id: search_result_q
+    ref: FIFOF#(Tuple3#(Bool, Vector#(qSz, Tuple2#(Bool, cmpResultType)), Maybe#(UInt#(cntSz))))
+    description: "Pipeline stage: filtered search results with index"
+
+connections:
+  - from: { node: "push_req", port: "data" }
+    to: [{ node: "data_vec", port: "write" }]
+    description: "Push data written to next free slot in data vector"
+
+  - from: { node: "push_req", port: "data" }
+    to: [{ node: "tag_vec", port: "write" }]
+    description: "Tag set to True for written slot"
+
+  - from: { node: "search_req", port: "item" }
+    to: [{ node: "search_req_q", port: "enq" }]
+    description: "Search request enqueued"
+
+  - from: { node: "search_req_q", port: "first" }
+    to: [{ node: "search_stage_q", port: "compare" }]
+    description: "Dequeued item compared against all tagged slots"
+
+  - from: { node: "search_stage_q", port: "first" }
+    to: [{ node: "search_result_q", port: "filter" }]
+    description: "Comparison results filtered for matching entries"
+
+  - from: { node: "search_result_q", port: "first" }
+    to: [{ node: "search_resp_q", port: "enq" }]
+    description: "First match (if any) sent as response"
+
+  - from: { node: "search_resp_q", port: "first" }
+    to: [{ node: "search_resp", port: "data" }]
+    description: "Response output to search interface"
+
+interface:
+  methods:
+    - { name: push, type: Action, params: [{ name: pushVal, type: anytype }], description: "Add element to cache" }
+    - { name: clear, type: Action, params: [], description: "Invalidate all cached entries" }
+    - { name: searchReq, type: Action, params: [{ name: item2Search, type: anytype }], description: "Submit search request" }
+    - { name: searchResp, type: "ActionValue#(Maybe#(anytype))", params: [], description: "Get search result" }
