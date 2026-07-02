@@ -1,4 +1,4 @@
-/Deli_AutoResearch 请首先阅读prompts/prompt_v2_boost.md中的内容，了解我要做的实验内容是什么，然后帮助我完善开始实验前的准备工作：
+❯ /ultracode /Deli_AutoResearch 请首先阅读prompts/prompt_v2_boost.md中的内容，了解我要做的实验内容是什么，然后帮助我完善开始实验前的准备工作：
 
 以当前blue-rdma目录下的代码实现和测试用例为参考，列出进行 bsv->yaml->bsv转换实验过程中，先使用哪个模块进行转换验证和测试，再进行哪一个的测试顺序，按照从简单到复杂，挑出20个具有代表性的测试。这些测试将被作为后续每轮迭代的测试集。将这些待测样本的信息更新到prompt_v2.md中。
 
