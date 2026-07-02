@@ -1,0 +1,166 @@
+meta:
+  name: ExtractAndPrependPipeOut
+  description: ExtractAndPrependPipeOut
+module_type: module
+design_knowledge:
+  description: 'This module defines: ExtractAndPrependPipeOut.'
+  structural_info: 'Original BSV file: ExtractAndPrependPipeOut.bsv
+
+    Contains: 0 typedefs, 1 enums, 0 structs, 1 functions, 0 methods, 28 registers,
+    23 rules, 2 submodules'
+enums:
+- name: ExtractOrPrependHeaderStage
+  deriving: Bits, Eq, FShow
+  variants:
+  - HEADER_META_DATA_POP
+  - HEADER_OUTPUT
+  - DATA_OUTPUT
+  - EXTRA_LAST_FRAG_OUTPUT
+  bsv_equivalent: "typedef enum {\n        HEADER_META_DATA_POP\n    HEADER_OUTPUT\n\
+    \    DATA_OUTPUT\n    EXTRA_LAST_FRAG_OUTPUT\n} ExtractOrPrependHeaderStage deriving(Bits,\
+    \ Eq, FShow);"
+functions:
+- name: unknown
+  bsv_equivalent: "    function Action deqActionFunc(DataStream dataStream);\n   \
+    \     action\n            if (dataStream.isLast) begin\n                psnPipeIn.deq;\n\
+    \            end\n        endaction\n    endfunction"
+module_def:
+  interface_name: HeaderDataStreamAndMetaDataPipeOut
+implementation:
+  registers:
+  - type: HeaderRDMA
+    name: rdmaHeaderReg
+    array_size: null
+  - type: Bool
+    name: headerValidReg
+    array_size: null
+  - type: HeaderRDMA
+    name: rdmaHeaderReg
+    array_size: null
+  - type: HeaderMetaData
+    name: headerMetaDataReg
+    array_size: null
+  - type: HeaderByteNum
+    name: headerInvalidFragByteNumReg
+    array_size: null
+  - type: HeaderBitNum
+    name: headerInvalidFragBitNumReg
+    array_size: null
+  - type: Bool
+    name: busyReg
+    array_size: null
+  - type: DataStream
+    name: preDataStreamReg
+    array_size: null
+  - type: HeaderFragNum
+    name: headerFragCntReg
+    array_size: null
+  - type: BusBitNum
+    name: headerLastFragInvalidBitNumReg
+    array_size: null
+  - type: ByteEnBitNum
+    name: headerLastFragInvalidByteNumReg
+    array_size: null
+  - type: BusBitNum
+    name: headerLastFragValidBitNumReg
+    array_size: null
+  - type: ByteEnBitNum
+    name: headerLastFragValidByteNumReg
+    array_size: null
+  - type: Bool
+    name: headerHasPayloadReg
+    array_size: null
+  - type: Bool
+    name: isFirstReg
+    array_size: null
+  - type: ExtractOrPrependHeaderStage
+    name: stageReg
+    array_size: null
+  - type: DataStream
+    name: preDataStreamReg
+    array_size: null
+  - type: DataStream
+    name: curDataStreamReg
+    array_size: null
+  - type: HeaderMetaData
+    name: headerMetaDataReg
+    array_size: null
+  - type: ByteEn
+    name: headerLastFragByteEnReg
+    array_size: null
+  - type: BusBitNum
+    name: headerLastFragInvalidBitNumReg
+    array_size: null
+  - type: ByteEnBitNum
+    name: headerLastFragInvalidByteNumReg
+    array_size: null
+  - type: BusBitNum
+    name: headerLastFragValidBitNumReg
+    array_size: null
+  - type: ByteEnBitNum
+    name: headerLastFragValidByteNumReg
+    array_size: null
+  - type: Bool
+    name: isFirstDataFragReg
+    array_size: null
+  - type: Bool
+    name: isHeaderLastFragReg
+    array_size: null
+  - type: ByteEn
+    name: shiftedCurDataFragByteEnReg
+    array_size: null
+  - type: ExtractOrPrependHeaderStage
+    name: stageReg
+    array_size: null
+  rules:
+  - name: resetAndClear
+    attribute: no_implicit_conditions, fire_when_enabled
+  - name: debug
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: interface
+    attribute: null
+  - name: debug
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: return
+    attribute: null
+  - name: debug
+    attribute: null
+  - name: resetAndClear
+    attribute: no_implicit_conditions, fire_when_enabled
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: return
+    attribute: null
+  - name: debug
+    attribute: null
+  - name: popHeaderMetaData
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: interface
+    attribute: null
+  - name: debug
+    attribute: null
+  - name: connect
+    attribute: null
+  submodules:
+  - type: let
+    name: headerDataStreamAndMetaDataPipeOut
+  - type: let
+    name: rdmaDataStreamPipeOut
