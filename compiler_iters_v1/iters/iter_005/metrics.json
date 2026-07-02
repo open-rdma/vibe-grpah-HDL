@@ -1,0 +1,186 @@
+{
+  "iteration": "iter_005",
+  "timestamp": "2026-07-02T16:33:43.256482",
+  "direction": "e2e-testbench-gen-v1",
+  "dimension_a": {
+    "id_ratio": 1.015,
+    "yaml_bytes": 959864,
+    "bsv_bytes": 946044,
+    "note": "Same L4 format as iter_004, focus is on testbench generation not ID reduction"
+  },
+  "dimension_b": {
+    "fpc": 1.0,
+    "tpr": 1.0,
+    "zfpr": 0.136,
+    "total": 22,
+    "compile_ok": 22,
+    "meaningful_tests": 3,
+    "meaningful_pass": 3,
+    "auto_generated_tests": 16,
+    "auto_generated_pass": 16,
+    "note": "FPC=1.0 (22/22). Only T01-T03 have meaningful functional tests (3/3 pass). T04-T22 auto-generated testbenches are trivial (name resolution only, no behavioral verification). ZFPR=0.136 reflects only 3/22 modules with real functional verification. Key finding: auto-generating meaningful testbenches requires test_method descriptions in YAML."
+  },
+  "per_module": {
+    "T01": {
+      "tested": true,
+      "test_passed": true,
+      "compile_ok": false,
+      "errors": [],
+      "note": ""
+    },
+    "T02": {
+      "tested": true,
+      "test_passed": true,
+      "compile_ok": false,
+      "errors": [],
+      "note": ""
+    },
+    "T03": {
+      "tested": true,
+      "test_passed": true,
+      "compile_ok": false,
+      "errors": [],
+      "note": ""
+    },
+    "T04": {
+      "tested": true,
+      "test_passed": true,
+      "compile_ok": false,
+      "errors": [],
+      "note": ""
+    },
+    "T05": {
+      "tested": true,
+      "test_passed": true,
+      "compile_ok": false,
+      "errors": [],
+      "note": ""
+    },
+    "T06": {
+      "tested": true,
+      "test_passed": true,
+      "compile_ok": false,
+      "errors": [],
+      "note": ""
+    },
+    "T07": {
+      "tested": true,
+      "test_passed": true,
+      "compile_ok": false,
+      "errors": [],
+      "note": ""
+    },
+    "T08": {
+      "tested": false,
+      "test_passed": null,
+      "compile_ok": true,
+      "errors": [],
+      "note": "compile_only"
+    },
+    "T09": {
+      "tested": true,
+      "test_passed": true,
+      "compile_ok": false,
+      "errors": [],
+      "note": ""
+    },
+    "T10": {
+      "tested": true,
+      "test_passed": true,
+      "compile_ok": false,
+      "errors": [],
+      "note": ""
+    },
+    "T11": {
+      "tested": true,
+      "test_passed": true,
+      "compile_ok": false,
+      "errors": [],
+      "note": ""
+    },
+    "T12": {
+      "tested": true,
+      "test_passed": true,
+      "compile_ok": false,
+      "errors": [],
+      "note": ""
+    },
+    "T13": {
+      "tested": true,
+      "test_passed": true,
+      "compile_ok": false,
+      "errors": [],
+      "note": ""
+    },
+    "T14": {
+      "tested": false,
+      "test_passed": null,
+      "compile_ok": true,
+      "errors": [],
+      "note": "compile_only"
+    },
+    "T15": {
+      "tested": true,
+      "test_passed": true,
+      "compile_ok": false,
+      "errors": [],
+      "note": ""
+    },
+    "T16": {
+      "tested": true,
+      "test_passed": true,
+      "compile_ok": false,
+      "errors": [],
+      "note": ""
+    },
+    "T17": {
+      "tested": true,
+      "test_passed": true,
+      "compile_ok": false,
+      "errors": [],
+      "note": ""
+    },
+    "T18": {
+      "tested": true,
+      "test_passed": true,
+      "compile_ok": false,
+      "errors": [],
+      "note": ""
+    },
+    "T19": {
+      "tested": true,
+      "test_passed": true,
+      "compile_ok": false,
+      "errors": [],
+      "note": ""
+    },
+    "T20": {
+      "tested": true,
+      "test_passed": true,
+      "compile_ok": false,
+      "errors": [],
+      "note": ""
+    },
+    "T21": {
+      "tested": true,
+      "test_passed": true,
+      "compile_ok": false,
+      "errors": [],
+      "note": ""
+    },
+    "T22": {
+      "tested": false,
+      "test_passed": null,
+      "compile_ok": true,
+      "errors": [],
+      "note": "compile_only"
+    }
+  },
+  "phase1_types": {
+    "numeric_typedefs": 202,
+    "bit_typedefs": 59,
+    "enums": 46,
+    "structs": 96,
+    "interfaces": 65
+  }
+}
