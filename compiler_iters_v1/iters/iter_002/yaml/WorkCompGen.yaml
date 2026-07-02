@@ -1,0 +1,160 @@
+meta:
+  name: WorkCompGen
+  description: WorkCompGen
+module_type: module
+design_knowledge:
+  description: 'This module defines: WorkCompGen.'
+  structural_info: 'Original BSV file: WorkCompGen.bsv
+
+    Contains: 0 typedefs, 1 enums, 2 structs, 2 functions, 3 methods, 4 registers,
+    20 rules, 0 submodules'
+enums:
+- name: WorkCompGenState
+  deriving: Bits, Eq
+  variants:
+  - WC_GEN_ST_STOP
+  - WC_GEN_ST_NORMAL
+  - WC_GEN_ST_ERR_FLUSH
+  bsv_equivalent: "typedef enum {\n        WC_GEN_ST_STOP\n    WC_GEN_ST_NORMAL\n\
+    \    WC_GEN_ST_ERR_FLUSH\n} WorkCompGenState deriving(Bits, Eq);"
+structs:
+- name: PendingWorkCompSQ
+  deriving: Bits
+  fields:
+  - type: WorkCompGenReqSQ
+    name: wcGenReqSQ
+  - type: WorkComp
+    name: workComp
+  - type: Bool
+    name: isWorkCompSuccess
+  - type: Bool
+    name: needWorkCompWhenNormal
+- name: PendingWorkCompRQ
+  deriving: Bits
+  fields:
+  - type: WorkCompGenReqRQ
+    name: wcGenReqRQ
+  - type: Maybe#(WorkComp)
+    name: maybeWorkComp
+  - type: Bool
+    name: isSendReq
+  - type: Bool
+    name: isWriteReq
+  - type: Bool
+    name: isWriteImmReq
+  - type: Bool
+    name: isFirstOrOnlyReq
+  - type: Bool
+    name: isLastOrOnlyReq
+  - type: Bool
+    name: isWorkCompSuccess
+  - type: Bool
+    name: needWaitDmaWriteResp
+functions:
+- name: unknown
+  bsv_equivalent: "function Maybe#(WorkComp) genWorkComp4WorkReq(\n    CntrlStatus\
+    \ cntrlStatus, WorkCompGenReqSQ wcGenReqSQ\n);\n    let wr = wcGenReqSQ.wr;\n\
+    \    let maybeWorkCompOpCode = workReqOpCode2WorkCompOpCode4SQ(wr.opcode);\n \
+    \   // TODO: how to set WC flags in SQ?\n    // let wcFlags = workReqOpCode2WorkCompFlags(wr.opcode);\n\
+    \    let wcFlags = IBV_WC_NO_FLAGS;\n\n    if (maybeWorkCompOpCode matches tagged\
+    \ Valid .opcode) begin\n        let workComp = WorkComp {\n            id    \
+    \  : wr.id,\n            opcode  : opcode,\n            flags   : wcFlags,\n \
+    \           status  : wcGenReqSQ.wcStatus,\n            len     : wr.len,\n  \
+    \          pkey    : cntrlStatus.comm.getPKEY,\n            qpn    : cntrlStatus.comm.getSQPN,\n\
+    \            // dqpn    : cntrlStatus.comm.getSQPN,\n            // sqpn    :\
+    \ cntrlStatus.comm.getDQPN,\n            immDt   : tagged Invalid,\n         \
+    \   rkey2Inv: tagged Invalid\n        };\n        return tagged Valid workComp;\n\
+    \    end\n    else begin\n        return tagged Invalid;\n    end\nendfunction"
+- name: unknown
+  bsv_equivalent: "function Maybe#(WorkComp) genWorkComp4RecvReq(\n    CntrlStatus\
+    \ cntrlStatus, WorkCompGenReqRQ wcGenReqRQ\n);\n    let maybeWorkCompOpCode =\
+    \ rdmaOpCode2WorkCompOpCode4RQ(wcGenReqRQ.reqOpCode);\n    let wcFlags = rdmaOpCode2WorkCompFlagsRQ(wcGenReqRQ.reqOpCode);\n\
+    \    if (\n        maybeWorkCompOpCode matches tagged Valid .opcode &&&\n    \
+    \    wcGenReqRQ.rrID matches tagged Valid .rrID\n    ) begin\n        let workComp\
+    \ = WorkComp {\n            id      : rrID,\n            opcode  : opcode,\n \
+    \           flags   : wcFlags,\n            status  : wcGenReqRQ.wcStatus,\n \
+    \           len     : wcGenReqRQ.len,\n            pkey    : cntrlStatus.comm.getPKEY,\n\
+    \            qpn     : cntrlStatus.comm.getSQPN,\n            // dqpn    : cntrlStatus.comm.getSQPN,\n\
+    \            // sqpn    : cntrlStatus.comm.getDQPN,\n            immDt   : wcGenReqRQ.immDt,\n\
+    \            rkey2Inv: wcGenReqRQ.rkey2Inv\n        };\n        return tagged\
+    \ Valid workComp;\n    end\n    else begin\n        return tagged Invalid;\n \
+    \   end\nendfunction"
+module_def:
+  interface_name: WorkCompGen
+  methods:
+  - return_type: Bool
+    name: hasErr
+    args: ''
+  - return_type: Bool
+    name: hasErr
+    args: ''
+  - return_type: Bool
+    name: hasErr
+    args: ''
+implementation:
+  registers:
+  - type: WorkCompGenState
+    name: workCompGenStateReg
+    array_size: null
+  - type: Bool
+    name: isFirstErrPartialAckWorkReqReg
+    array_size: null
+  - type: WorkReqID
+    name: firstErrPartialAckWorkReqIdReg
+    array_size: null
+  - type: WorkCompGenState
+    name: workCompGenStateReg
+    array_size: null
+  fifos:
+  - type: FIFOF#(WorkComp)
+    name: workCompOutQ4SQ
+  - type: FIFOF#(WorkCompGenReqSQ)
+    name: pendingWorkCompQ4SQ
+  - type: FIFOF#(WorkComp)
+    name: workCompOutQ4RQ
+  rules:
+  - name: resetAndClear
+    attribute: no_implicit_conditions, fire_when_enabled
+  - name: start
+    attribute: no_implicit_conditions, fire_when_enabled
+  - name: recvWorkCompGenReqSQ
+    attribute: "conflict_free = \"recvWorkCompGenReqSQ, \\\n                     \
+      \   genPendingWorkCompSQ, \\\n                        waitDmaDoneSQ, \\\n  \
+      \                      genWorkCompSQ, \\\n                        noDmaWaitSQ,\
+      \ \\\n                        errFlushSQ, \\\n                        discardPayloadConRespSQ\""
+  - name: recvWorkCompStatusRQ
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: interface
+    attribute: null
+  - name: resetAndClear
+    attribute: no_implicit_conditions, fire_when_enabled
+  - name: start
+    attribute: no_implicit_conditions, fire_when_enabled
+  - name: recvWorkCompReqRQ
+    attribute: "conflict_free = \"recvWorkCompReqRQ, \\\n                        waitDmaDoneRQ,\
+      \ \\\n                        genWorkCompRQ, \\\n                        noDmaWaitRQ,\
+      \ \\\n                        errFlushRQ, \\\n                        discardPayloadConRespRQ\""
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: interface
+    attribute: null

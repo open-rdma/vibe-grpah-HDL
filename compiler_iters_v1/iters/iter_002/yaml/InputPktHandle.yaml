@@ -1,0 +1,229 @@
+meta:
+  name: InputPktHandle
+  description: InputPktHandle
+module_type: module
+design_knowledge:
+  description: 'This module defines: InputPktHandle.'
+  structural_info: 'Original BSV file: InputPktHandle.bsv
+
+    Contains: 0 typedefs, 1 enums, 3 structs, 6 functions, 0 methods, 6 registers,
+    17 rules, 5 submodules'
+enums:
+- name: RdmaPktBufState
+  deriving: Bits, Eq
+  variants:
+  - RDMA_PKT_BUT_ST_PRE_CHECK_FRAG
+  - RDMA_PKT_BUF_ST_DISCARD_FRAG
+  bsv_equivalent: "typedef enum {\n        RDMA_PKT_BUT_ST_PRE_CHECK_FRAG\n    RDMA_PKT_BUF_ST_DISCARD_FRAG\n\
+    } RdmaPktBufState deriving(Bits, Eq);"
+structs:
+- name: HeaderValidateInfo
+  deriving: Bits
+  fields:
+  - type: Maybe#(HandlerPD)
+    name: maybePdHandler
+  - type: QPN
+    name: dqpn
+  - type: QKEY
+    name: qkeyDETH
+  - type: Bool
+    name: isCNP
+  - type: Bool
+    name: isRespPkt
+  - type: Bool
+    name: isLastPkt
+  - type: Bool
+    name: isFirstOrMidPkt
+  - type: Bool
+    name: isLastOrOnlyPkt
+- name: ValidHeaderInfo
+  deriving: Bits
+  fields:
+  - type: HandlerPD
+    name: pdHandler
+  - type: QPN
+    name: dqpn
+  - type: PMTU
+    name: pmtu
+  - type: Bool
+    name: isValidHeader
+  - type: Bool
+    name: isCNP
+  - type: Bool
+    name: isRespPkt
+  - type: Bool
+    name: isLastPkt
+  - type: Bool
+    name: isFirstOrMidPkt
+  - type: Bool
+    name: isLastOrOnlyPkt
+- name: PktLenCheckInfo
+  deriving: Bits
+  fields:
+  - type: TransType
+    name: trans
+  - type: RdmaOpCode
+    name: opcode
+  - type: PAD
+    name: padCnt
+  - type: PSN
+    name: psn
+  - type: QPN
+    name: dqpn
+  - type: HeaderRDMA
+    name: rdmaHeader
+  - type: HandlerPD
+    name: pdHandler
+  - type: PktFragNum
+    name: pktFragNum
+  - type: PktLen
+    name: pktLen
+  - type: PMTU
+    name: pmtu
+  - type: Bool
+    name: pktValid
+  - type: Bool
+    name: isFirstOrMidPkt
+  - type: Bool
+    name: isLastOrOnlyPkt
+functions:
+- name: checkZeroFields4BTH
+  return_type: Bool
+  args: BTH bth
+  bsv_equivalent: "function Bool checkZeroFields4BTH(BTH bth);\n    let bthRsvdCheck\
+    \ =\n        isZero(pack(bth.tver))  &&\n        isZero(pack(bth.fecn))  &&\n\
+    \        isZero(pack(bth.becn))  &&\n        isZero(pack(bth.resv6)) &&\n    \
+    \    isZero(pack(bth.resv7));\n    return bthRsvdCheck;\nendfunction"
+- name: padCntCheckReqHeader
+  return_type: Bool
+  args: BTH bth
+  bsv_equivalent: "function Bool padCntCheckReqHeader(BTH bth);\n    let zeroPadCntCheck\
+    \ = isZero(bth.padCnt);\n\n    return case (bth.opcode)\n        SEND_FIRST, SEND_MIDDLE\
+    \            : zeroPadCntCheck;\n        SEND_LAST, SEND_ONLY               ,\n\
+    \        SEND_LAST_WITH_IMMEDIATE           ,\n        SEND_ONLY_WITH_IMMEDIATE\
+    \           ,\n        SEND_LAST_WITH_INVALIDATE          ,\n        SEND_ONLY_WITH_INVALIDATE\
+    \          : True;\n\n        RDMA_WRITE_FIRST, RDMA_WRITE_MIDDLE: zeroPadCntCheck;\n\
+    \        RDMA_WRITE_LAST, RDMA_WRITE_ONLY   ,\n        RDMA_WRITE_LAST_WITH_IMMEDIATE\
+    \     ,\n        RDMA_WRITE_ONLY_WITH_IMMEDIATE     : True;\n\n        RDMA_READ_REQUEST\
+    \                  ,\n        COMPARE_SWAP                       ,\n        FETCH_ADD\
+    \                          : zeroPadCntCheck;\n\n        default             \
+    \               : False;\n    endcase;\nendfunction"
+- name: padCntCheckRespHeader
+  return_type: Bool
+  args: BTH bth, AETH aeth
+  bsv_equivalent: "function Bool padCntCheckRespHeader(BTH bth, AETH aeth);\n    let\
+    \ zeroPadCntCheck = isZero(bth.padCnt);\n\n    case (bth.opcode)\n        RDMA_READ_RESPONSE_MIDDLE:\
+    \ return zeroPadCntCheck;\n        RDMA_READ_RESPONSE_LAST  ,\n        RDMA_READ_RESPONSE_ONLY\
+    \  : return aeth.code == AETH_CODE_ACK;\n        RDMA_READ_RESPONSE_FIRST ,\n\
+    \        ATOMIC_ACKNOWLEDGE       : return aeth.code == AETH_CODE_ACK && zeroPadCntCheck;\n\
+    \        ACKNOWLEDGE              : case (aeth.code)\n            AETH_CODE_ACK,\n\
+    \            AETH_CODE_RNR: return zeroPadCntCheck;\n            AETH_CODE_NAK:\
+    \ return case (aeth.value)\n                zeroExtend(pack(AETH_NAK_SEQ_ERR)),\n\
+    \                zeroExtend(pack(AETH_NAK_INV_REQ)),\n                zeroExtend(pack(AETH_NAK_RMT_ACC)),\n\
+    \                zeroExtend(pack(AETH_NAK_RMT_OP)) ,\n                zeroExtend(pack(AETH_NAK_INV_RD))\
+    \ : zeroPadCntCheck;\n                default                           : False;\n\
+    \            endcase;\n            // AETH_CODE_RSVD\n            default: return\
+    \ False;\n        endcase\n        default: return False;\n    endcase\nendfunction"
+- name: validateHeader
+  return_type: Bool
+  args: TransType transType, QKEY qkey, CntrlStatus cntrlStatus, Bool isRespPkt
+  bsv_equivalent: "function Bool validateHeader(TransType transType, QKEY qkey, CntrlStatus\
+    \ cntrlStatus, Bool isRespPkt);\n    let transTypeMatch = transTypeMatchQpType(transType,\
+    \ cntrlStatus.getTypeQP, isRespPkt);\n    let qpStateMatch = cntrlStatus.comm.isERR\
+    \ ||\n        (isRespPkt ? cntrlStatus.comm.isRTS : cntrlStatus.comm.isNonErr);\n\
+    \    // UD has no responses\n    let qKeyMatch = transType == TRANS_TYPE_UD ?\
+    \ qkey == cntrlStatus.comm.getQKEY : True;\n    // TODO: verify RoCEv2 only use\
+    \ default PKEY\n    // let pKeyMatch = isDefaultPKEY(cntrlStatus.comm.getPKEY);\n\
+    \    return transTypeMatch && qpStateMatch && qKeyMatch;\nendfunction"
+- name: unknown
+  bsv_equivalent: "    function Bool fifofNotEmpty(FIFOF#(anytype) fifof) = fifof.notEmpty;\n\
+    \    function Bool fifofNotFull(FIFOF#(anytype) fifof) = fifof.notFull;\n    function\
+    \ Bool fifofVecAll(\n        function Bool mapFunc(FIFOF#(anytype) fifof),\n \
+    \       Vector#(vSz, FIFOF#(anytype)) fifofVec\n    ) provisos(Add#(1, anysize,\
+    \ vSz));\n        let fifofMapVec = map(mapFunc, fifofVec);\n        let result\
+    \ = fold(\\&& , fifofMapVec);\n        return result;\n    endfunction"
+- name: unknown
+  bsv_equivalent: "    function InputRdmaPktBuf genInputRdmaPktBuf(Integer idx);\n\
+    \        return interface InputRdmaPktBuf;\n            interface reqPktPipeOut\
+    \ = interface RdmaPktMetaDataAndPayloadPipeOut;\n                interface pktMetaData\
+    \ = toPipeOut(reqPktMetaDataOutVec[idx]);\n                interface payload \
+    \    = toPipeOut(reqPayloadOutVec[idx]);\n            endinterface;\n\n      \
+    \      interface respPktPipeOut = interface RdmaPktMetaDataAndPayloadPipeOut;\n\
+    \                interface pktMetaData = toPipeOut(respPktMetaDataOutVec[idx]);\n\
+    \                interface payload     = toPipeOut(respPayloadOutVec[idx]);\n\
+    \            endinterface;\n\n            interface cnpPipeOut  = toPipeOut(cnpOutVec[idx]);\n\
+    \        endinterface;\n    endfunction"
+module_def:
+  interface_name: HeaderAndMetaDataAndPayloadSeperateDataStreamPipeOut
+implementation:
+  registers:
+  - type: Bool
+    name: isValidPktReg
+    array_size: null
+  - type: PAD
+    name: bthPadCntReg
+    array_size: null
+  - type: PktFragNum
+    name: pktFragNumReg
+    array_size: null
+  - type: PktLen
+    name: pktLenReg
+    array_size: null
+  - type: Bool
+    name: pktValidReg
+    array_size: null
+  - type: RdmaPktBufState
+    name: pktBufStateReg
+    array_size: null
+  rules:
+  - name: debug
+    attribute: null
+  - name: extractHeader
+    attribute: null
+  - name: interface
+    attribute: null
+  - name: debug
+    attribute: null
+  - name: recvPktFrag
+    attribute: "conflict_free = \"recvPktFrag, \\\n                        preCheckHeader,\
+      \ \\\n                        discardInvalidFrag, \\\n                     \
+      \   prepareValidation, \\\n                        checkMetaDataQP, \\\n   \
+      \                     discardInvalidHeaderPkt, \\\n                        calcFraglen,\
+      \ \\\n                        calcPktLen, \\\n                        preCheckPktLen,\
+      \ \\\n                        checkPktLen, \\\n                        outputPayload,\
+      \ \\\n                        outputHeaderMetaData\""
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: function
+    attribute: null
+  submodules:
+  - type: PipeOut#(HeaderMetaData))
+    name: headerMetaDataPipeOutVec
+  - type: let
+    name: headerMetaDataPipeOut
+  - type: let
+    name: headerAndPayloadPipeOut
+  - type: let
+    name: payloadPipeIn
+  - type: let
+    name: rdmaHeaderPipeOut
