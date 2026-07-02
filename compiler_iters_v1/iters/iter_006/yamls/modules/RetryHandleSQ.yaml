@@ -1,0 +1,151 @@
+knowledge:
+  bsv:
+    code: "import ClientServer :: *;\nimport FIFOF :: *;\nimport GetPut :: *;\nimport PAClib :: *;\n\nimport Controller :: *;\nimport DataTypes :: *;\nimport Headers :: *;\nimport PrimUtils :: *;\nimport\
+      \ SpecialFIFOF :: *;\nimport Settings :: *;\nimport Utils :: *;\n\ntypedef enum {\n    RETRY_HANDLER_RESET_TIMEOUT,\n    RETRY_HANDLER_RESET_RETRY_CNT_AND_TIMEOUT\n} ResetRetryCntAndTimeOutReq deriving(Bits,\
+      \ Eq, FShow);\n\ntypedef enum {\n    RETRY_HANDLER_TIMEOUT_RETRY,\n    RETRY_HANDLER_TIMEOUT_ERR\n} TimeOutNotification deriving(Bits, Eq, FShow);\n\ntypedef struct {\n    WorkReqID        wrID;\n\
+      \    PSN              retryStartPSN;\n    RetryReason      retryReason;\n    Maybe#(RnrTimer) retryRnrTimer;\n} RetryReq deriving(Bits, FShow);\n\ntypedef enum {\n    RETRY_HANDLER_RECV_RETRY_REQ,\n\
+      \    RETRY_HANDLER_RETRY_LIMIT_EXC\n} RetryResp deriving(Bits, Eq, FShow);\n\ninterface RetryHandleSQ;\n    method Bool hasRetryErr();\n    method Bool isRetryDone();\n    method Bool isRetrying();\n\
+      \    method Action resetRetryCntAndTimeOutBySQ(\n        ResetRetryCntAndTimeOutReq resetReq\n    );\n    method ActionValue#(TimeOutNotification) notifyTimeOut2SQ();\n    interface Server#(RetryReq,\
+      \ RetryResp) srvPort;\nendinterface\n\ntypedef enum {\n    RETRY_HANDLE_ST_NOT_RETRY,\n    RETRY_HANDLE_ST_START_PRE_RETRY,\n    RETRY_HANDLE_ST_RNR_CHECK,\n    RETRY_HANDLE_ST_RNR_WAIT,\n    RETRY_HANDLE_ST_CHECK_PARTIAL_RETRY_WR,\n\
+      \    RETRY_HANDLE_ST_MODIFY_PARTIAL_RETRY_WR,\n    RETRY_HANDLE_ST_START_RETRY,\n    RETRY_HANDLE_ST_WAIT_RETRY_DONE\n} RetryHandleState deriving(Bits, Eq, FShow);\n\ntypedef enum {\n    RETRY_CNTRL_ST_NOT_RETRY,\n\
+      \    RETRY_CNTRL_ST_RETRY_LIMIT_EXC,\n    // RETRY_CNTRL_ST_RESET_RETRY_CNT,\n    // RETRY_CNTRL_ST_RECV_RETRY_REQ,\n    RETRY_CNTRL_ST_INIT_RETRY,\n    RETRY_CNTRL_ST_WAIT_RETRY_DONE\n} RetryCntrlState\
+      \ deriving(Bits, Eq, FShow);\n\nmodule mkRetryHandleSQ#(\n    CntrlStatus cntrlStatus,\n    Bool pendingWorkReqNotEmpty,\n    ScanCntrl#(PendingWorkReq) pendingWorkReqScanCntrl\n)(RetryHandleSQ);\n\
+      \    // Output FIFO for PipeOut\n    FIFOF#(ResetRetryCntAndTimeOutReq)     resetReqQ <- mkFIFOF;\n    FIFOF#(TimeOutNotification) timeOutNotificationQ <- mkFIFOF;\n    FIFOF#(RetryReq)   retryReqQ\
+      \ <- mkFIFOF;\n    FIFOF#(RetryResp) retryRespQ <- mkFIFOF;\n\n    // Pipeline FIFO\n    FIFOF#(Bool)                           resetTimeOutQ <- mkFIFOF;\n    FIFOF#(Bool)                        \
+      \  resetRetryCntQ <- mkFIFOF;\n    FIFOF#(Bool)                         timeOutTriggerQ <- mkFIFOF;\n    FIFOF#(Maybe#(RetryReq))          retryNotificationQ <- mkFIFOF;\n    FIFOF#(Maybe#(RetryReq))\
+      \                retryActionQ <- mkFIFOF;\n    FIFOF#(Maybe#(RetryReason))          updateRetryCntQ <- mkFIFOF;\n    FIFOF#(Tuple2#(Bool, RetryReason)) prepareRetryRespQ <- mkFIFOF;\n\n    Reg#(RnrWaitCycleCnt)\
+      \    rnrWaitCntReg <- mkRegU;\n    Reg#(Bool)         isRnrWaitCntZeroReg <- mkRegU;\n    Reg#(TimeOutCycleCnt)    timeOutCntReg <- mkRegU;\n    Reg#(Bool) isTimeOutCntHighPartZeroReg <- mkRegU;\n\
+      \    Reg#(Bool)  isTimeOutCntLowPartZeroReg <- mkRegU;\n    // Reg#(Bool)         isTimeOutCntZeroReg <- mkRegU;\n    Reg#(Bool)           disableTimeOutReg <- mkRegU;\n    Reg#(Bool)          disableRetryCntReg\
+      \ <- mkRegU;\n\n    Reg#(RetryReason)    retryReasonReg <- mkRegU;\n    Reg#(WorkReqID)   retryWorkReqIdReg <- mkRegU;\n    Reg#(PSN)          retryStartPsnReg <- mkRegU;\n    Reg#(PSN)          \
+      \      psnDiffReg <- mkRegU;\n    Reg#(RnrTimer)     retryRnrTimerReg <- mkRegU;\n    Reg#(RetryCnt)          retryCntReg <- mkRegU;\n    Reg#(RetryCnt)            rnrCntReg <- mkRegU;\n\n    Reg#(RetryCntrlState)\
+      \  retryCntrlStateReg[2] <- mkCReg(2, RETRY_CNTRL_ST_NOT_RETRY);\n    Reg#(RetryHandleState) retryHandleStateReg <- mkReg(RETRY_HANDLE_ST_NOT_RETRY);\n    Reg#(Bool)             pauseRetryHandleReg\
+      \ <- mkReg(False);\n\n    (* no_implicit_conditions, fire_when_enabled *)\n    rule resetAndClear if (cntrlStatus.comm.isReset);\n        pendingWorkReqScanCntrl.clear;\n\n        resetReqQ.clear;\n\
+      \        timeOutNotificationQ.clear;\n        retryReqQ.clear;\n        retryRespQ.clear;\n\n        resetTimeOutQ.clear;\n        resetRetryCntQ.clear;\n        timeOutTriggerQ.clear;\n        retryNotificationQ.clear;\n\
+      \        retryActionQ.clear;\n        updateRetryCntQ.clear;\n        prepareRetryRespQ.clear;\n\n        retryCntrlStateReg[0] <= RETRY_CNTRL_ST_NOT_RETRY;\n        retryHandleStateReg   <= RETRY_HANDLE_ST_NOT_RETRY;\n\
+      \        pauseRetryHandleReg   <= False;\n\n        // $display(\"time=%0t: reset and clear mkRetryHandleSQ\", $time);\n    endrule\n\n    let notRetrying = retryCntrlStateReg[0] == RETRY_CNTRL_ST_NOT_RETRY;\n\
+      \    let retryErr    = retryCntrlStateReg[0] == RETRY_CNTRL_ST_RETRY_LIMIT_EXC;\n    let retryingWR  = retryHandleStateReg == RETRY_HANDLE_ST_WAIT_RETRY_DONE;\n\n    function Bool retryCntExceedLimit(RetryReason\
+      \ retryReason);\n        return case (retryReason)\n            RETRY_REASON_RNR     : isZero(rnrCntReg);\n            RETRY_REASON_SEQ_ERR ,\n            RETRY_REASON_IMPLICIT,\n            RETRY_REASON_TIMEOUT\
+      \ : isZero(retryCntReg);\n            // RETRY_REASON_NOT_RETRY\n            default              : False;\n        endcase;\n    endfunction\n\n    function Action decRetryCntByReason(RetryReason\
+      \ retryReason);\n        action\n            case (retryReason)\n                RETRY_REASON_SEQ_ERR ,\n                RETRY_REASON_IMPLICIT,\n                RETRY_REASON_TIMEOUT : begin\n    \
+      \                if (!disableRetryCntReg) begin\n                        if (!isZero(retryCntReg)) begin\n                            retryCntReg <= retryCntReg - 1;\n                        end\n\
+      \                    end\n                end\n                RETRY_REASON_RNR: begin\n                    if (!disableRetryCntReg) begin\n                        if (!isZero(rnrCntReg)) begin\n\
+      \                            rnrCntReg <= rnrCntReg - 1;\n                        end\n                    end\n                end\n                default: begin\n                    immFail(\n\
+      \                        \"unreachible case in decRetryCntByReason() @ mkRetryHandleSQ\",\n                        $format(\"retryReason=\", fshow(retryReason))\n                    );\n         \
+      \       end\n            endcase\n            // $display(\n            //     \"time=%0t: decRetryCntByReason()\", $time,\n            //     \", rnrCntReg=%0d, retryCntReg=%0d\", rnrCntReg, retryCntReg\n\
+      \            // );\n        endaction\n    endfunction\n\n    function Action resetRetryCntInternal();\n        action\n            retryCntReg        <= cntrlStatus.comm.getMaxRetryCnt;\n       \
+      \     rnrCntReg          <= cntrlStatus.comm.getMaxRnrCnt;\n            disableRetryCntReg <= cntrlStatus.comm.getMaxRetryCnt == fromInteger(valueOf(INFINITE_RETRY));\n            // $display(\n \
+      \           //     \"time=%0t: resetRetryCntInternal cntrlStatus.comm.getMaxRetryCnt=%0d\",\n            //     $time, cntrlStatus.comm.getMaxRetryCnt\n            // );\n        endaction\n    endfunction\n\
+      \n    function Action resetTimeOutCntInternal();\n        action\n            timeOutCntReg       <= fromInteger(getTimeOutValue(cntrlStatus.comm.getMaxTimeOut));\n            disableTimeOutReg  \
+      \ <= isZero(cntrlStatus.comm.getMaxTimeOut);\n            // isTimeOutCntZeroReg <= False;\n            isTimeOutCntHighPartZeroReg <= False;\n            isTimeOutCntLowPartZeroReg  <= False;\n \
+      \           // timeOutNotificationQ.clear;\n            // $display(\n            //     \"time=%0t: resetTimeOutCntInternal cntrlStatus.comm.getMaxTimeOut=%0d\",\n            //     $time, cntrlStatus.comm.getMaxTimeOut\n\
+      \            // );\n        endaction\n    endfunction\n\n    rule initRetryCntAndTimeOutTimer if (cntrlStatus.comm.isRTR2RTS);\n        resetRetryCntInternal;\n        resetTimeOutCntInternal;\n\
+      \        timeOutNotificationQ.clear;\n\n        // $display(\"time=%0t: init RetryCnt and TimeOutTimer\", $time);\n    endrule\n\n    //                     stopScanQ, \\\n    //                 \
+      \    initRetry, \\\n    //                     waitRetryFinish, \\\n    //                     startPreRetry, \\\n    //                     rnrCheck, \\\n    //                     rnrWait, \\\n\
+      \    //                     modifyPartialRetryWR, \\\n    //                     startRetry, \\\n    //                     waitRetryDone\" *)\n    // (* conflict_free = \"recvResetReq, \\\n    //\
+      \                     recvRetryReq, \\\n    //                     checkTimeOut, \\\n    //                     handleNotifiedRetryAndTimeOut, \\\n    //                     handleRetryAction, \\\n\
+      \    //                     handleRetryCntUpdate, \\\n    //                     sendRetryResp\" *)\n    // TODO: add conflict_free, no_implicit_conditions and fire_when_enabled attributes\n    rule\
+      \ recvResetReq if (cntrlStatus.comm.isStableRTS);\n        let resetReq = resetReqQ.first;\n        resetReqQ.deq;\n\n        case (resetReq)\n            RETRY_HANDLER_RESET_TIMEOUT: begin\n    \
+      \            let resetTimeOut = True;\n                resetTimeOutQ.enq(resetTimeOut);\n            end\n            RETRY_HANDLER_RESET_RETRY_CNT_AND_TIMEOUT: begin\n                let resetTimeOut\
+      \ = True;\n                resetTimeOutQ.enq(resetTimeOut);\n                let resetRetryCnt = True;\n                resetRetryCntQ.enq(resetRetryCnt);\n            end\n            default: begin\n\
+      \                immFail(\n                    \"unreachible case @ mkRetryHandleSQ\",\n                    $format(\n                        \"resetReq=\", fshow(resetReq)\n                    )\n\
+      \                );\n            end\n        endcase\n        // $display(\n        //     \"time=%0t: recvResetReq\", $time,\n        //     \", resetReq=\", fshow(resetReq)\n        // );\n   \
+      \ endrule\n\n    rule recvRetryReq if (cntrlStatus.comm.isStableRTS);\n        let maybeRetryReq = tagged Invalid;\n        let shouldResetRetryCnt = False;\n        if (resetRetryCntQ.notEmpty) begin\n\
+      \            resetRetryCntQ.deq;\n            shouldResetRetryCnt = True;\n        end\n\n        let hasNotifiedRetry = False;\n        if (retryReqQ.notEmpty) begin\n            maybeRetryReq =\
+      \ tagged Valid retryReqQ.first;\n            retryReqQ.deq;\n\n            hasNotifiedRetry = True;\n        end\n\n        // hasNotifiedRetry has higher priority than shouldResetRetryCnt\n     \
+      \   if (hasNotifiedRetry || shouldResetRetryCnt) begin\n            retryNotificationQ.enq(maybeRetryReq);\n\n            // immAssert(\n            //     hasNotifiedRetry && shouldResetRetryCnt,\n\
+      \            //     \"hasNotifiedRetry && shouldResetRetryCnt assertion @ mkRetryHandleSQ\",\n            //     $format(\n            //         \"hasNotifiedRetry=\", fshow(hasNotifiedRetry),\n\
+      \            //         \" and shouldResetRetryCnt=\", fshow(shouldResetRetryCnt),\n            //         \" cannot both be true\"\n            //     )\n            // );\n\n            // $display(\n\
+      \            //     \"time=%0t: recvRetryReq\", $time,\n            //     \", hasNotifiedRetry=\", fshow(hasNotifiedRetry),\n            //     \", shouldResetRetryCnt=\", fshow(shouldResetRetryCnt),\n\
+      \            //     \", maybeRetryReq=\", fshow(maybeRetryReq)\n            // );\n        end\n    endrule\n\n    rule checkTimeOut if (cntrlStatus.comm.isStableRTS);\n        let hasResetTimeOutReq\
+      \ = resetTimeOutQ.notEmpty;\n        if (hasResetTimeOutReq) begin\n            resetTimeOutQ.deq;\n        end\n\n        if (hasResetTimeOutReq || !notRetrying) begin // Disable timeout when retry\n\
+      \            resetTimeOutCntInternal;\n        end\n        else if (\n            !disableTimeOutReg     &&\n            pendingWorkReqNotEmpty && // Enable timeout when having pending WR\n     \
+      \       notRetrying               // Enable timeout when not retry\n        ) begin\n            // if (isTimeOutCntZeroReg) begin\n            if (isTimeOutCntHighPartZeroReg && isTimeOutCntLowPartZeroReg)\
+      \ begin\n                let triggerTimeOut = True;\n                timeOutTriggerQ.enq(triggerTimeOut);\n                resetTimeOutCntInternal;\n\n                // $display(\n              \
+      \  //     \"time=%0t: checkTimeOut\", $time,\n                //     \", qpn=%h\", cntrlStatus.comm.getSQPN,\n                //     \", isTimeOutCntHighPartZeroReg=\", fshow(isTimeOutCntHighPartZeroReg),\n\
+      \                //     \", isTimeOutCntLowPartZeroReg=\", fshow(isTimeOutCntLowPartZeroReg),\n                //     \", triggerTimeOut=\", fshow(triggerTimeOut)\n                // );\n        \
+      \    end\n            else begin\n                timeOutCntReg <= timeOutCntReg - 1;\n                // isTimeOutCntZeroReg <= isZero(timeOutCntReg);\n                let {\n                   \
+      \ isTimeOutCntHighPartZero, isTimeOutCntLowPartZero\n                } = isZero4LargeBits(timeOutCntReg);\n                isTimeOutCntHighPartZeroReg <= isTimeOutCntHighPartZero;\n              \
+      \  isTimeOutCntLowPartZeroReg  <= isTimeOutCntLowPartZero;\n            end\n        end\n    endrule\n\n    rule handleNotifiedRetryAndTimeOut if (cntrlStatus.comm.isStableRTS);\n        let maybeRetryReq\
+      \ = tagged Invalid;\n\n        let hasNotifiedTimeOut = timeOutTriggerQ.notEmpty;\n        // hasNotifiedRetry and shouldResetRetryCnt have priority over hasNotifiedTimeOut\n        if (hasNotifiedTimeOut)\
+      \ begin\n            timeOutTriggerQ.deq;\n            let retryReq = dontCareValue;\n            retryReq.retryReason = RETRY_REASON_TIMEOUT;\n            maybeRetryReq = tagged Valid retryReq;\n\
+      \        end\n\n        let hasRetryReq = retryNotificationQ.notEmpty;\n        if (hasRetryReq) begin\n            maybeRetryReq = retryNotificationQ.first;\n            retryNotificationQ.deq;\n\
+      \        end\n\n        if (hasNotifiedTimeOut || hasRetryReq) begin\n            retryActionQ.enq(maybeRetryReq);\n\n            // $display(\n            //     \"time=%0t: handleNotifiedRetryAndTimeOut\"\
+      , $time,\n            //     \", hasNotifiedTimeOut=\", fshow(hasNotifiedTimeOut),\n            //     \", hasRetryReq=\", fshow(hasRetryReq)\n            // );\n        end\n    endrule\n\n    rule\
+      \ handleRetryAction if (cntrlStatus.comm.isStableRTS);\n        let maybeRetryReq = retryActionQ.first;\n        retryActionQ.deq;\n\n        let retryReqOrResetRetryCnt = isValid(maybeRetryReq);\n\
+      \n        let updateRetryCnt = tagged Invalid;\n        if (retryReqOrResetRetryCnt) begin\n            immAssert(\n                pendingWorkReqNotEmpty,\n                \"pendingWorkReqNotEmpty\
+      \ assertion @ mkRetryHandleSQ\",\n                $format(\n                    \"pendingWorkReqNotEmpty=\", fshow(pendingWorkReqNotEmpty),\n                    \" should be true when retryReqOrResetRetryCnt=\"\
+      ,\n                    fshow(retryReqOrResetRetryCnt)\n                )\n            );\n\n            let retryReq = unwrapMaybe(maybeRetryReq);\n            if (retryReq.retryReason != RETRY_REASON_TIMEOUT)\
+      \ begin\n                retryWorkReqIdReg <= retryReq.wrID;\n                retryStartPsnReg  <= retryReq.retryStartPSN;\n\n                if (retryReq.retryReason == RETRY_REASON_RNR) begin\n\
+      \                    immAssert(\n                        isValid(retryReq.retryRnrTimer),\n                        \"retryRnrTimer assertion @ mkRetryHandleSQ\",\n                        $format(\n\
+      \                            \"retryRnrTimer=\", fshow(retryReq.retryRnrTimer),\n                            \" should be valid when retryReason=\",\n                            fshow(retryReq.retryReason)\n\
+      \                        )\n                    );\n                    retryRnrTimerReg <= unwrapMaybe(retryReq.retryRnrTimer);\n                end\n            end\n            retryReasonReg <=\
+      \ retryReq.retryReason;\n\n            updateRetryCnt = tagged Valid retryReq.retryReason;\n        end\n\n        updateRetryCntQ.enq(updateRetryCnt);\n        // $display(\n        //     \"time=%0t:\
+      \ handleRetryAction\", $time,\n        //     \", retryReqOrResetRetryCnt=\", fshow(retryReqOrResetRetryCnt)\n        // );\n    endrule\n\n    rule handleRetryCntUpdate if (cntrlStatus.comm.isStableRTS\
+      \ && !pauseRetryHandleReg);\n        let maybeRetryReason = updateRetryCntQ.first;\n        updateRetryCntQ.deq;\n\n        let hasRetryErr = retryCntrlStateReg[1] == RETRY_CNTRL_ST_RETRY_LIMIT_EXC;\n\
+      \        immAssert(\n            !hasRetryErr,\n            \"hasRetryErr assertion @ mkRetryHandleSQ\",\n            $format(\n                \"hasRetryErr=\", fshow(hasRetryErr),\n            \
+      \    \" should be false and retryCntrlStateReg[1]=\",\n                fshow(retryCntrlStateReg[1]),\n                \" should != RETRY_CNTRL_ST_RETRY_LIMIT_EXC\",\n                \" when updateRetryCntQ.notEmpty=\"\
+      ,\n                fshow(updateRetryCntQ.notEmpty)\n            )\n        );\n\n        if (maybeRetryReason matches tagged Valid .retryReason) begin\n            pauseRetryHandleReg <= True;\n\n\
+      \            decRetryCntByReason(retryReason);\n\n            let nextRetryCntrlState = RETRY_CNTRL_ST_INIT_RETRY;\n            if (retryCntExceedLimit(retryReason)) begin\n                // retryCntrlStateReg[1]\
+      \ <= RETRY_CNTRL_ST_RETRY_LIMIT_EXC;\n                nextRetryCntrlState = RETRY_CNTRL_ST_RETRY_LIMIT_EXC;\n                hasRetryErr = True;\n            end\n            // else begin\n     \
+      \       //     retryCntrlStateReg[1] <= RETRY_CNTRL_ST_INIT_RETRY;\n            // end\n            retryCntrlStateReg[1] <= nextRetryCntrlState;\n            prepareRetryRespQ.enq(tuple2(hasRetryErr,\
+      \ retryReason));\n\n            immAssert(\n                pendingWorkReqNotEmpty,\n                \"pendingWorkReqNotEmpty assertion @ mkRetryHandleSQ\",\n                $format(\n           \
+      \         \"pendingWorkReqNotEmpty=\", fshow(pendingWorkReqNotEmpty),\n                    \" should be true when maybeRetryReason=\",\n                    fshow(maybeRetryReason)\n              \
+      \  )\n            );\n            // $display(\n            //     \"time=%0t: handleRetryCntUpdate\", $time,\n            //     \", nextRetryCntrlState=\", fshow(nextRetryCntrlState),\n        \
+      \    //     \", retryReason=\", fshow(retryReason),\n            //     \", rnrCntReg=%0d, retryCntReg=%0d\", rnrCntReg, retryCntReg\n            // );\n        end\n        else begin\n         \
+      \   resetRetryCntInternal;\n\n            // immAssert(\n            //     pendingWorkReqNotEmpty,\n            //     \"pendingWorkReqNotEmpty assertion @ mkRetryHandleSQ\",\n            //    \
+      \ $format(\n            //         \"pendingWorkReqNotEmpty=\", fshow(pendingWorkReqNotEmpty),\n            //         \" should be true when maybeRetryReason=\",\n            //         fshow(maybeRetryReason)\n\
+      \            //     )\n            // );\n        end\n    endrule\n\n    rule sendRetryResp if (cntrlStatus.comm.isStableRTS);\n        let { hasRetryErr, retryReason } = prepareRetryRespQ.first;\n\
+      \        prepareRetryRespQ.deq;\n\n        if (hasRetryErr) begin\n            if (retryReason == RETRY_REASON_TIMEOUT) begin\n                timeOutNotificationQ.enq(RETRY_HANDLER_TIMEOUT_ERR);\n\
+      \            end\n            else begin\n                retryRespQ.enq(RETRY_HANDLER_RETRY_LIMIT_EXC);\n            end\n            // $display(\"time=%0t: retry error occured\", $time);\n    \
+      \    end\n        else begin\n            if (retryReason == RETRY_REASON_TIMEOUT) begin\n                timeOutNotificationQ.enq(RETRY_HANDLER_TIMEOUT_RETRY);\n            end\n            else\
+      \ begin\n                retryRespQ.enq(RETRY_HANDLER_RECV_RETRY_REQ);\n            end\n            // $display(\n            //     \"time=%0t: retry request responded\", $time,\n            //\
+      \     \", retryReason=\", fshow(retryReason)\n            // );\n        end\n        // $display(\"time=%0t: sendRetryResp\", $time);\n    endrule\n\n    // Retry control FSM\n\n    rule initRetry\
+      \ if (\n        cntrlStatus.comm.isStableRTS && pauseRetryHandleReg &&\n        retryCntrlStateReg[0] == RETRY_CNTRL_ST_INIT_RETRY\n    );\n        pauseRetryHandleReg <= False;\n        retryHandleStateReg\
+      \ <= RETRY_HANDLE_ST_START_PRE_RETRY;\n        retryCntrlStateReg[0] <= RETRY_CNTRL_ST_WAIT_RETRY_DONE;\n\n        // $display(\"time=%0t: retry initiated\", $time);\n    endrule\n\n    rule waitRetryFinish\
+      \ if (\n        cntrlStatus.comm.isStableRTS &&\n        retryCntrlStateReg[0] == RETRY_CNTRL_ST_WAIT_RETRY_DONE &&\n        retryHandleStateReg == RETRY_HANDLE_ST_WAIT_RETRY_DONE\n    );\n      \
+      \  if (pendingWorkReqScanCntrl.isScanDone) begin\n            retryCntrlStateReg[0] <= RETRY_CNTRL_ST_NOT_RETRY;\n\n            // $display(\n            //     \"time=%0t: retry finished\", $time,\n\
+      \            //     \", cntrlStatus.comm.isStableRTS=\", fshow(cntrlStatus.comm.isStableRTS)\n            // );\n        end\n    endrule\n\n    rule stopScanQ if (\n        cntrlStatus.comm.isERR\
+      \ ||\n        (pauseRetryHandleReg && retryCntrlStateReg[0] == RETRY_CNTRL_ST_RETRY_LIMIT_EXC)\n    );\n        pendingWorkReqScanCntrl.scanStop;\n        // updateRetryCntQ.clear;\n        // $display(\"\
+      time=%0t: stop scanQ\", $time);\n    endrule\n\n    // Retry handle FSM\n\n    rule startPreRetry if (\n        cntrlStatus.comm.isStableRTS && !pauseRetryHandleReg &&\n        retryHandleStateReg\
+      \ == RETRY_HANDLE_ST_START_PRE_RETRY\n    );\n        immAssert(\n            retryReasonReg != RETRY_REASON_NOT_RETRY,\n            \"retryReasonReg assertion @ mkRetryHandleSQ\",\n            $format(\n\
+      \                \"retryReasonReg=\", fshow(retryReasonReg),\n                \" should not be RETRY_REASON_NOT_RETRY\"\n            )\n        );\n\n        if (retryReasonReg == RETRY_REASON_RNR)\
+      \ begin\n            retryHandleStateReg <= RETRY_HANDLE_ST_RNR_CHECK;\n        end\n        else begin\n            retryHandleStateReg <= RETRY_HANDLE_ST_CHECK_PARTIAL_RETRY_WR;\n        end\n\n\
+      \        if (pendingWorkReqScanCntrl.isScanDone) begin\n            pendingWorkReqScanCntrl.preScanStart;\n            // $display(\n            //     \"time=%0t: pendingWorkReqScanCntrl.preScanStart\"\
+      , $time,\n            //     \" pendingWorkReqNotEmpty=\", fshow(pendingWorkReqNotEmpty)\n            // );\n        end\n        else begin\n            pendingWorkReqScanCntrl.preScanRestart;\n\
+      \            // $display(\n            //     \"time=%0t: pendingWorkReqScanCntrl.preScanRestart\", $time,\n            //     \" pendingWorkReqNotEmpty=\", fshow(pendingWorkReqNotEmpty)\n       \
+      \     // );\n        end\n        // $display(\n        //     \"time=%0t: startPreRetry\", $time,\n        //     \", retryHandleStateReg=\", fshow(retryHandleStateReg),\n        //     \", retryErr=\"\
+      , fshow(retryErr),\n        //     \", retryReasonReg=\", fshow(retryReasonReg)\n        // );\n    endrule\n\n    rule rnrCheck if (\n        cntrlStatus.comm.isStableRTS && !pauseRetryHandleReg\
+      \ &&\n        retryHandleStateReg == RETRY_HANDLE_ST_RNR_CHECK\n    );\n        let rnrTimer = cntrlStatus.comm.getMinRnrTimer;\n        rnrTimer = retryRnrTimerReg > rnrTimer ? retryRnrTimerReg :\
+      \ rnrTimer;\n        rnrWaitCntReg <= fromInteger(getRnrTimeOutValue(rnrTimer));\n        isRnrWaitCntZeroReg <= False;\n        retryHandleStateReg <= RETRY_HANDLE_ST_RNR_WAIT;\n\n        // $display(\n\
+      \        //     \"time=%0t: retry rnrCheck\", $time,\n        //     \", rnrTimer=%0d\", rnrTimer\n        // );\n    endrule\n\n    rule rnrWait if (\n        cntrlStatus.comm.isStableRTS && !pauseRetryHandleReg\
+      \ &&\n        retryHandleStateReg == RETRY_HANDLE_ST_RNR_WAIT\n    );\n        if (isRnrWaitCntZeroReg) begin\n            retryHandleStateReg <= RETRY_HANDLE_ST_CHECK_PARTIAL_RETRY_WR;\n        end\n\
+      \        else begin\n            rnrWaitCntReg <= rnrWaitCntReg - 1;\n            isRnrWaitCntZeroReg <= isOne(rnrWaitCntReg);\n        end\n\n        // $display(\n        //     \"time=%0t: retry\
+      \ rnrWait\", $time,\n        //     \", rnrWaitCntReg=%h\", rnrWaitCntReg\n        // );\n    endrule\n\n    rule checkPartialRetry if (\n        cntrlStatus.comm.isStableRTS && !pauseRetryHandleReg\
+      \ &&\n        retryHandleStateReg == RETRY_HANDLE_ST_CHECK_PARTIAL_RETRY_WR\n    );\n        let firstRetryWR = pendingWorkReqScanCntrl.getHead;\n\n        let startPSN = unwrapMaybe(firstRetryWR.startPSN);\n\
+      \        let endPSN   = unwrapMaybe(firstRetryWR.endPSN);\n        let wrLen    = firstRetryWR.wr.len;\n        let laddr    = firstRetryWR.wr.laddr;\n        let raddr    = firstRetryWR.wr.raddr;\n\
+      \n        let retryStartPSN = retryStartPsnReg;\n        if (retryReasonReg == RETRY_REASON_TIMEOUT) begin\n            retryStartPSN = startPSN;\n        end\n        else begin\n            immAssert(\n\
+      \                retryWorkReqIdReg == firstRetryWR.wr.id,\n                \"retryWorkReqIdReg assertion @ mkRetryHandleSQ\",\n                $format(\n                    \"retryWorkReqIdReg=%h\
+      \ should == firstRetryWR.wr.id=%h\",\n                    retryWorkReqIdReg, firstRetryWR.wr.id\n                )\n            );\n        end\n\n        psnDiffReg <= calcPsnDiff(retryStartPSN,\
+      \ startPSN);\n        immAssert(\n            retryStartPSN == startPSN ||\n            retryStartPSN == endPSN   ||\n            psnInRangeExclusive(retryStartPSN, startPSN, endPSN),\n          \
+      \  \"retryStartPSN assertion @ mkRetryHandleSQ\",\n            $format(\n                \"retryStartPSN=%h should between startPSN=%h and endPSN=%h inclusively\",\n                retryStartPSN,\
+      \ startPSN, endPSN\n            )\n        );\n\n        retryHandleStateReg <= RETRY_HANDLE_ST_MODIFY_PARTIAL_RETRY_WR;\n        // $display(\"time=%0t:\", $time, \" checkPartialRetry wr.id=%h\"\
+      , firstRetryWR.wr.id);\n    endrule\n\n    rule modifyPartialRetryWR if (\n        cntrlStatus.comm.isStableRTS && !pauseRetryHandleReg &&\n        retryHandleStateReg == RETRY_HANDLE_ST_MODIFY_PARTIAL_RETRY_WR\n\
+      \    );\n        let firstRetryWR = pendingWorkReqScanCntrl.getHead;\n\n        let wrLen = firstRetryWR.wr.len;\n        let laddr = firstRetryWR.wr.laddr;\n        let raddr = firstRetryWR.wr.raddr;\n\
+      \        let retryWorkReqLen       = lenSubtractPsnMultiplyPMTU(wrLen, psnDiffReg, cntrlStatus.comm.getPMTU);\n        let retryWorkReqLocalAddr = addrAddPsnMultiplyPMTU(laddr, psnDiffReg, cntrlStatus.comm.getPMTU);\n\
+      \        let retryWorkReqRmtAddr   = addrAddPsnMultiplyPMTU(raddr, psnDiffReg, cntrlStatus.comm.getPMTU);\n        if (retryReasonReg != RETRY_REASON_TIMEOUT) begin\n            firstRetryWR.startPSN\
+      \ = tagged Valid retryStartPsnReg;\n        end\n        firstRetryWR.wr.len   = retryWorkReqLen;\n        firstRetryWR.wr.laddr = retryWorkReqLocalAddr;\n        firstRetryWR.wr.raddr = retryWorkReqRmtAddr;\n\
+      \n        pendingWorkReqScanCntrl.modifyHead(firstRetryWR);\n        retryHandleStateReg <= RETRY_HANDLE_ST_START_RETRY;\n\n        // $display(\"time=%0t:\", $time, \" modifyPartialRetryWR wr.id=%h\"\
+      , firstRetryWR.wr.id);\n    endrule\n\n    rule startRetry if (\n        cntrlStatus.comm.isStableRTS && !pauseRetryHandleReg &&\n        retryHandleStateReg == RETRY_HANDLE_ST_START_RETRY\n    );\n\
+      \        pendingWorkReqScanCntrl.scanStart;\n        retryHandleStateReg <= RETRY_HANDLE_ST_WAIT_RETRY_DONE;\n\n        // $display(\n        //     \"time=%0t:\", $time,\n        //     \" startRetry,\
+      \ cntrlStatus.comm.isStableRTS=\", fshow(cntrlStatus.comm.isStableRTS),\n        //     \", pendingWorkReqScanCntrl.hasScanOut=\", fshow(pendingWorkReqScanCntrl.hasScanOut)\n        // );\n    endrule\n\
+      \n    rule waitRetryDone if (\n        cntrlStatus.comm.isStableRTS && !pauseRetryHandleReg &&\n        retryHandleStateReg == RETRY_HANDLE_ST_WAIT_RETRY_DONE\n    );\n        if (pendingWorkReqScanCntrl.isScanDone)\
+      \ begin\n            retryHandleStateReg <= RETRY_HANDLE_ST_NOT_RETRY;\n\n            // $display(\n            //     \"time=%0t: retry done\", $time,\n            //     \", cntrlStatus.comm.isStableRTS=\"\
+      , fshow(cntrlStatus.comm.isStableRTS),\n            //     \", pendingWorkReqNotEmpty=\", fshow(pendingWorkReqNotEmpty)\n            // );\n        end\n    endrule\n\n    method Bool hasRetryErr()\
+      \ = retryErr;\n    method Bool isRetryDone() = notRetrying;\n    method Bool  isRetrying() = retryingWR;\n\n    method Action resetRetryCntAndTimeOutBySQ(\n        ResetRetryCntAndTimeOutReq resetReq\n\
+      \    ) if (cntrlStatus.comm.isStableRTS);\n        resetReqQ.enq(resetReq);\n    endmethod\n\n    method ActionValue#(TimeOutNotification) notifyTimeOut2SQ();\n        timeOutNotificationQ.deq;\n\
+      \        return timeOutNotificationQ.first;\n    endmethod\n\n    interface srvPort = toGPServer(retryReqQ, retryRespQ);\nendmodule\n"
+meta:
+  description: 'Module: RetryHandleSQ'
+  name: RetryHandleSQ
+test_method:
+  test_type: compile_only

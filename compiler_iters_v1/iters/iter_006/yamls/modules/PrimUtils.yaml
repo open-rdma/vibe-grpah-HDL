@@ -1,0 +1,107 @@
+behavior:
+  interface: []
+conversion_functions:
+- description: Converts an enum value to its FlagsType representation using pack/unpack.
+  name: enum2Flag
+- description: 'Checks if flags1 contains all flags in flags2: (flags1 & flags2) == flags2.'
+  name: containFlags
+- description: 'Checks if flags contains a specific enum value: !isZero(pack(flags & enum2Flag(enumVal))).'
+  name: containEnum
+knowledge:
+  bsv:
+    imports:
+    - 'FIFOF :: *'
+    - 'PAClib :: *'
+    styling: Use standard BSV conventions. Functions should have provisos comments. Use anytype for generic type parameters.
+meta:
+  description: Primitive utility functions including bit manipulation, tuple helpers, assertions, and a CountCF module
+  name: PrimUtils
+module_implementation:
+- description: 'Counter module with write priority. Uses:
+
+    - cntReg: main counter register
+
+    - incrQ/decrQ: FIFOs for increment/decrement requests
+
+    - writeReg[2]: CReg for write value (priority mechanism)
+
+    - incrReg[2]/decrReg[2]: CReg for tracking incr/decr
+
+
+    Rules:
+
+    - write rule (* no_implicit_conditions, fire_when_enabled *): When writeReg has valid value, write it to cntReg, clear FIFOs
+
+    - increment rule (* fire_when_enabled *): Sets incrReg when !hasWrite
+
+    - decrement rule (* fire_when_enabled *): Sets decrReg when !hasWrite
+
+    - incrAndDecr rule (* no_implicit_conditions, fire_when_enabled *): Updates cntReg (+1/-1) based on incrReg/decrReg
+
+    '
+  name: mkCountCF
+pipeout_helper:
+- description: Converts FIFOF to PipeOut using f_FIFOF_to_PipeOut.
+  name: toPipeOut
+structs_and_types:
+- description: Constant typedef 2 TWO
+  name: TWO
+- description: Constant typedef 4 FOUR
+  name: FOUR
+- description: Struct with single field 'flags' of type Bit#(SizeOf#(enumType)), deriving Bits, Bitwise, Eq
+  name: FlagsType#(type enumType)
+- description: 'Interface with methods: incrOne(Action), decrOne(Action), _write(Action, anytype), _read(anytype). The _write method has write priority; incr/decr use FIFOs for concurrency.'
+  name: CountCF#(type anytype)
+- description: 'FShow instance that formats flags as ''FlagsType { flags: <bits> = <enum_names> }''. Iterates over each bit to find which enum values are set.'
+  name: FShow instance for FlagsType
+test_method:
+  description: Test isZero, isLessOrEqOne, isOne, isTwo, isLargerThanOne with explicit Bit#(8)
+  source: iter_003
+  test_file: TestMinPrimUtils.bsv
+  test_module: mkTestPrimUtils
+typeclass:
+- description: Typeclass with function isOneHotOrZero that checks if an enum value is one-hot or zero.
+  name: Flags#(type enumType)
+utility_functions:
+- description: Returns True if all bits of the input are zero. Uses reduction OR (|bits) and negates the result.
+  name: isZero
+- description: 'Recursive version of isZero. Splits bits into halves, recursively checks each half. Base case: call isZero when half size <= 1.'
+  name: isZeroR
+- description: Checks if byte enable is zero by concatenating MSB and LSB then calling isZero.
+  name: isZeroByteEn
+- description: Returns True if the input bit vector represents 0 or 1. Checks if bits >> 1 is zero.
+  name: isLessOrEqOne
+- description: Recursive version of isLessOrEqOne using isZeroR on shifted bits.
+  name: isLessOrEqOneR
+- description: Returns True if the input is exactly 1. Checks isLessOrEqOne AND LSB is set.
+  name: isOne
+- description: Recursive version of isOne. Uses isLessOrEqOneR.
+  name: isOneR
+- description: 'Returns True if input is exactly 2. Checks bits>>2 is zero, bit[1] set, bit[0] clear. Provisos: Add#(2, anysize, nSz)'
+  name: isTwo
+- description: Recursive version of isTwo. Same logic as isTwo.
+  name: isTwoR
+- description: Recursive check if all bits are 1. Uses reduction AND (&bits) at base case.
+  name: isAllOnesR
+- description: Returns True if input > 1. Checks !isZero(bits >> 1).
+  name: isLargerThanOne
+- description: For bit widths between 32 and 64. Splits into low and high parts, checks each with isZero, returns tuple2. Has complex provisos using TDiv and TSub.
+  name: isZero4LargeBits
+- description: Zero-extends LSB by concatenating input with 0. Result width nSz = mSz + some padding.
+  name: zeroExtendLSB
+- description: Removes most significant bit by shifting left 1 then truncating LSB. Result width is nSz-1.
+  name: removeMSB
+- description: Returns don't-care value (?) for any Bits type.
+  name: dontCareValue
+- description: Unwraps a Maybe type using fromMaybe(?, maybe).
+  name: unwrapMaybe
+- description: Unwraps Maybe with an explicit default value.
+  name: unwrapMaybeWithDefault
+- description: Tuple element accessors using tpl_1 through tpl_6.
+  name: getTupleFirst/Second/Third/Fourth/Fifth/Sixth
+- description: Identity function, returns input unchanged.
+  name: identityFunc
+- description: Immediate assertion action. If condition false, prints error with position/name/message and calls $finish(1).
+  name: immAssert
+- description: Immediate failure action. Always prints error and calls $finish(1).
+  name: immFail
