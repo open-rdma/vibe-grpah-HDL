@@ -1,1 +1,0 @@
-{"module":"CacheFIFO","iteration":"iter_003","interface_methods":{"match_rate":1.0},"ports":{"match_rate":1.0},"submodules":{"match_rate":1.0},"rules":{"match_rate":1.0},"rtf_score":1.0,"note":"All 4 interface methods, 4 rules, and 5 sub-modules match original structure."}

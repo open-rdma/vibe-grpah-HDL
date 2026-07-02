@@ -1,8 +1,0 @@
-{
-  "iteration": "iter_001",
-  "per_module": {
-    "Settings": {"icp": 1, "converged": true}
-  },
-  "average_converged": 1.0,
-  "unconverged_modules": []
-}

@@ -1,9 +1,0 @@
-{
-  "module": "CacheFIFO",
-  "iteration": "iter_003",
-  "bsv_bytes": 5054,
-  "yaml_bytes": 4538,
-  "id_ratio": 0.898,
-  "yaml_file_count": 1,
-  "note": "BREAKTHROUGH: ID < 1.0 achieved for the first time. Pure-declarative YAML is more compact than original BSV."
-}

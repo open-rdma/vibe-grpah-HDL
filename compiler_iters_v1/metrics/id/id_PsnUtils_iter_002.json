@@ -1,9 +1,0 @@
-{
-  "module": "PsnUtils",
-  "iteration": "iter_002",
-  "bsv_bytes": 982,
-  "yaml_bytes": 3678,
-  "id_ratio": 3.75,
-  "yaml_file_count": 1,
-  "note": "Declarative descriptions are verbose; ID ratio much worse than iter_001 (1.24). Need more compact YAML format."
-}

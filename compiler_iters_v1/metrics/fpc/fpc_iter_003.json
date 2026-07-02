@@ -1,1 +1,0 @@
-{"iteration":"iter_003","total_modules":1,"first_pass_compile_success":1,"fpc_rate":1.0,"per_module":{"CacheFIFO":{"success":true,"errors":[],"note":"Initial compilation failed on missing PrimUtils import. Fixed by adding proper imports; module compiled on second attempt."}}}

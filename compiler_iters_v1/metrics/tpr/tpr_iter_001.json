@@ -1,7 +1,0 @@
-{
-  "iteration": "iter_001",
-  "total_testcases": 0,
-  "passed_testcases": 0,
-  "tpr_score": null,
-  "note": "T01 Settings has no independent testbench; verified via downstream compilation"
-}
