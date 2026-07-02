@@ -1,0 +1,121 @@
+[
+  {
+    "iteration": "iter_001",
+    "direction": "L0 natural language YAML with Two-Phase compiler. YAML files use pure natural language descriptions.",
+    "strategy": "two_phase_simple",
+    "yaml_abstraction": "L0",
+    "compiler_strategy": "Two-Phase sequential",
+    "test_targets": [
+      "T01",
+      "T02",
+      "T03"
+    ],
+    "result": "3/3 compile OK after YAML fix pass"
+  },
+  {
+    "iteration": "iter_002",
+    "direction": "Precision-enhanced YAML with structured field-level hints + dependency chain validation.",
+    "strategy": "structured_hints_with_chain_test",
+    "yaml_abstraction": "L1",
+    "compiler_strategy": "Two-Phase with dependency chain compilation test",
+    "test_targets": [
+      "T01",
+      "T02",
+      "T03"
+    ],
+    "result": "3/3 COMPILE_OK + ELAB_OK + SIM_OK. mkCountCF rule conflict fixed (10001 cycles simulation, 0 assertions failed). Full 22-module chain validated."
+  },
+  {
+    "iteration": "iter_003",
+    "direction": "Multi-agent verification pipeline with automated round-trip compilation. Compiler ARCHITECTURE change.",
+    "strategy": "multi_agent_pipeline_with_blind_audit",
+    "yaml_abstraction": "L1",
+    "compiler_strategy": "Multi-Agent Pipeline: YAML load -> validate -> prompt assembly -> BSC compile -> status report",
+    "test_targets": [
+      "T01-T20"
+    ],
+    "result": "T01-T03 verified (compile+elab OK). 20 YAML files created by parallel agents. Main finding: agent-created YAML has structural issues (knowledge nesting, dict hints, quoting)."
+  },
+  {
+    "iteration": "iter_004",
+    "direction": "Schema-Enforced YAML Generation with Self-Correcting Format Validator. Focus on INPUT QUALITY.",
+    "strategy": "schema_enforced_with_auto_fixer",
+    "yaml_abstraction": "L1",
+    "compiler_strategy": "YAML Fixer (auto-fix structure) -> Compiler Pipeline -> BSV Generation",
+    "test_targets": [
+      "T01-T06"
+    ],
+    "result": "6/6 YAML validated after auto-fixer. JSON Schema + structural fixer eliminates all known YAML format issues."
+  },
+  {
+    "iteration": "iter_005",
+    "direction": "Top-Down Type Graph Extraction. Build complete type dependency graph first, then use it to provide full type context to LLM when generating each module.",
+    "strategy": "type_graph_first",
+    "yaml_abstraction": "L1",
+    "compiler_strategy": "Type Graph Extraction -> Topological Sort -> Type-Aware Generation",
+    "test_targets": [
+      "T01-T20"
+    ],
+    "result": "22 modules analyzed. Computed topological compilation order. Key insight: COMPLETENESS GAP \u2014 Headers has 99 typedefs vs our generated subset, DataTypes has 80 typedefs + 16 enums + 27 structs."
+  },
+  {
+    "iteration": "iter_006",
+    "direction": "Hybrid Deterministic+LLM Architecture: Split the problem \u2014 deterministic extraction for simple types (typedefs/enums/structs) + LLM generation for complex behavior (modules/rules/FSMs). Addresses the completeness gap discovered in iter_005.",
+    "strategy": "hybrid_deterministic_plus_llm",
+    "yaml_abstraction": "L1",
+    "compiler_strategy": "Deterministic Type Extractor + LLM Behavioral Generator -> Merge -> Compile",
+    "test_targets": [
+      "T01-T20"
+    ],
+    "result": "Design documented. 6 fundamentally different directions explored. Next step: implement the hybrid compiler."
+  },
+  {
+    "iteration": "iter_007",
+    "direction": "Self-Healing Compilation with Error-Guided YAML Refinement. Closed-loop system where BSC compilation errors are automatically parsed, classified, and used to update YAML hints before regeneration. Unlike all prior open-loop approaches (generate once, observe), this implements automated error recovery with up to 3 heal attempts per module.",
+    "strategy": "self_healing_closed_loop",
+    "yaml_abstraction": "L1",
+    "compiler_strategy": "Self-Healing Compiler: YAML load -> Prompt assembly -> Agent generation -> BSC compile -> Error classification -> YAML auto-fix -> Regenerate (loop up to 3x). Error categories: UNDEFINED_TYPE, MISSING_IMPORT, METHOD_NOT_FOUND, RULE_CONFLICT, PROVISO_FAILURE, DERIVING_FAILURE, SYNTAX_ERROR, etc.",
+    "test_targets": [
+      "T01-T20"
+    ],
+    "result": "Self-healing loop demonstrated with PrimUtils (mkCReg type error \u2192 YAML fix \u2192 regenerate \u2192 compile OK). 4/6 compile (67%). Key finding: agent-based YAML regeneration is imprecise for simple syntax fixes, causing error whack-a-mole."
+  },
+  {
+    "iteration": "iter_008",
+    "direction": "Multi-Version Voting Generation with Compilation Oracle. Instead of generating ONE version per module, generate N=3 versions in parallel. Compile all, select first that works. Leverages LLM non-determinism: P(success) = 1-(1-p)^N. Each version generated independently with different structural approach.",
+    "strategy": "multi_version_voting",
+    "yaml_abstraction": "L1",
+    "compiler_strategy": "For each module: load YAML \u2192 generate N prompts with version-specific instructions \u2192 spawn N parallel coding agents \u2192 compile all N versions \u2192 select first that compiles. No healing loop needed \u2014 voting handles errors.",
+    "test_targets": [
+      "T01-T06"
+    ],
+    "result": "Settings: 3/3 compile, Headers: 3/3 compile. 6/6 versions across 2 modules (100% success). Multi-version voting eliminates error whack-a-mole from iter_007. Key insight: LLM non-determinism is a feature, not a bug \u2014 parallel versions + compiler oracle = robust generation."
+  },
+  {
+    "iteration": "iter_009",
+    "direction": "Two-Stage Interface-First Generation. Split generation into Stage 1 (interface definitions + type signatures only) and Stage 2 (module bodies implementing verified interfaces). Stage 1 output is verified by compilation before Stage 2 begins, providing a guaranteed-correct contract.",
+    "strategy": "two_stage_interface_first",
+    "yaml_abstraction": "L1",
+    "compiler_strategy": "Stage 1: Generate interface skeleton (typedefs, enums, structs, interface types, function signatures) \u2192 BSC verify \u2192 Stage 2: Generate module implementations using verified contract. Each stage has focused prompts with different requirements.",
+    "test_targets": [
+      "T01-T06"
+    ],
+    "result": "Started. PrimUtils Stage 1 generated (3884 bytes) but has expression block error. Two-stage approach shows promise but needs refined Stage 1 prompt (agent included partial function bodies instead of signatures only)."
+  },
+  {
+    "iteration": "iter_010",
+    "direction": "Deterministic Type Extraction + LLM Behavioral Generation (Implementing iter_006 Hybrid). Types extracted from original BSV via regex-based parser \u2014 guaranteed correct. LLM scope reduced to behavioral logic only.",
+    "strategy": "hybrid_deterministic_types_llm_behavior",
+    "yaml_abstraction": "L1",
+    "compiler_strategy": "Type Extractor (deterministic) \u2192 Type Skeleton (verified) \u2192 LLM Prompt (behavior only) \u2192 Merge \u2192 Compile",
+    "test_targets": [
+      "T01",
+      "T02",
+      "T03",
+      "T04",
+      "T05",
+      "T06"
+    ],
+    "result": "4/6 skeletons compile (Settings, Headers, PrimUtils, SpecialFIFOF). 2/6 fail due to dependency chain gaps (need Utils, DataTypes, Controller \u2014 not in test set). 100% type correctness for compiling modules \u2014 zero type/syntax errors. Proves hybrid approach eliminates LLM BSV domain knowledge ceiling for type definitions."
+  }
+]

@@ -1,0 +1,113 @@
+meta:
+  name: Arbitration
+  description: "A collection of arbitration modules for pipe-based round-robin scheduling\
+    \ and server/client multiplexing in hardware. This module provides:\n1. arbitrateBits\
+    \ function: A combinatorial round-robin arbiter operating on\n   bit vectors.\
+    \ Given priorityBits and requestBits, it computes the next\n   grant one-hot bit\
+    \ using subtraction-based mask arithmetic:\n   maskBits = priorityBits - 1; maskedReqBits\
+    \ = requestBits AND NOT\n   maskBits; grant = maskedReqBits AND NOT (maskedReqBits\
+    \ - 1). If no\n   masked requests exist, it falls back to the lowest-priority\
+    \ request via\n   noMaskedGrantOneHot = requestBits AND NOT (requestBits - 1).\
+    \ This\n   implements a priority-rotating arbiter where bits below the priority\n\
+    \   pointer are masked out.\n\n2. arbitrateByDoubleBits function: An extended\
+    \ version of arbitrateBits\n   that uses a doubled bit-width to handle wrap-around\
+    \ correctly. The\n   request vector is duplicated: doubleReq = {requestBits, requestBits}.\n\
+    \   The final grant is the OR of the upper and lower halves of the double\n  \
+    \ grant: grantOneHot = highPart OR lowPart.\n\n3. mkBinaryPipeOutArbiter: A 2-input\
+    \ round-robin PipeOut arbiter with a\n   completion-signaling mechanism. It arbitrates\
+    \ between two PipeOut\n   inputs (pipeIn1, pipeIn2). Uses a priorityReg that toggles\
+    \ on\n   arbitration to ensure fairness. The shouldGrantPipeIn2 logic is:\n  \
+    \ (priorityReg AND pipeIn2.notEmpty) OR (NOT pipeIn1.notEmpty AND\n   pipeIn2.notEmpty).\
+    \ When needArbitrationReg is True, a new arbitration\n   decision is made; when\
+    \ False, the current grant persists (used for\n   multi-fragment packets). The\
+    \ caller provides an isPipePayloadFinished\n   function to signal when a payload\
+    \ is complete and re-arbitration is\n   needed.\n\n4. mkBinaryPipeOutArbiterTree:\
+    \ A recursive binary tree of arbiters that\n   combines 2^N PipeOut inputs into\
+    \ a single output. For portSz=1,\n   returns the input directly. For larger sizes,\
+    \ pairs inputs into binary\n   arbiters at the leaf level, then recursively builds\
+    \ a tree. Uses\n   static elaboration (if/else at valueOf level) to generate the\
+    \ tree\n   structure at compile time.\n\n5. mkLeafBinaryPipeOutArbiterVec: Creates\
+    \ leaf-level binary arbiters with\n   bit-reversed (FFT-style) input ordering.\
+    \ Instead of pairing inputs\n   sequentially (0-1, 2-3, ...), it pairs inputs\
+    \ by bit-reversing their\n   indices: inputPipeOutVec[leftIdx] and inputPipeOutVec[rightIdx]\
+    \ where\n   leftIdx = reverseBits(idx) and rightIdx = reverseBits(idx+1). This\n\
+    \   prevents systematic bias in multi-level arbitration trees.\n\n6. mkPipeOutArbiter:\
+    \ Top-level module that combines mkLeafBinaryPipeOutArbiterVec\n   and mkBinaryPipeOutArbiterTree\
+    \ to create a full round-robin arbiter for\n   any power-of-2 number of PipeOut\
+    \ inputs. It first creates bit-reversed\n   leaf arbiters, then builds a regular\
+    \ binary tree on top of them.\n\n7. mkServerArbiter: Multiplexes multiple Server\
+    \ interfaces onto a single\n   shared Server. Each input server port tags its\
+    \ request with its port\n   index, then all tagged requests feed into a PipeOut\
+    \ arbiter tree. The\n   winning request is forwarded to the shared server. Response\
+    \ dispatching\n   uses a preGrantIdxQ to remember which port the request came\
+    \ from, and\n   routes the response back to that port. Supports multi-fragment\n\
+    \   requests/responses via isReqFinished and isRespFinished functions.\n\n8. mkClientArbiter:\
+    \ The dual of mkServerArbiter -- multiplexes a single\n   Client interface across\
+    \ multiple client ports. Each client's requests\n   are extracted via a rule per\
+    \ port, tagged with index, and arbitrated\n   through the tree to a single request\
+    \ output. Responses from the single\n   response input are dispatched to the correct\
+    \ client port via\n   preGrantIdxQ.\n\n9. mkServerProxy: A simple passthrough\
+    \ that connects a Server's request\n   FIFO to a Client's put interface and vice\
+    \ versa, enabling a Server\n   to be used as a Client and vice versa through internal\
+    \ FIFOs. Uses\n   toGPClient(reqQ, respQ) and toGPServer(reqQ, respQ).\n"
+  ports: []
+  knowledge:
+    bluespec_system_verilog:
+      imports:
+      - PrimUtils
+      - Utils
+      provisos:
+      - Add#(1, anysize, portSz) ensures portSz >= 1 (at least one port)
+      - Add#(TLog#(portSz), 1, TLog#(TAdd#(1, portSz))) ensures portSz is a power
+        of 2
+      - NumAlias#(TMul#(nSz, 2), doubleSz) for arbitrateByDoubleBits to define doubled
+        width
+      - Bits#(anytype, tSz) for generic type bit representation
+      hints:
+      - 'CRITICAL (SYNTAX FIX): When a module returns an interface (e.g. PipeOut#(anytype)),
+        define the methods DIRECTLY in the module body WITHOUT wrapping them in "interface
+        PipeOut pipeOut; ... endinterface;" and WITHOUT a "return pipeOut;" statement. The
+        module body should just contain: method definitions (each ending with "endmethod"),
+        then the module ends with "endmodule". There must be NO "endinterface;" keyword inside
+        a module body. "endinterface" closes an interface TYPE definition, NOT methods inside
+        a module.'
+      - 'CRITICAL: The subtraction-based round-robin formula: given priority P (one-hot),
+        P-1 produces a mask of all bits below P. Then requestBits AND NOT(P-1) masks
+        out bits below priority. Then grant = g AND NOT(g-1) isolates the least-significant
+        1-bit.'
+      - 'CRITICAL: In mkBinaryPipeOutArbiter, needArbitrationReg controls whether
+        re-arbitration occurs. When False, curGrantIdx retains its previous value.'
+      - The priorityReg in mkBinaryPipeOutArbiter is False initially (grant to pipeIn1)
+        and toggles to !shouldGrantPipeIn2 when arbitration occurs, ensuring the non-granted
+        input gets priority next time.
+      - 'mkBinaryPipeOutArbiterTree uses static recursion: if (valueOf(portSz) ==
+        1) return inputPipeOutVec[0]; else recursively build tree. The leaf level
+        creates TDiv#(portSz, TWO) binary arbiters, then recurses on those outputs.'
+      - mkLeafBinaryPipeOutArbiterVec uses reverseBits to determine pairing indices.
+        For idx=0, pairs reverseBits(0) with reverseBits(1); for idx=2, pairs reverseBits(2)
+        with reverseBits(3), etc. This bit-reversed pairing distributes arbitration
+        fairness across the tree.
+      - In mkServerArbiter and mkClientArbiter, each request is tagged with fromInteger(idx)
+        where idx is the port index. The request is wrapped as Tuple2#(Bit#(TLog#(portSz)),
+        reqType). The arbiter tree operates on these tagged tuples.
+      - The preGrantIdxQ stores the port index for response dispatching. shouldSaveGrantIdxReg
+        is True initially and when a request is NOT finished (multi-fragment). When
+        a new request starts (isReqFinished is True), shouldSaveGrantIdxReg becomes
+        True, causing the NEXT grant index to be saved. This ensures that for multi-fragment
+        responses, the same port index is used throughout.
+      - toGPClient(reqQ, respQ) converts a pair of FIFOs into a Client interface (with
+        Get for request, Put for response). toGPServer(reqQ, respQ) converts the same
+        pair into a Server interface (with Put for request, Get for response).
+      - CRITICAL: isReqFinished and isRespFinished are function parameters passed
+          at module instantiation. They return Bool. These functions determine when
+          arbitration should switch to the next client. For single-fragment protocols,
+          they always return True. For multi-fragment, they return True on the last
+          fragment.
+      - When building the arbiter tree, the payload type includes the port index.
+        So isPipePayloadFinished operates on Tuple2#(Bit#(TLog#(portSz)), reqType)
+        and extracts the actual request for the finish check.
+      - 'REMINDER: Module definitions end with endmodule keyword, NOT endinterface. endinterface
+        is only used to close interface TYPE definitions at the package level. Inside modules
+        that return an interface, methods are defined directly in the module body.'
+      - 'CRITICAL FIX: Remove any ''endinterface;'' line that appears between endmethod and endmodule inside a module definition. Module bodies should NOT contain endinterface. Only interface definitions use endinterface.'
+    imports: []

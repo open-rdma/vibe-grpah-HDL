@@ -1,0 +1,45 @@
+{
+  "iteration": "iter_010",
+  "total_iterations": 10,
+  "total_findings": 40,
+  "status": "iter_010_completed",
+  "stale_count": 0,
+  "zfpr_current": 0.2,
+  "zfpr_best": 0.2,
+  "last_update": "2026-07-02T23:16:29Z",
+  "phase": "iter_010_completed",
+  "modules_status": {
+    "T01_Settings": "COMPILE_OK (type extraction)",
+    "T02_Headers": "COMPILE_OK (type extraction)",
+    "T03_PrimUtils": "COMPILE_OK (type extraction)",
+    "T04_SpecialFIFOF": "COMPILE_OK (type extraction)",
+    "T05_Arbitration": "FAILED (structural: typedef in generic module)",
+    "T06_WorkCompGen": "FAILED (structural: function in wrong context)",
+    "T07-T20": "YAML parsing issues, blocking generation"
+  },
+  "iteration_summary": {
+    "iter_001": "L0 natural language \u2192 3/3 compile OK",
+    "iter_002": "L1 structured hints \u2192 3/3 compile+elab+sim OK",
+    "iter_003": "Multi-agent pipeline \u2192 20 YAML, structural issues",
+    "iter_004": "Schema enforcement \u2192 auto-fixer fixes YAML problems",
+    "iter_005": "Type graph extraction \u2192 completeness gap identified",
+    "iter_006": "Hybrid approach design \u2192 split types/behavior",
+    "iter_007": "Self-healing \u2192 4/6 compile, healing works but imprecise",
+    "iter_008": "Multi-version voting \u2192 6/6 on simple, 0/6 on complex modules",
+    "iter_009": "Two-stage interface-first \u2192 Stage 1 for PrimUtils started",
+    "iter_010": "Hybrid deterministic type extraction \u2192 4/6 compile OK"
+  },
+  "key_findings": [
+    "Multi-version voting: 100% simple modules, 0% complex \u2014 LLM non-determinism cannot overcome BSV domain gaps",
+    "Self-healing: works for simple type errors but structural errors are unfixable via hint changes",
+    "Both approaches hit same ceiling: LLMs lack deep BSV scoping/syntax knowledge for complex modules",
+    "Simple modules (typedefs, structs, functions) reliably generatable from YAML",
+    "Complex modules (rules, methods, FSMs) need either deterministic extraction or reference-guided generation",
+    "YAML serialization (save_yaml) breaks format \u2014 needs robust quoting",
+    "The hybrid approach (iter_006 design) remains the most promising unscaled direction",
+    "Deterministic type extraction: 4/6 modules compile (100% type correctness). Hybrid approach eliminates LLM BSV domain knowledge ceiling for types.",
+    "Remaining 2 failures (Arbitration, WorkCompGen) are dependency chain gaps \u2014 need Utils, DataTypes, Controller packages; NOT type extraction issues.",
+    "BSV interface type definitions vs member declarations require careful distinction (leading space in regex, keyword counting after paren removal)."
+  ],
+  "next_direction": "Implement iter_006 hybrid: deterministic type extraction from original BSV + LLM behavioral generation. Or: reference-diff generation using original BSV as structural template."
+}

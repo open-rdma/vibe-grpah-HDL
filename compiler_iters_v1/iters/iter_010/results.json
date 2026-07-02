@@ -1,0 +1,94 @@
+{
+  "T01_Settings": {
+    "status": "SKELETON_OK",
+    "extraction": {
+      "total": 21,
+      "imports": 0,
+      "typedefs": 21,
+      "enums": 0,
+      "structs": 0,
+      "interfaces": 0,
+      "functions": 0
+    },
+    "skeleton_bytes": 831,
+    "prompt_chars": 3912
+  },
+  "T02_Headers": {
+    "status": "SKELETON_OK",
+    "extraction": {
+      "total": 119,
+      "imports": 1,
+      "typedefs": 100,
+      "enums": 5,
+      "structs": 11,
+      "interfaces": 0,
+      "functions": 2
+    },
+    "skeleton_bytes": 13876,
+    "prompt_chars": 12070
+  },
+  "T03_PrimUtils": {
+    "status": "SKELETON_OK",
+    "extraction": {
+      "total": 38,
+      "imports": 2,
+      "typedefs": 2,
+      "enums": 0,
+      "structs": 1,
+      "interfaces": 1,
+      "functions": 30
+    },
+    "skeleton_bytes": 6808,
+    "prompt_chars": 12674
+  },
+  "T04_SpecialFIFOF": {
+    "status": "SKELETON_OK",
+    "extraction": {
+      "total": 13,
+      "imports": 5,
+      "typedefs": 0,
+      "enums": 1,
+      "structs": 0,
+      "interfaces": 7,
+      "functions": 0
+    },
+    "skeleton_bytes": 1613,
+    "prompt_chars": 9182
+  },
+  "T05_Arbitration": {
+    "status": "SKELETON_FAIL",
+    "extraction": {
+      "total": 11,
+      "imports": 8,
+      "typedefs": 0,
+      "enums": 0,
+      "structs": 0,
+      "interfaces": 1,
+      "functions": 2
+    },
+    "skeleton_bytes": 1501,
+    "prompt_chars": 6717,
+    "skeleton_errors": [
+      "Error: \"/data/mmh/vibe-grpah-HDL/compiler_iters_v1/iters/iter_010/generated/Arbitration.bsv\", line 12, column 8: (S0000)"
+    ]
+  },
+  "T06_WorkCompGen": {
+    "status": "SKELETON_FAIL",
+    "extraction": {
+      "total": 16,
+      "imports": 10,
+      "typedefs": 0,
+      "enums": 1,
+      "structs": 2,
+      "interfaces": 1,
+      "functions": 2
+    },
+    "skeleton_bytes": 2933,
+    "prompt_chars": 7082,
+    "skeleton_errors": [
+      "Error: \"/data/mmh/vibe-grpah-HDL/compiler_iters_v1/iters/iter_010/generated/WorkCompGen.bsv\", line 8, column 8: (S0000)",
+      "Error: \"/data/mmh/vibe-grpah-HDL/compiler_iters_v1/iters/iter_010/generated/WorkCompGen.bsv\", line 9, column 8: (S0000)",
+      "Error: \"/data/mmh/vibe-grpah-HDL/compiler_iters_v1/iters/iter_010/generated/WorkCompGen.bsv\", line 14, column 8: (S0000)"
+    ]
+  }
+}

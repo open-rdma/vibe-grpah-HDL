@@ -1,0 +1,82 @@
+meta:
+  name: PrimUtils
+  description: "A collection of primitive utility functions and interfaces used throughout\
+    \ the RDMA design. This module provides:\n1. Bit manipulation functions: isZero\
+    \ (check if all bits are zero),\n   isZeroR (recursive divide-and-conquer version\
+    \ of isZero),\n   isLessOrEqOne (check if value is 0 or 1), isOne (check if value\
+    \ is 1),\n   isTwo (check if value is 2), isLargerThanOne (check if value > 1),\n\
+    \   isAllOnesR (check if all bits are 1 using recursive approach),\n   isZeroByteEn\
+    \ (check if byte enable is zero).\n\n2. A specialized function isZero4LargeBits\
+    \ for checking two halves of a\n   32-to-64-bit value separately, using provisos\
+    \ to constrain the size.\n\n3. Bit manipulation helpers: zeroExtendLSB (extend\
+    \ a value by adding zero\n   bits at the least significant end), removeMSB (drop\
+    \ the most significant\n   bit), dontCareValue (return a don't-care value using\
+    \ ?), unwrapMaybe\n   (extract value from Maybe with don't-care default), unwrapMaybeWithDefault\n\
+    \   (extract value from Maybe with explicit default).\n\n4. Tuple accessor functions:\
+    \ getTupleFirst through getTupleSixth for\n   extracting elements from 2-to-6-element\
+    \ tuples.\n\n5. identityFunc: returns its input unchanged.\n6. Assertion helpers:\
+    \ immAssert (immediate assertion check -- if condition\n   is false, print error\
+    \ with position info and finish simulation),\n   immFail (unconditional failure\
+    \ with message).\n\n7. PipeOut conversion: toPipeOut converts a FIFOF to a PipeOut\
+    \ interface.\n8. FlagsType system: a generic struct that wraps an enum's bit representation\n\
+    \   for use as a flags bitmask. Includes FShow instance, enum2Flag conversion,\n\
+    \   containFlags (check if one flags value contains another), containEnum\n  \
+    \ (check if a flags value has a specific enum bit set).\n\n9. CountCF interface\
+    \ and mkCountCF module: a conflict-free counter that\n   supports concurrent increment,\
+    \ decrement, write, and read operations.\n   The increment and decrement operations\
+    \ are enqueued into FIFOs and\n   processed in rules. A write operation clears\
+    \ pending incr/decr.\n   Uses mkCReg for safe concurrent register access.\n\n\
+    This module imports FIFOF and PAClib. It depends on no other project modules.\n"
+ports: []
+knowledge:
+  bluespec_system_verilog:
+    imports:
+    - FIFOF
+    - PAClib
+    provisos:
+    - Functions with provisos use Add#(1, anysize, nSz) which means nSz >= 1
+    - recursive functions need NumAlias for the half-size at each level
+    hints:
+    - Use "function" keyword for all utility functions, not module blocks
+    - Use "provisos" to specify numeric type constraints
+    - OR-reduction (|bits) checks if any bit is set in a bit vector
+    - AND-reduction (&bits) checks if all bits are set in a bit vector
+    - unpack() converts bits to Bool type
+    - pack() converts a value to its bit representation
+    - '? (question mark) is the don''t-care value expression in BSV'
+    - 'CRITICAL: split(bits) directly divides a Bit#(n) into Tuple2. NEVER use unpack(extend(pack(bits)))
+      for splitting.'
+    - 'CRITICAL: split returns a Tuple2; destructure with: let { left, right } = split(bits);
+      where left is upper bits and right is lower bits.'
+    - truncate(bits) takes the LSBs; truncateLSB(bits) takes the MSBs
+    - 'CRITICAL: Tuple accessor functions must use specific tuple types like Tuple2#(anytype1,
+      anytype2) -- NOT just "anytype tupleVal"'
+    - 'Tuple accessors: getTupleFirst(tuple2), getTupleSecond(tuple2), getTupleThird(tuple3),
+      etc.'
+    - mkCReg(N, initVal) creates N copies of a register with conflict-free semantics
+    - mkFIFOF creates a FIFO with first/enq/deq/clear/notEmpty interface
+    - 'CRITICAL: FIFO methods enq, deq, clear are Action methods -- use "incrQ.deq;"
+      NOT "incrQ.deq();" (no parentheses on Action method calls)'
+    - isValid(maybe) checks if a Maybe value is tagged Valid
+    - fromMaybe(default, maybe) extracts value from Maybe or returns default
+    - $error() prints an error message during simulation
+    - $finish(1) terminates simulation with exit code 1
+    - $time returns the current simulation time
+    - 'CRITICAL: getStringPosition(str) returns a Position__ type, NOT String. Always
+      wrap with printPosition.'
+    - f_FIFOF_to_PipeOut(fifo) converts a FIFOF to PipeOut
+    - Use (* no_implicit_conditions, fire_when_enabled *) rule attributes for scheduling
+    - 'CRITICAL: In the incrAndDecr rule of mkCountCF, MUST use if/else if chain,
+      NOT two separate if blocks. Two separate if blocks both write cntReg and cause
+      a scheduling conflict during elaboration.'
+    - The "typeclass" keyword declares an interface that types must implement
+    - Use "instance" to provide a typeclass implementation for a specific type
+    - '"anytype" is a polymorphic type placeholder in BSV function signatures'
+    - 'For FShow instance on FlagsType: iterate Integer idx from 0 to valueOf(tSz)-1.
+      Use enumType enumVal = unpack(1 << idx) and fshow(enumVal). For zero case: enumType
+      enumVal = unpack(0) and fshow(enumVal).'
+    - 'AUTO-FIX (mkCReg type error): mkCReg(N, initVal) ALWAYS returns Array#(Reg#(a)). For a single
+      conflict-free register accessed by rules and methods, use mkCReg(2, initVal) with
+      reg[0] for rule-side access and reg[1] for method-side access. NEVER use mkCReg(0,
+      initVal) -- it does NOT return a scalar Reg#(a) in this BSC version. Specifically:
+      cntReg <- mkCReg(2, resetVal) and then use cntReg[0] in rules, cntReg[1] in methods.'

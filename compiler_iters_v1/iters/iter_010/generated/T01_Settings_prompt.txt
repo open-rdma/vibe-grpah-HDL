@@ -1,0 +1,67 @@
+GENERATE BSV BEHAVIORAL CODE for 'Settings.bsv'.
+
+## Module Description:
+This module defines system-wide configuration constants for the RDMA device. All constants are defined as type aliases (typedefs). There are no interfaces, modules, rules, or behavioral logic -- this is a pure constant definition file.
+The module defines: - A target cycle time of 2 nanoseconds - A minimum packet count in the receive buffer as 2 - Maximum pending work completion count as 2 times MAX_QP_WR (which is 32) - Data bus width of 256 bits (must remain a power of 2) - Maximum memory region size of 2 gigabytes (2 to the power of 31 bytes) - Page size capacity of 2 megabytes (2 to the power of 21 bytes) - Maximum number of queue pairs: 4 - Maximum work requests per queue pair: 32 - Maximum scatter/gather elements per work request: 8 - Maximum completion queues: 8 - Maximum completion queue entries equals MAX_QP_WR (32) - Maximum memory regions: 256 - Maximum protection domains: 2 - Maximum read atomic operations per QP: MAX_QP_WR divided by 2 (16) - Maximum destination read atomic operations per QP: MAX_QP_WR divided by 2 (16) - Maximum shared receive queues: 0 - Maximum SRQ work requests equals MAX_QP_WR - Maximum SRQ scatter/gather elements equals MAX_SGE - Maximum send SGE: 1 - Maximum receive SGE: 1 - Maximum inline data: 0 (no inline data support)
+Some constants depend on others defined in this file. The compiler should resolve dependencies in order.
+
+
+## VERIFIED TYPE SKELETON (GUARANTEED CORRECT — DO NOT MODIFY):
+The following types, interfaces, and functions are extracted deterministically
+from the original working codebase. They are PROVEN CORRECT by compilation.
+You MUST include ALL of them AS-IS in your output.
+
+```bluespec
+// === Deterministic type extraction from Settings.bsv ===
+
+typedef 2 TARGET_CYCLE_NS;
+typedef 2 MIN_PKT_NUM_IN_RECV_BUF;
+typedef TMul#(2, MAX_QP_WR) MAX_PENDING_WORK_COMP_NUM;
+typedef 256 DATA_BUS_WIDTH;
+typedef TExp#(31)           MAX_MR_SIZE;
+typedef TExp#(21)           PAGE_SIZE_CAP;
+typedef 4                   MAX_QP;
+typedef 32                  MAX_QP_WR;
+typedef 8                   MAX_SGE;
+typedef 8                   MAX_CQ;
+typedef MAX_QP_WR           MAX_CQE;
+typedef 256                 MAX_MR;
+typedef 2                   MAX_PD;
+typedef TDiv#(MAX_QP_WR, 2) MAX_QP_RD_ATOM;
+typedef TDiv#(MAX_QP_WR, 2) MAX_QP_DST_RD_ATOM;
+typedef 0                   MAX_SRQ;
+typedef MAX_QP_WR           MAX_SRQ_WR;
+typedef MAX_SGE             MAX_SRQ_SGE;
+typedef 1 MAX_SEND_SGE;
+typedef 1 MAX_RECV_SGE;
+typedef 0 MAX_INLINE_DATA;
+
+```
+
+## WHAT YOU MUST GENERATE:
+1. Module definition(s) with 'module'/'endmodule'
+2. Rule definitions with proper scheduling attributes
+3. Method implementations (full bodies)
+4. Sub-module instantiations with '<-'
+5. Any additional logic needed to satisfy the module description
+
+## CRITICAL RULES FOR BSV:
+- Use `package Settings.bsv;` / `endpackage` wrapper
+- Module ends with 'endmodule', NOT 'endinterface'
+- mkCReg(N, v) returns Array#(Reg#(a)) — use reg[0]/reg[1] access
+- Rules writing same register MUST use if/else if chains
+- Typedefs CANNOT appear inside module definition
+- Functions CANNOT appear inside module definition
+- Functions must be defined at package level or outside module
+- 'provisos' clause goes on function/module declaration line with ';'
+- Use 'provisos(...)' syntax, provisos clause ends the declaration
+
+### Implementation Hints:
+  - Use "typedef" statements for all constants with numeric literal values
+  - TExp#(N) computes 2 to the Nth power as a compile-time type integer
+  - TDiv#(A, B) computes integer division A/B at the type level
+  - TMul#(A, B) computes A*B at the type level
+  - When a constant references another constant, the referenced constant must be defined first
+  - File should compile standalone without any package imports
+
+Write ONLY complete BSV code. No markdown. No explanations.

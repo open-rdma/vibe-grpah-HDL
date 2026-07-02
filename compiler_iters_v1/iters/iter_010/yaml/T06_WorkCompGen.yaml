@@ -1,0 +1,84 @@
+meta:
+  name: WorkCompGen
+  description: >
+    Work Completion (WC) generation module for RDMA Send Queue (SQ) and
+    Receive Queue (RQ) processing pipelines. This module generates IB-style
+    Work Completions that are posted to Completion Queues. It contains two
+    state-machine-driven sub-modules:
+
+    1. mkWorkCompGenSQ: Generates Work Completions for the Send Queue. The
+       state machine operates in three states: WC_GEN_ST_STOP (idle/reset),
+       WC_GEN_ST_NORMAL (normal operation when connection is RTS and non-error),
+       WC_GEN_ST_ERR_FLUSH (error flush mode). Normal operation pipeline:
+       recvWorkCompGenReqSQ merges WC generation requests from two sources
+       (request generator and response handler) into pendingWorkCompQ4SQ;
+       genPendingWorkCompSQ converts requests to PendingWorkCompSQ structs
+       with the work completion, success status, and a needWorkCompWhenNormal
+       flag; waitDmaDoneSQ waits for DMA write completion responses by
+       matching PSN values if the WR requires DMA; genWorkCompSQ enqueues
+       the final work completion or transitions to error state on failure.
+       Error handling: on any non-success WC status, transitions to
+       WC_GEN_ST_ERR_FLUSH. In error state, noDmaWaitSQ bypasses DMA wait,
+       errFlushSQ flushes all pending WCs with WR_FLUSH_ERR status (handling
+       the special case of partial-ACK-then-full-ACK for the same WR by
+       skipping the first error WC's corresponding full-ACK flush),
+       discardPayloadConRespSQ drains stale DMA responses. Uses
+       conflict_free attribute to allow multiple rules to fire concurrently.
+
+    2. mkWorkCompGenRQ: Generates Work Completions for the Receive Queue.
+       Same three-state machine (STOP/NORMAL/ERR_FLUSH) with similar
+       pipeline: recvWorkCompReqRQ classifies incoming requests by RDMA opcode
+       (send, write, write-imm, first-or-only, last-or-only) and determines
+       if DMA write response is needed; waitDmaDoneRQ waits for DMA if needed
+       and enqueues for WC generation (send/write-imm requests generate WC on
+       last-or-only fragments); genWorkCompRQ generates the work completion
+       or transitions to error state, sending WC status to SQ via
+       wcStatusQ4SQ; noDmaWaitRQ and errFlushRQ handle error flushing
+       (generates error WC for first-or-only send requests and write-imm
+       requests); discardPayloadConRespRQ drains stale DMA responses.
+
+    3. Helper functions: genWorkComp4WorkReq constructs a WorkComp struct
+       from WorkCompGenReqSQ using opcode mapping, setting fields like id,
+       opcode, flags, status, len, pkey, qpn, immDt, rkey2Inv.
+       genWorkComp4RecvReq constructs WorkComp for RQ from WorkCompGenReqRQ,
+       handling immDt and rkey2Inv from the receive request.
+
+    Key types: PendingWorkCompSQ (holds WC gen request, generated work comp,
+    success status, needWorkCompWhenNormal flag), PendingWorkCompRQ (holds
+    WC gen request, maybe work comp, opcode classification booleans, success
+    status, DMA wait flag), WorkCompGenState (STOP/NORMAL/ERR_FLUSH enum).
+
+  ports: []
+
+  knowledge:
+    bluespec_system_verilog:
+      imports:
+        - Controller
+        - DataTypes
+        - Headers
+        - PrimUtils
+        - SpecialFIFOF
+        - Settings
+        - Utils
+      provisos:
+        - No module provisos on the top-level mkWorkCompGenSQ/mkWorkCompGenRQ modules
+        - depend on valueOf(MAX_CQE) for output FIFO sizing
+        - depend on valueOf(MAX_PENDING_WORK_COMP_NUM) for pending queue sizing
+      hints:
+        - 'CRITICAL (SYNTAX FIX): At the TOP LEVEL (outside any module), constant flag values MUST be declared using "typedef" syntax, NOT variable assignment. For example: "typedef 8''h00 WC_FLAGS_NONE;" NOT "WorkCompFlags WC_FLAGS_NONE = 8''h00;". The form "Type name = value;" is a variable assignment which is only valid inside modules. Top-level named constants in BSV use "typedef value name;". This applies to ALL flag constants: WC_FLAGS_NONE, WC_FLAGS_WITH_IMM, WC_FLAGS_WITH_INV.'
+        - 'CRITICAL FIX: ALL top-level constants MUST use typedef syntax: ''typedef <value> <NAME>;''. NEVER use variable assignment like ''Type name = value;'' at the top level outside a module. This applies to ALL flag constants including WC_FLAGS_NONE, WC_FLAGS_WITH_IMM, WC_FLAGS_WITH_INV.'
+        - 'CRITICAL: The WorkCompGenState is a 3-state enum: WC_GEN_ST_STOP, WC_GEN_ST_NORMAL, WC_GEN_ST_ERR_FLUSH. State transitions: STOP -> NORMAL on isRTS; NORMAL -> ERR_FLUSH on work completion error; ERR_FLUSH persists until reset. Reset (isReset) forces back to STOP.'
+        - 'CRITICAL: The inNormalState condition is: cntrlStatus.comm.isStableRTS AND workCompGenStateReg == WC_GEN_ST_NORMAL (for SQ). For RQ: cntrlStatus.comm.isNonErr AND workCompGenStateReg == WC_GEN_ST_NORMAL.'
+        - 'CRITICAL: The inErrorState condition is: cntrlStatus.comm.isERR OR workCompGenStateReg == WC_GEN_ST_ERR_FLUSH. This uses OR to include both the first error cycle and subsequent error flush cycles.'
+        - 'CRITICAL: The conflict_free attribute lists all rules that can fire concurrently: recvWorkCompGenReqSQ, genPendingWorkCompSQ, waitDmaDoneSQ, genWorkCompSQ, noDmaWaitSQ, errFlushSQ, discardPayloadConRespSQ. This attribute prevents the compiler from flagging scheduling conflicts between these rules.'
+        - In mkWorkCompGenSQ, the wcGenReqPipeInFromReqGenInSQ and wcGenReqPipeInFromRespHandleInSQ are merged using a priority if/else: if first pipe not empty, dequeue from it; else if second pipe not empty, dequeue from it.
+        - DMA wait in waitDmaDoneSQ: when isWorkCompSuccess AND wcWaitDmaResp is true, dequeue from payloadConRespPort (Get interface, so use <- payloadConRespPort.get). Assert PSN match between dmaWriteResp.psn and wcGenReqSQ.triggerPSN.
+        - needWorkCompWhenNormal is True when wcReqType == WC_REQ_TYPE_FULL_ACK AND (workReqNeedWorkCompSQ(wr) OR cntrlStatus.comm.getSigAll). This implements the RDMA signaled completion logic.
+        - In errFlushSQ, the isFirstErrPartialAckWorkReqReg handling: when the first error WC is a partial ACK, the subsequent full ACK for the same WR is skipped (not flushed) because the error was already reported. The register tracks the first error WR's ID and matches it.
+        - For mkWorkCompGenRQ, the opcode classification uses: isSendReqRdmaOpCode, isWriteReqRdmaOpCode, isWriteImmReqRdmaOpCode, isFirstOrOnlyRdmaOpCode, isLastOrOnlyRdmaOpCode.
+        - In mkWorkCompGenRQ, WC is generated for send/write-imm requests on the LAST or ONLY fragment. This is checked as: isLastOrOnlyReq AND (isSendReq OR isWriteImmReq).
+        - needWaitDmaWriteResp in RQ: NOT wcGenReqRQ.isZeroDmaLen AND (isSendReq OR isWriteReq). Write requests with data payload need to wait for DMA completion.
+        - CRITICAL: Both modules use mkSizedFIFOF for output workCompOutQ to bound FIFO size. Both use mkFIFOF (unbounded) for internal pipeline FIFOs.
+        - CRITICAL: The start rule uses no_implicit_conditions and fire_when_enabled, checking the condition in the rule guard. The resetAndClear rule also uses no_implicit_conditions.
+        - 'CRITICAL: In error state, both modules have two parallel rules: one that bypasses DMA wait (noDmaWaitSQ/noDmaWaitRQ) by moving items directly from dmaWaitingQ to genWorkCompQ, and one that flushes work completions with error status. Additionally, a discard rule drains the DMA response port.'
+        - For the RQ errFlushRQ: error WC is only generated for (isSendReq AND isFirstOrOnlyReq) OR isWriteImmReq, because middle/last send fragments may have been discarded during error handling.

@@ -1,0 +1,55 @@
+meta:
+  name: Headers
+  description: >
+    This module defines RDMA protocol headers and related types. It contains:
+    1. Width constants for header fields (address, length, PSN, QPN, etc.)
+    2. Bit vector type aliases using those widths
+    3. RDMA opcode constants (both RC and XRC variants, plus UD and CNP)
+    4. Enumerated types for transport type, opcode, and AETH codes
+    5. Struct definitions for all RDMA protocol headers (BTH, AETH, RETH, etc.)
+    6. Two pure functions that compute header lengths and check payload presence
+
+    The opcode constants are organized by transport type:
+    - RC (Reliable Connection): opcodes 0x00-0x17 (some reserved gaps)
+    - XRC (Extended RC): opcodes 0xa0-0xb7
+    - UD (Unreliable Datagram): opcodes 0x64-0x65
+    - CNP: opcode 0x81
+
+    The RdmaOpCode enum consolidates all opcodes into a unified 5-bit encoding
+    (values 0x00-0x17), abstracting away the transport-specific opcode values.
+
+    Each struct also has associated WIDTH and BYTE_WIDTH constants computed
+    from the struct size.
+
+    The function calcHeaderLenByTransTypeAndRdmaOpCode takes a transport type
+    and RDMA opcode, and returns the total header length in bytes for that
+    combination. It uses a large case statement mapping each (transType, opcode)
+    pair to the sum of the relevant header byte widths.
+
+    The function rdmaOpCodeHasPayload returns True if the given opcode implies
+    the packet carries a data payload.
+
+    The module depends on Settings.bsv for MAX_QP_WR and related constants,
+    and imports the Reserved package.
+
+ports: []
+
+knowledge:
+  bluespec_system_verilog:
+    imports:
+      - Reserved
+    provisos:
+      - Structs must derive Bits, Bounded, Eq, FShow (or at least Bits, Bounded, Eq)
+      - Enum types must derive Bits, Bounded, Eq, FShow
+    hints:
+      - CRITICAL: ALL width constants MUST be "typedef <integer> CONST_NAME;" (e.g. "typedef 64 ADDR_WIDTH;"). NEVER use "Integer addrWidth = 64;" — Integer declarations are runtime values and cannot be used in type-level contexts.
+      - CRITICAL: ALL opcode constants MUST be "typedef 8'h00 CONST_NAME;" (e.g. "typedef 8'h00 RC_SEND_FIRST;"). NEVER use "Bit#(8) rcSendFirst = 8'h00;" — Bit#() variable declarations are runtime values, not type-level typedefs.
+      - CRITICAL: ALL bit vector type aliases MUST be "typedef Bit#(ADDR_WIDTH) ADDR;" — reference the typedef'd width constants, not hardcoded numbers.
+      - Use SizeOf#(Type) to get bit width of a type, followed by "typedef SizeOf#(X) X_WIDTH;"
+      - Use TDiv#(bit_width, 8) to convert bit width to byte width: "typedef TDiv#(BTH_WIDTH, 8) BTH_BYTE_WIDTH;"
+      - Use valueOf() to get numeric value of a type-level constant in functions
+      - The opcode constants should use hex notation like 8'h00 for 8-bit hex values
+      - Use fromInteger(valueOf(...)) to convert type-level integers to Integer for case matching
+      - Use "{ pack(transType), pack(rdmaOpCode) }" for the case expression combining two enums
+      - ReservedZero#(N) marks N reserved bits that must be zero
+      - ALL constants are typedef declarations — there should be NO "Integer x = N;" or "Bit#(N) x = N;" at the top level

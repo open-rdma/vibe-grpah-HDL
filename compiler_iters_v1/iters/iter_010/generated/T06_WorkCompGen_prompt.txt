@@ -1,0 +1,173 @@
+GENERATE BSV BEHAVIORAL CODE for 'WorkCompGen.bsv'.
+
+## Module Description:
+Work Completion (WC) generation module for RDMA Send Queue (SQ) and Receive Queue (RQ) processing pipelines. This module generates IB-style Work Completions that are posted to Completion Queues. It contains two state-machine-driven sub-modules:
+1. mkWorkCompGenSQ: Generates Work Completions for the Send Queue. The
+   state machine operates in three states: WC_GEN_ST_STOP (idle/reset),
+   WC_GEN_ST_NORMAL (normal operation when connection is RTS and non-error),
+   WC_GEN_ST_ERR_FLUSH (error flush mode). Normal operation pipeline:
+   recvWorkCompGenReqSQ merges WC generation requests from two sources
+   (request generator and response handler) into pendingWorkCompQ4SQ;
+   genPendingWorkCompSQ converts requests to PendingWorkCompSQ structs
+   with the work completion, success status, and a needWorkCompWhenNormal
+   flag; waitDmaDoneSQ waits for DMA write completion responses by
+   matching PSN values if the WR requires DMA; genWorkCompSQ enqueues
+   the final work completion or transitions to error state on failure.
+   Error handling: on any non-success WC status, transitions to
+   WC_GEN_ST_ERR_FLUSH. In error state, noDmaWaitSQ bypasses DMA wait,
+   errFlushSQ flushes all pending WCs with WR_FLUSH_ERR status (handling
+   the special case of partial-ACK-then-full-ACK for the same WR by
+   skipping the first error WC's corresponding full-ACK flush),
+   discardPayloadConRespSQ drains stale DMA responses. Uses
+   conflict_free attribute to allow multiple rules to fire concurrently.
+
+2. mkWorkCompGenRQ: Generates Work Completions for the Receive Queue.
+   Same three-state machine (STOP/NORMAL/ERR_FLUSH) with similar
+   pipeline: recvWorkCompReqRQ classifies incoming requests by RDMA opcode
+   (send, write, write-imm, first-or-only, last-or-only) and determines
+   if DMA write response is needed; waitDmaDoneRQ waits for DMA if needed
+   and enqueues for WC generation (send/write-imm requests generate WC on
+   last-or-only fragments); genWorkCompRQ generates the work completion
+   or transitions to error state, sending WC status to SQ via
+   wcStatusQ4SQ; noDmaWaitRQ and errFlushRQ handle error flushing
+   (generates error WC for first-or-only send requests and write-imm
+   requests); discardPayloadConRespRQ drains stale DMA responses.
+
+3. Helper functions: genWorkComp4WorkReq constructs a WorkComp struct
+   from WorkCompGenReqSQ using opcode mapping, setting fields like id,
+   opcode, flags, status, len, pkey, qpn, immDt, rkey2Inv.
+   genWorkComp4RecvReq constructs WorkComp for RQ from WorkCompGenReqRQ,
+   handling immDt and rkey2Inv from the receive request.
+
+Key types: PendingWorkCompSQ (holds WC gen request, generated work comp, success status, needWorkCompWhenNormal flag), PendingWorkCompRQ (holds WC gen request, maybe work comp, opcode classification booleans, success status, DMA wait flag), WorkCompGenState (STOP/NORMAL/ERR_FLUSH enum).
+
+
+## VERIFIED TYPE SKELETON (GUARANTEED CORRECT — DO NOT MODIFY):
+The following types, interfaces, and functions are extracted deterministically
+from the original working codebase. They are PROVEN CORRECT by compilation.
+You MUST include ALL of them AS-IS in your output.
+
+```bluespec
+// === Deterministic type extraction from WorkCompGen.bsv ===
+
+import FIFOF :: *;
+import GetPut :: *;
+import PAClib :: *;
+import Controller :: *;
+import DataTypes :: *;
+import Headers :: *;
+import PrimUtils :: *;
+import SpecialFIFOF :: *;
+import Settings :: *;
+import Utils :: *;
+
+typedef enum {
+    WC_GEN_ST_STOP,
+    WC_GEN_ST_NORMAL,
+    WC_GEN_ST_ERR_FLUSH
+} WorkCompGenState deriving(Bits, Eq);
+
+typedef struct {
+    WorkCompGenReqSQ wcGenReqSQ;
+    WorkComp         workComp;
+    Bool             isWorkCompSuccess;
+    Bool             needWorkCompWhenNormal;
+} PendingWorkCompSQ deriving(Bits);
+typedef struct {
+    WorkCompGenReqRQ wcGenReqRQ;
+    Maybe#(WorkComp) maybeWorkComp;
+    Bool             isSendReq;
+    Bool             isWriteReq;
+    Bool             isWriteImmReq;
+    Bool             isFirstOrOnlyReq;
+    Bool             isLastOrOnlyReq;
+    Bool             isWorkCompSuccess;
+    Bool             needWaitDmaWriteResp;
+} PendingWorkCompRQ deriving(Bits);
+
+interface WorkCompGen;
+    interface PipeOut#(WorkComp) workCompPipeOut;
+    method Bool hasErr();
+endinterface
+
+// === Complete function definitions (from original, verified correct) ===
+function Maybe#(WorkComp) genWorkComp4WorkReq(
+    CntrlStatus cntrlStatus, WorkCompGenReqSQ wcGenReqSQ
+);
+    let wr = wcGenReqSQ.wr;
+    let maybeWorkCompOpCode = workReqOpCode2WorkCompOpCode4SQ(wr.opcode);
+    
+    
+    let wcFlags = IBV_WC_NO_FLAGS;
+
+    if (maybeWorkCompOpCode matches tagged Valid .opcode) begin
+        let workComp = WorkComp {
+            id      : wr.id,
+            opcode  : opcode,
+            flags   : wcFlags,
+            status  : wcGenReqSQ.wcStatus,
+            len     : wr.len,
+            pkey    : cntrlStatus.comm.getPKEY,
+            qpn    : cntrlStatus.comm.getSQPN,
+            
+            
+            immDt   : tagged Invalid,
+            rkey2Inv: tagged Invalid
+        };
+        return tagged Valid workComp;
+    end
+    else begin
+        return tagged Invalid;
+    end
+endfunction
+
+function Maybe#(WorkComp) genWorkComp4RecvReq(
+    CntrlStatus cntrlStatus, WorkCompGenReqRQ wcGenReqRQ
+);
+    let maybeWorkCompOpCode = rdmaOpCode2WorkCompOpCode4RQ(wcGenReqRQ.reqOpCode);
+    let wcFlags = rdmaOpCode2WorkCompFlagsRQ(wcGenReqRQ.reqOpCode);
+    if (
+        maybeWorkCompOpCode matches tagged Valid .opcode &&&
+        wcGenReqRQ.rrID matches tagged Valid .rrID
+    ) begin
+        let workComp = WorkComp {
+            id      : rrID,
+            opcode  : opcode,
+            flags   : wcFlags,
+            status  : wcGenReqRQ.wcStatus,
+            len     : wcGenReqRQ.len,
+            pkey    : cntrlStatus.comm.getPKEY,
+            qpn     : cntrlStatus.comm.getSQPN,
+            
+            
+            immDt   : wcGenReqRQ.immDt,
+            rkey2Inv: wcGenReqRQ.rkey2Inv
+        };
+        return tagged Valid workComp;
+    end
+    else begin
+        return tagged Invalid;
+    end
+endfunction
+
+```
+
+## WHAT YOU MUST GENERATE:
+1. Module definition(s) with 'module'/'endmodule'
+2. Rule definitions with proper scheduling attributes
+3. Method implementations (full bodies)
+4. Sub-module instantiations with '<-'
+5. Any additional logic needed to satisfy the module description
+
+## CRITICAL RULES FOR BSV:
+- Use `package WorkCompGen.bsv;` / `endpackage` wrapper
+- Module ends with 'endmodule', NOT 'endinterface'
+- mkCReg(N, v) returns Array#(Reg#(a)) — use reg[0]/reg[1] access
+- Rules writing same register MUST use if/else if chains
+- Typedefs CANNOT appear inside module definition
+- Functions CANNOT appear inside module definition
+- Functions must be defined at package level or outside module
+- 'provisos' clause goes on function/module declaration line with ';'
+- Use 'provisos(...)' syntax, provisos clause ends the declaration
+
+Write ONLY complete BSV code. No markdown. No explanations.

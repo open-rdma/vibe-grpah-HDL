@@ -1,0 +1,100 @@
+meta:
+  name: SpecialFIFOF
+  description: "A collection of specialized FIFO modules with unique capabilities\
+    \ beyond standard FIFOF, designed for the RDMA hardware implementation. This module\
+    \ provides three distinct FIFO variants:\n1. mkScanFIFOF: A FIFO that supports\
+    \ a SCAN mode alongside normal FIFO\n   operations. In scan mode, the FIFO iterates\
+    \ through its contents via a\n   scan pointer while still allowing concurrent\
+    \ dequeue operations (but not\n   enqueue). The module has three states: FIFO_MODE\
+    \ (normal operation),\n   PRE_SCAN_MODE (snapshot item count and set scan pointer\
+    \ to dequeue\n   pointer, allowing head modification), and SCAN_MODE (sequential\
+    \ scan\n   output via scanPipeOut). Key behaviors: enqueue is blocked in scan\
+    \ mode;\n   dequeue is allowed in both FIFO mode and scan mode (but not pre-scan\n\
+    \   mode); the scan head can be modified via the modifyHead method during\n  \
+    \ pre-scan mode which overrides the scanned value for the first position.\n  \
+    \ Implements full/empty tracking using item count registers, with\n   assertions\
+    \ to enforce invariants. Uses mkCReg for conflict-free register\n   access between\
+    \ methods and rules. The scanPipeOut produces elements one\n   per cycle via the\
+    \ scanNext rule.\n\n2. mkSearchFIFOF: A FIFO with a parallel search capability.\
+    \ Internally\n   maintains a Vector of data registers with valid tags. The searchIfc\n\
+    \   provides a search method that takes a predicate function and uses\n   findIndex\
+    \ to locate a matching item across all entries in a single cycle\n   (combinational\
+    \ search). The FIFO itself uses an MSB-based full/empty\n   detection scheme with\
+    \ enqPtr and deqPtr counters. The clear method resets\n   all tags, enq/deq pointers,\
+    \ and empty/full flags. Uses mkCReg to allow\n   concurrent access from enq, deq,\
+    \ and clear methods.\n\n3. mkCacheFIFO2: A cache-like FIFO that supports pipelined\
+    \ search with\n   configurable compare functions. The search is split into three\
+    \ pipeline\n   stages: handleSearchReq (computes comparison results for all entries\n\
+    \   using a vectorized map), checkMapResult (passes results through a FIFO\n \
+    \  stage), and handleSearchResp (produces final Maybe result using\n   compareResult2SearchResp\
+    \ conversion). The cache is implemented as a\n   circular buffer with a write\
+    \ pointer (enqPtrReg). Push and clear use\n   mkCReg for conflict-free method-to-rule\
+    \ communication. The\n   genWorkComp4WorkReq function in WorkCompGen uses mkCacheFIFO2\
+    \ to check\n   for duplicate work completions. The compareFunc, checkCompareResult,\
+    \ and\n   compareResult2SearchResp are higher-order function parameters that allow\n\
+    \   the caller to customize the multi-level comparison pipeline.\n\nInterfaces\
+    \ defined: ScanCntrl (control scan operations), ScanFIFOF (combines FIFOF + ScanCntrl\
+    \ + scanPipeOut), SearchIfc2 (combinational search), SearchFIFOF (combines FIFOF\
+    \ + SearchIfc2), CacheIfc (cache insert/clear), SearchIfc (pipelined search with\
+    \ req/resp), CacheFIFO (combines CacheIfc + SearchIfc).\n"
+ports: []
+knowledge:
+  bluespec_system_verilog:
+    imports:
+    - PrimUtils
+    provisos:
+    - NumAlias#(TLog#(qSz), ptrSz) is used for pointer bit-width in mkScanFIFOF
+    - NumAlias#(TLog#(TAdd#(1, qSz)), cntSz) is used for counter bit-width with one
+      extra bit to detect full vs empty
+    - Add#(TLog#(qSz), 1, TLog#(TAdd#(qSz, 1))) ensures qSz is a power of 2 for efficient
+      wrap-around
+    - Add#(1, anysizeJ, cntSz) ensures cntSz >= 1 meaning qSz must be >= 1
+    - Add#(2, anysizeK, cntSz) ensures cntSz >= 2 meaning qSz must be >= 2
+    - Add#(1, anysizeL, TLog#(qSz)) ensures TLog#(qSz) >= 1 meaning qSz >= 2
+    hints:
+    - 'CRITICAL: Use mkCReg(N, initVal) for all method-triggered registers (pushReg,
+      popReg, clearReg, preScanStartReg, scanStartReg, scanStopReg, preScanRestartReg,
+      scanDoneReg). mkCReg creates N register copies with port annotation, allowing
+      each copy to be read/written independently in different methods/rules without
+      scheduling conflicts. The pattern is: methods write to port [0], rules read
+      from port [1] and write to port [1] to self-clear.'
+    - 'CRITICAL: For the scan mode, the head register (headReg) is a single Reg, NOT
+      a CReg. It is set by modifyHead method and consumed by the scanNext rule. The
+      case expression in scanNext checks if headReg has a Valid modified value; if
+      so it uses that instead of dataVec[scanPtrReg].'
+    - 'CRITICAL: The mkScanFIFOF state machine uses three state enum values: SCAN_Q_FIFOF_MODE,
+      SCAN_Q_PRE_SCAN_MODE, SCAN_Q_SCAN_MODE. State transitions: FIFO_MODE -> PRE_SCAN_MODE
+      (via preScanStart), PRE_SCAN_MODE -> SCAN_MODE (via scanStart), SCAN_MODE ->
+      FIFO_MODE (via scanStop or scanDone), SCAN_MODE -> PRE_SCAN_MODE (via preScanRestart).'
+    - 'CRITICAL: In mkScanFIFOF, the canonicalize rule handles enqueue and dequeue
+      in the same rule. It checks hasPush (isValid pushReg[1]) and hasPop (popReg[1])
+      and updates itemCnt accordingly. It uses isAlmostFull (isAllOnesR(removeMSB(itemCnt)))
+      and isAlmostEmpty (isOne(itemCnt)) to detect edge conditions BEFORE the update,
+      then sets fullReg/emptyReg after.'
+    - 'CRITICAL: The scanNext rule in mkScanFIFOF must decrement scanCnt, increment
+      scanPtrReg, and compute scanAlmostDoneReg = isTwo(scanCnt). The scanDoneReg[0]
+      is set from the PREVIOUS value of scanAlmostDoneReg, providing a one-cycle pipeline
+      delay between "almost done" detection and "done" signaling.'
+    - 'mkSearchFIFOF full detection uses: function Bool isFull(Bit#(cntSz) nextEnqPtr,
+      Bit#(cntSz) nextDeqPtr) = (msb(nextEnqPtr) != msb(nextDeqPtr)) && (removeMSB(nextEnqPtr)
+      == removeMSB(nextDeqPtr)). This is the standard power-of-2 FIFO full detection
+      using the extra MSB bit.'
+    - In mkSearchFIFOF, tagVec is of type Vector#(qSz, Array#(Reg#(Bool))) where each
+      element is a CReg of 3 ports. enq writes to port [1], deq reads from and writes
+      to port [0], clear writes to port [2]. This 3-port CReg pattern enables concurrent
+      method access.
+    - In mkSearchFIFOF, the search method uses zip(tagVec, dataVec) to pair tags with
+      data, then findIndex with a predicate that checks tag[0] AND searchFunc(readReg(anydata)).
+      The predicate takes a Tuple2#(Array#(Reg#(Bool)), Reg#(anytype)) and reads both
+      registers.
+    - 'mkCacheFIFO2 uses function parameters: compareFunc(item4Search, itemInQ) returns
+      cmpResultType; checkCompareResult(searchResult) returns Bool; compareResult2SearchResp(searchResult)
+      returns anytype. These are passed as module parameters at instantiation.'
+    - In mkCacheFIFO2, the push rule reads clearReg[1] to determine whether to clear
+      tagVec and reset enqPtrReg, or to write pushVal to dataVec[enqPtrReg] and set
+      tagVec[enqPtrReg] to True. This uses writeVReg for bulk tag write on clear.
+    - 'In mkCacheFIFO2, the pipeline uses FIFOF stages: searchStageQ handles the vectorized
+      comparison result, searchResultQ stores the intermediate (hasClear, resultVec,
+      maybeFindIndex), and searchRespQ produces the final Maybe response. The hasClear
+      flag propagates through the pipeline to invalidate in-flight searches when clear
+      occurs.'

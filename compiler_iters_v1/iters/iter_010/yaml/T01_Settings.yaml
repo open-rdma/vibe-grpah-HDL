@@ -1,0 +1,46 @@
+meta:
+  name: Settings
+  description: >
+    This module defines system-wide configuration constants for the RDMA device.
+    All constants are defined as type aliases (typedefs). There are no interfaces,
+    modules, rules, or behavioral logic -- this is a pure constant definition file.
+
+    The module defines:
+    - A target cycle time of 2 nanoseconds
+    - A minimum packet count in the receive buffer as 2
+    - Maximum pending work completion count as 2 times MAX_QP_WR (which is 32)
+    - Data bus width of 256 bits (must remain a power of 2)
+    - Maximum memory region size of 2 gigabytes (2 to the power of 31 bytes)
+    - Page size capacity of 2 megabytes (2 to the power of 21 bytes)
+    - Maximum number of queue pairs: 4
+    - Maximum work requests per queue pair: 32
+    - Maximum scatter/gather elements per work request: 8
+    - Maximum completion queues: 8
+    - Maximum completion queue entries equals MAX_QP_WR (32)
+    - Maximum memory regions: 256
+    - Maximum protection domains: 2
+    - Maximum read atomic operations per QP: MAX_QP_WR divided by 2 (16)
+    - Maximum destination read atomic operations per QP: MAX_QP_WR divided by 2 (16)
+    - Maximum shared receive queues: 0
+    - Maximum SRQ work requests equals MAX_QP_WR
+    - Maximum SRQ scatter/gather elements equals MAX_SGE
+    - Maximum send SGE: 1
+    - Maximum receive SGE: 1
+    - Maximum inline data: 0 (no inline data support)
+
+    Some constants depend on others defined in this file. The compiler should
+    resolve dependencies in order.
+
+ports: []
+
+knowledge:
+  bluespec_system_verilog:
+    imports: []
+    provisos: []
+    hints:
+      - Use "typedef" statements for all constants with numeric literal values
+      - TExp#(N) computes 2 to the Nth power as a compile-time type integer
+      - TDiv#(A, B) computes integer division A/B at the type level
+      - TMul#(A, B) computes A*B at the type level
+      - When a constant references another constant, the referenced constant must be defined first
+      - File should compile standalone without any package imports

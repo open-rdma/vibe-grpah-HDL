@@ -1,0 +1,142 @@
+GENERATE BSV BEHAVIORAL CODE for 'Arbitration.bsv'.
+
+## Module Description:
+A collection of arbitration modules for pipe-based round-robin scheduling and server/client multiplexing in hardware. This module provides:
+1. arbitrateBits function: A combinatorial round-robin arbiter operating on
+   bit vectors. Given priorityBits and requestBits, it computes the next
+   grant one-hot bit using subtraction-based mask arithmetic:
+   maskBits = priorityBits - 1; maskedReqBits = requestBits AND NOT
+   maskBits; grant = maskedReqBits AND NOT (maskedReqBits - 1). If no
+   masked requests exist, it falls back to the lowest-priority request via
+   noMaskedGrantOneHot = requestBits AND NOT (requestBits - 1). This
+   implements a priority-rotating arbiter where bits below the priority
+   pointer are masked out.
+
+2. arbitrateByDoubleBits function: An extended version of arbitrateBits
+   that uses a doubled bit-width to handle wrap-around correctly. The
+   request vector is duplicated: doubleReq = {requestBits, requestBits}.
+   The final grant is the OR of the upper and lower halves of the double
+   grant: grantOneHot = highPart OR lowPart.
+
+3. mkBinaryPipeOutArbiter: A 2-input round-robin PipeOut arbiter with a
+   completion-signaling mechanism. It arbitrates between two PipeOut
+   inputs (pipeIn1, pipeIn2). Uses a priorityReg that toggles on
+   arbitration to ensure fairness. The shouldGrantPipeIn2 logic is:
+   (priorityReg AND pipeIn2.notEmpty) OR (NOT pipeIn1.notEmpty AND
+   pipeIn2.notEmpty). When needArbitrationReg is True, a new arbitration
+   decision is made; when False, the current grant persists (used for
+   multi-fragment packets). The caller provides an isPipePayloadFinished
+   function to signal when a payload is complete and re-arbitration is
+   needed.
+
+4. mkBinaryPipeOutArbiterTree: A recursive binary tree of arbiters that
+   combines 2^N PipeOut inputs into a single output. For portSz=1,
+   returns the input directly. For larger sizes, pairs inputs into binary
+   arbiters at the leaf level, then recursively builds a tree. Uses
+   static elaboration (if/else at valueOf level) to generate the tree
+   structure at compile time.
+
+5. mkLeafBinaryPipeOutArbiterVec: Creates leaf-level binary arbiters with
+   bit-reversed (FFT-style) input ordering. Instead of pairing inputs
+   sequentially (0-1, 2-3, ...), it pairs inputs by bit-reversing their
+   indices: inputPipeOutVec[leftIdx] and inputPipeOutVec[rightIdx] where
+   leftIdx = reverseBits(idx) and rightIdx = reverseBits(idx+1). This
+   prevents systematic bias in multi-level arbitration trees.
+
+6. mkPipeOutArbiter: Top-level module that combines mkLeafBinaryPipeOutArbiterVec
+   and mkBinaryPipeOutArbiterTree to create a full round-robin arbiter for
+   any power-of-2 number of PipeOut inputs. It first creates bit-reversed
+   leaf arbiters, then builds a regular binary tree on top of them.
+
+7. mkServerArbiter: Multiplexes multiple Server interfaces onto a single
+   shared Server. Each input server port tags its request with its port
+   index, then all tagged requests feed into a PipeOut arbiter tree. The
+   winning request is forwarded to the shared server. Response dispatching
+   uses a preGrantIdxQ to remember which port the request came from, and
+   routes the response back to that port. Supports multi-fragment
+   requests/responses via isReqFinished and isRespFinished functions.
+
+8. mkClientArbiter: The dual of mkServerArbiter -- multiplexes a single
+   Client interface across multiple client ports. Each client's requests
+   are extracted via a rule per port, tagged with index, and arbitrated
+   through the tree to a single request output. Responses from the single
+   response input are dispatched to the correct client port via
+   preGrantIdxQ.
+
+9. mkServerProxy: A simple passthrough that connects a Server's request
+   FIFO to a Client's put interface and vice versa, enabling a Server
+   to be used as a Client and vice versa through internal FIFOs. Uses
+   toGPClient(reqQ, respQ) and toGPServer(reqQ, respQ).
+
+
+## VERIFIED TYPE SKELETON (GUARANTEED CORRECT — DO NOT MODIFY):
+The following types, interfaces, and functions are extracted deterministically
+from the original working codebase. They are PROVEN CORRECT by compilation.
+You MUST include ALL of them AS-IS in your output.
+
+```bluespec
+// === Deterministic type extraction from Arbitration.bsv ===
+
+import BuildVector :: *;
+import ClientServer :: *;
+import FIFOF :: *;
+import GetPut :: *;
+import PAClib :: *;
+import Vector :: *;
+import PrimUtils :: *;
+import Utils :: *;
+
+interface ServerProxy#(type reqType, type respType);
+    interface Server#(reqType, respType) srvPort;
+    interface Client#(reqType, respType) cltPort;
+endinterface
+
+// === Complete function definitions (from original, verified correct) ===
+function Bit#(nSz) arbitrateBits(
+    Bit#(nSz) priorityBits, Bit#(nSz) requestBits
+); 
+    let maskBits = priorityBits - 1;
+    let maskedReqBits = requestBits & ~maskBits;
+    let maskedGrantOneHot = maskedReqBits & ~(maskedReqBits - 1);
+    let noMaskedGrantOneHot = requestBits & ~(requestBits - 1);
+    return isZero(maskedReqBits) ? noMaskedGrantOneHot : maskedGrantOneHot;
+endfunction
+
+function Bit#(nSz) arbitrateByDoubleBits(
+    Bit#(nSz) priorityBits, Bit#(nSz) requestBits
+) provisos(
+    Add#(1, anysizeJ, nSz),
+    Add#(nSz, anysizeK, doubleSz),
+    NumAlias#(TMul#(nSz, 2), doubleSz)
+);
+    Bit#(doubleSz) doubleMask = zeroExtend(priorityBits - 1);
+    let doubleReq = { requestBits, requestBits };
+    let maskedDoubleReq = doubleReq & ~doubleMask;
+    let doubleGrantOneHot = maskedDoubleReq & ~(maskedDoubleReq - 1);
+    Bit#(nSz) highPart = truncateLSB(doubleGrantOneHot);
+    Bit#(nSz) lowPart = truncate(doubleGrantOneHot);
+    let grantOneHot = highPart | lowPart;
+    return grantOneHot;
+endfunction
+
+```
+
+## WHAT YOU MUST GENERATE:
+1. Module definition(s) with 'module'/'endmodule'
+2. Rule definitions with proper scheduling attributes
+3. Method implementations (full bodies)
+4. Sub-module instantiations with '<-'
+5. Any additional logic needed to satisfy the module description
+
+## CRITICAL RULES FOR BSV:
+- Use `package Arbitration.bsv;` / `endpackage` wrapper
+- Module ends with 'endmodule', NOT 'endinterface'
+- mkCReg(N, v) returns Array#(Reg#(a)) — use reg[0]/reg[1] access
+- Rules writing same register MUST use if/else if chains
+- Typedefs CANNOT appear inside module definition
+- Functions CANNOT appear inside module definition
+- Functions must be defined at package level or outside module
+- 'provisos' clause goes on function/module declaration line with ';'
+- Use 'provisos(...)' syntax, provisos clause ends the declaration
+
+Write ONLY complete BSV code. No markdown. No explanations.
