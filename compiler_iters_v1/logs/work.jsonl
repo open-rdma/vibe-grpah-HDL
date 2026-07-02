@@ -5,3 +5,13 @@
 {"ts":"2026-07-02T00:00:04Z","source":"orchestrator","level":"info","event":"compilation_success","detail":"Settings.bsv compiled successfully with bsc"}
 {"ts":"2026-07-02T00:00:05Z","source":"orchestrator","level":"info","event":"downstream_test_pass","detail":"Headers.bsv compiled successfully against generated Settings.bsv"}
 {"ts":"2026-07-02T00:00:06Z","source":"orchestrator","level":"decision","event":"iter_001_complete","detail":"Iteration 001 complete. FPC=1.0, but AL=0.0, ID=1.241, LIS=20. Need to improve language independence and use LLM-based generation. Next: iter_002 targeting T03 with declarative YAML + LLM compiler."}
+{"ts":"2026-07-02T00:01:00Z","source":"orchestrator","level":"info","event":"iter_002_start","detail":"Starting iteration 002, direction: declarative-yaml-llm-compiler, target: T03 Utils PSN functions"}
+{"ts":"2026-07-02T00:01:30Z","source":"orchestrator","level":"info","event":"yaml_created","detail":"Created PsnUtils.yaml with 4 functions using declarative natural language descriptions"}
+{"ts":"2026-07-02T00:02:00Z","source":"orchestrator","level":"info","event":"compiler_created","detail":"Created LLM-based compiler.py that constructs prompts from YAML"}
+{"ts":"2026-07-02T00:02:30Z","source":"orchestrator","level":"info","event":"bsv_generated","detail":"LLM generated PsnUtils.bsv with 4 functions (1738 bytes)"}
+{"ts":"2026-07-02T00:02:40Z","source":"orchestrator","level":"warn","event":"compilation_error","detail":"calcPktNumNextAndEndPSN references unbound calcPktNumByLength from Utils4Test.bsv"}
+{"ts":"2026-07-02T00:02:50Z","source":"orchestrator","level":"decision","event":"fix_applied","detail":"Removed calcPktNumNextAndEndPSN (belongs to test infra, not core Utils). Recompiled successfully."}
+{"ts":"2026-07-02T00:03:00Z","source":"orchestrator","level":"info","event":"compilation_success","detail":"PsnUtils.bsv compiled successfully"}
+{"ts":"2026-07-02T00:03:30Z","source":"orchestrator","level":"info","event":"test_created","detail":"Created minimal testbench TestPsnUtils.bsv for generated functions"}
+{"ts":"2026-07-02T00:03:45Z","source":"orchestrator","level":"info","event":"simulation_pass","detail":"All 4 sub-tests passed (psnInRangeExclusive no-wrap, wrap, calcPsnDiff, calcNextAndEndPSN)"}
+{"ts":"2026-07-02T00:04:00Z","source":"orchestrator","level":"decision","event":"iter_002_complete","detail":"Iteration 002 complete. FPC=1.0, TPR=1.0, ZFPR=1.0. Key insight: declarative YAML works but is 3.75x larger than BSV. Next: reduce ID while maintaining AL and LIS improvements."}

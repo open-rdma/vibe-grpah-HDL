@@ -1,0 +1,8 @@
+{
+  "module": "PsnUtils",
+  "iteration": "iter_002",
+  "original_constructs": {"functions": 3},
+  "expressed_in_yaml": {"functions": 3},
+  "sc_score": 1.0,
+  "note": "calcPktNumNextAndEndPSN excluded as it depends on Utils4Test.bsv, not Utils.bsv"
+}

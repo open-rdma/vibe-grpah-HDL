@@ -7,6 +7,14 @@
       "target": "T01 Settings.bsv",
       "result": "FPC=1.0, AL=0.0, ID=1.241, LIS=20",
       "verdict": "Compiles but no abstraction benefit; YAML larger than BSV; language-dependent"
+    },
+    {
+      "iter": "iter_002",
+      "name": "declarative-yaml-llm-compiler",
+      "description": "Declarative natural-language YAML descriptions + LLM-based BSV generation. Functions described with behavioral descriptions, not code snippets.",
+      "target": "T03 Utils PSN functions",
+      "result": "FPC=1.0, TPR=1.0, ZFPR=1.0, AL=0.5, ID=3.75, LIS=0",
+      "verdict": "Functionally correct but YAML 3.75x larger than BSV. AL and LIS improved significantly. Need to reduce verbosity."
     }
   ],
   "perturbation_strategies": [

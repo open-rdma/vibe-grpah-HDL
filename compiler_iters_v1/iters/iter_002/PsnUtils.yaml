@@ -1,0 +1,83 @@
+# YAML representation of PSN utility functions
+# Iteration 002 - Declarative YAML + LLM-based Compiler
+# Direction: "declarative-yaml-llm-compiler"
+# Target: T03 Utils PSN functions
+
+meta:
+  name: PsnUtils
+  description: >
+    PSN (Packet Sequence Number) utility functions for RDMA packet processing.
+    PSN is a 24-bit number that wraps around at max value.
+    These functions handle PSN comparison, range checking, and
+    calculation of next/end PSN values based on packet length and PMTU.
+
+knowledge:
+  bsv:
+    imports:
+      - Headers
+      - DataTypes
+      - PrimUtils
+      - Settings
+    hints:
+      - PSN is typedef Bit#(24)
+      - PMTU is an enum type with values IBV_MTU_256, IBV_MTU_512, IBV_MTU_1024, IBV_MTU_2048, IBV_MTU_4096
+      - PktNum is a numeric type
+      - msb() returns the most significant bit
+      - removeMSB() returns all bits except the MSB
+
+ports: []
+
+functions:
+  - name: psnInRangeExclusive
+    description: >
+      Check if a PSN value is strictly between psnStart and psnEnd (exclusive of both endpoints).
+      Handles PSN wrap-around case: when psnStart MSB differs from psnEnd MSB, the range wraps
+      around the maximum PSN value. In the non-wrap case, simply check psnStart < psn < psnEnd.
+      In the wrap case, psn is in range if it's either greater than psnStart (same MSB) or
+      less than psnEnd (same MSB).
+    inputs:
+      - { name: psn, type: PSN, description: "The PSN value to check" }
+      - { name: psnStart, type: PSN, description: "Start of range (exclusive)" }
+      - { name: psnEnd, type: PSN, description: "End of range (exclusive)" }
+    outputs:
+      - { type: Bool, description: "True if psnStart < psn < psnEnd (with wrap-around)" }
+
+  - name: calcPsnDiff
+    description: >
+      Calculate the unsigned difference between two PSN values: psnA - psnB.
+      Uses zero-extension by 1 bit to handle wrap-around correctly.
+      Returns the truncated difference as a PSN value.
+    inputs:
+      - { name: psnA, type: PSN }
+      - { name: psnB, type: PSN }
+    outputs:
+      - { type: PSN, description: "Unsigned difference psnA - psnB" }
+
+  - name: calcNextAndEndPSN
+    description: >
+      Calculate the next PSN and end PSN given a start PSN and packet count.
+      If isOnlyPkt is true (single packet), nextPSN = startPSN + 1 and endPSN = startPSN.
+      If isOnlyPkt is false (multiple packets), nextPSN = startPSN + pktNum (zero-extended)
+      and endPSN = nextPSN - 1.
+    inputs:
+      - { name: startPSN, type: PSN, description: "Starting PSN" }
+      - { name: pktNum, type: PktNum, description: "Number of packets" }
+      - { name: isOnlyPkt, type: Bool, description: "True if only one packet" }
+      - { name: pmtu, type: PMTU, description: "Path MTU (unused in calculation but passed through)" }
+    outputs:
+      - { type: "Tuple2#(PSN, PSN)", description: "Pair of (nextPSN, endPSN)" }
+
+  - name: calcPktNumNextAndEndPSN
+    description: >
+      Calculate packet count and PSN endpoints from start PSN and data length.
+      First computes pktNum from len and PMTU using calcPktNumByLength.
+      An isOnlyPkt flag is set when pktNum <= 1.
+      nextPSN = startPSN + pktNum (zero-extended).
+      If not isOnlyPkt: endPSN = nextPSN - 1.
+      If isOnlyPkt (including zero length): endPSN = startPSN, nextPSN = endPSN + 1.
+    inputs:
+      - { name: startPSN, type: PSN, description: "Starting PSN" }
+      - { name: len, type: Length, description: "Data length in bytes" }
+      - { name: pmtu, type: PMTU, description: "Path MTU for packet size calculation" }
+    outputs:
+      - { type: "Tuple4#(Bool, PktNum, PSN, PSN)", description: "(isOnlyPkt, pktNum, nextPSN, endPSN)" }

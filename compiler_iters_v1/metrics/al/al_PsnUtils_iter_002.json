@@ -1,0 +1,14 @@
+{
+  "module": "PsnUtils",
+  "iteration": "iter_002",
+  "total_description_fields": 10,
+  "level_distribution": {
+    "L0_pure_declarative": 0,
+    "L1_minimal_hints": 3,
+    "L2_moderate_detail": 5,
+    "L3_pseudocode": 2,
+    "L4_code_snippets": 0
+  },
+  "al_score": 0.5,
+  "note": "Function descriptions are declarative (L1/L2), but input/output type specs lean toward L3 pseudocode level. Improvement over iter_001 (AL=0.0)."
+}

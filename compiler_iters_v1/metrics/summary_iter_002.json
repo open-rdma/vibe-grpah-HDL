@@ -1,0 +1,37 @@
+{
+  "iteration_id": "iter_002",
+  "timestamp": "2026-07-02T00:02:00Z",
+  "direction": "declarative-yaml-llm-compiler",
+  "target_module": "T03_Utils_PSN",
+  "dimension_a": {
+    "avg_sc": 1.0,
+    "avg_id": 3.75,
+    "avg_al": 0.5,
+    "avg_lis": 0
+  },
+  "dimension_b": {
+    "fpc": 1.0,
+    "tpr": 1.0,
+    "zfpr": 1.0,
+    "avg_icp_converged": 1.0,
+    "avg_rtf": 1.0
+  },
+  "efficiency": {
+    "generation_seconds": 3.0,
+    "compilation_seconds": 1.75,
+    "simulation_seconds": 0.5
+  },
+  "key_findings": [
+    "Declarative YAML + LLM-based generation achieves FPC=1.0, TPR=1.0, ZFPR=1.0",
+    "AL improved from 0.0 to 0.5 (declarative descriptions replace code snippets)",
+    "LIS improved from 20 to 0 (all language-specific info scoped to knowledge.bsv)",
+    "ID worsened from 1.24 to 3.75 (declarative descriptions are more verbose than code)",
+    "LLM correctly interpreted natural language descriptions and generated working BSV",
+    "Cross-file function dependencies (calcPktNumByLength from Utils4Test) need explicit handling in YAML"
+  ],
+  "next_actions": [
+    "iter_003: Reduce ID by making YAML more compact while keeping AL≥0.5",
+    "iter_003: Try different YAML structure (property-based instead of narrative descriptions)",
+    "iter_003: Target T04 SpecialFIFOF for state machine validation"
+  ]
+}

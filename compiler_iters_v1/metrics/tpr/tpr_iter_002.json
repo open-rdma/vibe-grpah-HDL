@@ -1,0 +1,17 @@
+{
+  "iteration": "iter_002",
+  "total_testcases": 1,
+  "passed_testcases": 1,
+  "tpr_score": 1.0,
+  "per_module": {
+    "PsnUtils": {
+      "total": 1,
+      "passed": 1,
+      "tpr": 1.0,
+      "details": {
+        "mkTestPsnUtils": "PASS"
+      }
+    }
+  },
+  "note": "Custom minimal testbench created for generated PsnUtils. All 4 sub-tests (psnInRangeExclusive no-wrap, wrap, calcPsnDiff, calcNextAndEndPSN) passed."
+}

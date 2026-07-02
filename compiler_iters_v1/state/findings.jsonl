@@ -1,3 +1,9 @@
 {"iter": "iter_001","finding":"Direct structural YAML mapping (bsv_typedef field) compiles but provides no abstraction benefit","category":"YAML format","significance":"high"}
 {"iter": "iter_001","finding":"Template-based compiler produces correct output for simple typedefs but doesn't leverage LLM capabilities","category":"compiler design","significance":"medium"}
 {"iter": "iter_001","finding":"YAML is 24% larger than original BSV - defeats purpose of information density","category":"metrics","significance":"high"}
+{"iter": "iter_002","finding":"Declarative YAML descriptions + LLM generation produces functionally correct BSV for pure functions","category":"compiler design","significance":"high"}
+{"iter": "iter_002","finding":"Natural language descriptions are 3.75x more verbose than the BSV code they describe - ID metric needs optimization","category":"YAML format","significance":"high"}
+{"iter": "iter_002","finding":"Language independence can be achieved by scoping language-specific info to knowledge.<lang> while keeping structural YAML fields generic","category":"YAML format","significance":"high"}
+{"iter": "iter_002","finding":"LLM correctly handles BSV-specific constructs (msb(), truncate(), zeroExtend(), bit concatenation) from declarative descriptions alone","category":"compiler capability","significance":"medium"}
+{"iter": "iter_002","finding":"Cross-file function dependencies must be explicitly resolved in YAML - calcPktNumByLength from Utils4Test.bsv caused compilation failure","category":"dependency management","significance":"medium"}
+{"iter": "iter_002","finding":"Generated BSV (1738 bytes) is larger than original (982 bytes) due to formatting and comments added by LLM","category":"code quality","significance":"low"}
