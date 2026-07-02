@@ -1,0 +1,359 @@
+types:
+  # From Settings.bsv
+  - id: "target_cycle_ns"
+    description: "Target clock cycle duration in nanoseconds"
+    properties:
+      bsv: "typedef 2 TARGET_CYCLE_NS;"
+
+  - id: "min_pkt_num_in_recv_buf"
+    description: "Minimum packet number in receive buffer"
+    properties:
+      bsv: "typedef 2 MIN_PKT_NUM_IN_RECV_BUF;"
+
+  - id: "max_pending_work_comp_num"
+    description: "Maximum pending work completion number, defined as 2 * MAX_QP_WR"
+    generics: ["MAX_QP_WR"]
+    properties:
+      bsv: "typedef TMul#(2, MAX_QP_WR) MAX_PENDING_WORK_COMP_NUM;"
+
+  - id: "data_bus_width"
+    description: "Data bus width in bits, must be power of 2"
+    properties:
+      bsv: "typedef 256 DATA_BUS_WIDTH;"
+
+  - id: "max_mr_size"
+    description: "Maximum memory region size, 2^31 = 2GB"
+    properties:
+      bsv: "typedef TExp#(31) MAX_MR_SIZE;"
+
+  - id: "page_size_cap"
+    description: "Page size capability, 2^21 = 2MB"
+    properties:
+      bsv: "typedef TExp#(21) PAGE_SIZE_CAP;"
+
+  - id: "max_qp"
+    description: "Maximum number of Queue Pairs"
+    properties:
+      bsv: "typedef 4 MAX_QP;"
+
+  - id: "max_qp_wr"
+    description: "Maximum Work Requests per Queue Pair"
+    properties:
+      bsv: "typedef 32 MAX_QP_WR;"
+
+  - id: "max_sge"
+    description: "Maximum Scatter/Gather Elements"
+    properties:
+      bsv: "typedef 8 MAX_SGE;"
+
+  - id: "max_cq"
+    description: "Maximum Completion Queues"
+    properties:
+      bsv: "typedef 8 MAX_CQ;"
+
+  - id: "max_cqe"
+    description: "Maximum Completion Queue Entries, equals MAX_QP_WR"
+    properties:
+      bsv: "typedef MAX_QP_WR MAX_CQE;"
+
+  - id: "max_mr"
+    description: "Maximum Memory Regions"
+    properties:
+      bsv: "typedef 256 MAX_MR;"
+
+  - id: "max_pd"
+    description: "Maximum Protection Domains"
+    properties:
+      bsv: "typedef 2 MAX_PD;"
+
+  - id: "max_qp_rd_atom"
+    description: "Maximum QP Read/Atomic operations, MAX_QP_WR / 2"
+    generics: ["MAX_QP_WR"]
+    properties:
+      bsv: "typedef TDiv#(MAX_QP_WR, 2) MAX_QP_RD_ATOM;"
+
+  - id: "max_qp_dst_rd_atom"
+    description: "Maximum QP destination Read/Atomic operations, MAX_QP_WR / 2"
+    generics: ["MAX_QP_WR"]
+    properties:
+      bsv: "typedef TDiv#(MAX_QP_WR, 2) MAX_QP_DST_RD_ATOM;"
+
+  - id: "max_srq"
+    description: "Maximum Shared Receive Queues"
+    properties:
+      bsv: "typedef 0 MAX_SRQ;"
+
+  - id: "max_srq_wr"
+    description: "Maximum SRQ Work Requests, equals MAX_QP_WR"
+    properties:
+      bsv: "typedef MAX_QP_WR MAX_SRQ_WR;"
+
+  - id: "max_srq_sge"
+    description: "Maximum SRQ SGE, equals MAX_SGE"
+    properties:
+      bsv: "typedef MAX_SGE MAX_SRQ_SGE;"
+
+  - id: "max_send_sge"
+    description: "Maximum Send Scatter/Gather Elements"
+    properties:
+      bsv: "typedef 1 MAX_SEND_SGE;"
+
+  - id: "max_recv_sge"
+    description: "Maximum Receive Scatter/Gather Elements"
+    properties:
+      bsv: "typedef 1 MAX_RECV_SGE;"
+
+  - id: "max_inline_data"
+    description: "Maximum inline data, 0 means no inline data"
+    properties:
+      bsv: "typedef 0 MAX_INLINE_DATA;"
+
+  # From Headers.bsv - basic type widths
+  - id: "addr_width"
+    description: "Address width in bits"
+    properties:
+      bsv: "typedef 64 ADDR_WIDTH;"
+
+  - id: "long_width"
+    description: "Long integer width in bits"
+    properties:
+      bsv: "typedef 64 LONG_WIDTH;"
+
+  - id: "psn_width"
+    description: "Packet Sequence Number width in bits"
+    properties:
+      bsv: "typedef 24 PSN_WIDTH;"
+
+  - id: "qpn_width"
+    description: "Queue Pair Number width in bits"
+    properties:
+      bsv: "typedef 24 QPN_WIDTH;"
+
+  - id: "rdma_max_len_width"
+    description: "RDMA maximum length field width in bits"
+    properties:
+      bsv: "typedef 32 RDMA_MAX_LEN_WIDTH;"
+
+  - id: "wr_id_width"
+    description: "Work Request ID width in bits"
+    properties:
+      bsv: "typedef 64 WR_ID_WIDTH;"
+
+  - id: "pad_width"
+    description: "Padding width in bits"
+    properties:
+      bsv: "typedef 2 PAD_WIDTH;"
+
+  - id: "pkey_width"
+    description: "Partition Key width in bits"
+    properties:
+      bsv: "typedef 16 PKEY_WIDTH;"
+
+  - id: "aeth_value_width"
+    description: "AETH value width in bits"
+    properties:
+      bsv: "typedef 5 AETH_VALUE_WIDTH;"
+
+  - id: "msn_width"
+    description: "Message Sequence Number width in bits"
+    properties:
+      bsv: "typedef 24 MSN_WIDTH;"
+
+  - id: "key_width"
+    description: "Key (RKEY/LKEY/QKEY) width in bits"
+    properties:
+      bsv: "typedef 32 KEY_WIDTH;"
+
+  - id: "imm_width"
+    description: "Immediate data width in bits"
+    properties:
+      bsv: "typedef 32 IMM_WIDTH;"
+
+  # Base field types
+  - id: "addr"
+    description: "Address type, Bit#(ADDR_WIDTH)"
+    properties:
+      bsv: "typedef Bit#(ADDR_WIDTH) ADDR;"
+
+  - id: "length"
+    description: "Byte length type, Bit#(RDMA_MAX_LEN_WIDTH)"
+    properties:
+      bsv: "typedef Bit#(RDMA_MAX_LEN_WIDTH) Length;"
+
+  - id: "long"
+    description: "Long integer type, Bit#(LONG_WIDTH)"
+    properties:
+      bsv: "typedef Bit#(LONG_WIDTH) Long;"
+
+  - id: "qpn"
+    description: "QP Number type, Bit#(QPN_WIDTH)"
+    properties:
+      bsv: "typedef Bit#(QPN_WIDTH) QPN;"
+
+  - id: "psn"
+    description: "Packet Sequence Number type, Bit#(PSN_WIDTH)"
+    properties:
+      bsv: "typedef Bit#(PSN_WIDTH) PSN;"
+
+  - id: "pad"
+    description: "Padding type, Bit#(PAD_WIDTH)"
+    properties:
+      bsv: "typedef Bit#(PAD_WIDTH) PAD;"
+
+  - id: "pkey"
+    description: "Partition Key type, Bit#(PKEY_WIDTH)"
+    properties:
+      bsv: "typedef Bit#(PKEY_WIDTH) PKEY;"
+
+  - id: "imm"
+    description: "Immediate data type, Bit#(IMM_WIDTH)"
+    properties:
+      bsv: "typedef Bit#(IMM_WIDTH) IMM;"
+
+  # RDMA opcodes
+  - id: "rc_opcodes"
+    description: "RC transport opcodes as 8-bit hex values"
+    properties:
+      bsv: |
+        typedef 8'h00 RC_SEND_FIRST;
+        typedef 8'h01 RC_SEND_MIDDLE;
+        typedef 8'h02 RC_SEND_LAST;
+        typedef 8'h03 RC_SEND_LAST_WITH_IMMEDIATE;
+        typedef 8'h04 RC_SEND_ONLY;
+        typedef 8'h05 RC_SEND_ONLY_WITH_IMMEDIATE;
+        typedef 8'h06 RC_RDMA_WRITE_FIRST;
+        typedef 8'h07 RC_RDMA_WRITE_MIDDLE;
+        typedef 8'h08 RC_RDMA_WRITE_LAST;
+        typedef 8'h09 RC_RDMA_WRITE_LAST_WITH_IMMEDIATE;
+        typedef 8'h0a RC_RDMA_WRITE_ONLY;
+        typedef 8'h0b RC_RDMA_WRITE_ONLY_WITH_IMMEDIATE;
+        typedef 8'h0c RC_RDMA_READ_REQUEST;
+        typedef 8'h0d RC_RDMA_READ_RESPONSE_FIRST;
+        typedef 8'h0e RC_RDMA_READ_RESPONSE_MIDDLE;
+        typedef 8'h0f RC_RDMA_READ_RESPONSE_LAST;
+        typedef 8'h10 RC_RDMA_READ_RESPONSE_ONLY;
+        typedef 8'h11 RC_ACKNOWLEDGE;
+        typedef 8'h12 RC_ATOMIC_ACKNOWLEDGE;
+        typedef 8'h13 RC_COMPARE_SWAP;
+        typedef 8'h14 RC_FETCH_ADD;
+        typedef 8'h16 RC_SEND_LAST_WITH_INVALIDATE;
+        typedef 8'h17 RC_SEND_ONLY_WITH_INVALIDATE;
+
+  # Enums
+  - id: "trans_type"
+    description: "Transport type enum: RC(0), UC(1), RD(2), UD(3), CNP(4), XRC(5)"
+    properties:
+      bsv: |
+        typedef enum {
+            TRANS_TYPE_RC  = 3'h0,
+            TRANS_TYPE_UC  = 3'h1,
+            TRANS_TYPE_RD  = 3'h2,
+            TRANS_TYPE_UD  = 3'h3,
+            TRANS_TYPE_CNP = 3'h4,
+            TRANS_TYPE_XRC = 3'h5
+        } TransType deriving(Bits, Bounded, Eq, FShow);
+
+  - id: "rdma_opcode"
+    description: "RDMA opcode enum for all operations (SEND, WRITE, READ, ACK, ATOMICS, etc.)"
+    properties:
+      bsv: |
+        typedef enum {
+            SEND_FIRST                     = 5'h00,
+            SEND_MIDDLE                    = 5'h01,
+            SEND_LAST                      = 5'h02,
+            SEND_LAST_WITH_IMMEDIATE       = 5'h03,
+            SEND_ONLY                      = 5'h04,
+            SEND_ONLY_WITH_IMMEDIATE       = 5'h05,
+            RDMA_WRITE_FIRST               = 5'h06,
+            RDMA_WRITE_MIDDLE              = 5'h07,
+            RDMA_WRITE_LAST                = 5'h08,
+            RDMA_WRITE_LAST_WITH_IMMEDIATE = 5'h09,
+            RDMA_WRITE_ONLY                = 5'h0a,
+            RDMA_WRITE_ONLY_WITH_IMMEDIATE = 5'h0b,
+            RDMA_READ_REQUEST              = 5'h0c,
+            RDMA_READ_RESPONSE_FIRST       = 5'h0d,
+            RDMA_READ_RESPONSE_MIDDLE      = 5'h0e,
+            RDMA_READ_RESPONSE_LAST        = 5'h0f,
+            RDMA_READ_RESPONSE_ONLY        = 5'h10,
+            ACKNOWLEDGE                    = 5'h11,
+            ATOMIC_ACKNOWLEDGE             = 5'h12,
+            COMPARE_SWAP                   = 5'h13,
+            FETCH_ADD                      = 5'h14,
+            RESYNC                         = 5'h15,
+            SEND_LAST_WITH_INVALIDATE      = 5'h16,
+            SEND_ONLY_WITH_INVALIDATE      = 5'h17
+        } RdmaOpCode deriving(Bits, Bounded, Eq, FShow);
+
+  - id: "aeth_code"
+    description: "AETH code enum: ACK(0), RNR(1), RSVD(2), NAK(3)"
+    properties:
+      bsv: |
+        typedef enum {
+            AETH_CODE_ACK  = 2'b00,
+            AETH_CODE_RNR  = 2'b01,
+            AETH_CODE_RSVD = 2'b10,
+            AETH_CODE_NAK  = 2'b11
+        } AethCode deriving(Bits, Bounded, Eq, FShow);
+
+  # Struct types
+  - id: "bth"
+    description: "Base Transport Header (12 bytes): trans, opcode, solicited, migReq, padCnt, tver, pkey, fecn, becn, resv6, dqpn, ackReq, resv7, psn"
+    properties:
+      bsv: |
+        typedef struct {
+            TransType trans;
+            RdmaOpCode opcode;
+            Bool solicited;
+            ReservedZero#(1) migReq;
+            PAD padCnt;
+            ReservedZero#(4) tver;
+            PKEY pkey;
+            ReservedZero#(1) fecn;
+            ReservedZero#(1) becn;
+            ReservedZero#(6) resv6;
+            QPN dqpn;
+            Bool ackReq;
+            ReservedZero#(7) resv7;
+            PSN psn;
+        } BTH deriving(Bits, Bounded, FShow);
+
+  - id: "aeth"
+    description: "AETH header (4 bytes): rsvd, code, value, msn"
+    properties:
+      bsv: |
+        typedef struct {
+            ReservedZero#(1) rsvd;
+            AethCode code;
+            AethValue value;
+            MSN msn;
+        } AETH deriving(Bits, Bounded, FShow);
+
+  - id: "reth"
+    description: "RETH header (16 bytes): va (virtual address), rkey, dlen (data length)"
+    properties:
+      bsv: |
+        typedef struct {
+            ADDR va;
+            RKEY rkey;
+            Length dlen;
+        } RETH deriving(Bits, Bounded, FShow);
+
+  - id: "imm_dt"
+    description: "Immediate data (4 bytes)"
+    properties:
+      bsv: "typedef struct { IMM data; } ImmDt deriving(Bits, Bounded, FShow);"
+
+  - id: "ieth"
+    description: "Invalidate ETH header (4 bytes): rkey"
+    properties:
+      bsv: "typedef struct { RKEY rkey; } IETH deriving(Bits, Bounded, FShow);"
+
+  - id: "min_pmtu"
+    description: "Minimum PMTU size, 256 bytes"
+    properties:
+      bsv: "typedef 256 MIN_PMTU;"
+
+  - id: "max_pmtu"
+    description: "Maximum PMTU size, 4096 bytes"
+    properties:
+      bsv: "typedef 4096 MAX_PMTU;"

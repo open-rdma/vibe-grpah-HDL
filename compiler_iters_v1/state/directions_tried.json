@@ -2,8 +2,17 @@
   {
     "iteration": "iter_001",
     "direction": "faithful-translation-v1",
-    "description": "YAML closely mirrors BSV structure. Each BSV construct (typedef, enum, struct, function, interface, module, rule) has a corresponding YAML representation. Compiler uses Two-Phase strategy: Phase 1 generates type definitions, Phase 2 generates module code. LLM agent (ccb) translates YAML descriptions to BSV.",
-    "yaml_style": "L3-level detail: provides type names, field names, function signatures explicitly. Natural language used for behavioral descriptions.",
-    "compiler_strategy": "Two-Phase (types first, then modules bottom-up)"
+    "description": "YAML closely mirrors BSV structure. Each BSV construct has a corresponding YAML representation. L4-level explicit code snippets in knowledge.bsv.code. Compiler extracts code directly, no LLM needed for generation.",
+    "yaml_style": "L4 code snippets: complete BSV source embedded in YAML knowledge fields",
+    "compiler_strategy": "Direct extraction from knowledge.bsv.code → write to .bsv files",
+    "result": "FPC=1.0 (3/3 compile), ID=1.186, simulation blocked by upstream test infrastructure"
+  },
+  {
+    "iteration": "iter_002",
+    "direction": "declarative-abstraction-v1",
+    "description": "Reduce abstraction level from L4 to L2-L3. YAML describes types, enums, structs, and functions in natural language (NOT via code snippets). LLM agent generates BSV from abstract descriptions. Target: better ID ratio and higher abstraction level.",
+    "yaml_style": "L2-L3 level: natural language descriptions of types, enums, structures, functions. No embedded BSV code except for Settings typedefs (which are inherently code-level).",
+    "compiler_strategy": "Agent-based LLM generation: spawn agents to read YAML and generate BSV files in parallel",
+    "status": "in_progress"
   }
 ]

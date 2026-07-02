@@ -1,0 +1,34 @@
+# Project: RDMA Blue-Flame
+# Target: Bluespec SystemVerilog (BSV)
+
+meta:
+  name: "rdma-blue-flame"
+  description: "RDMA network protocol implementation in Bluespec SystemVerilog"
+  target_language: "bsv"
+
+knowledge:
+  bsv:
+    imports:
+      - "Reserved :: *"
+      - "FIFOF :: *"
+      - "PAClib :: *"
+      - "ClientServer :: *"
+      - "GetPut :: *"
+      - "Vector :: *"
+      - "Randomizable :: *"
+    style_notes: |
+      Use Bluespec SystemVerilog conventions:
+      - typedef for type aliases and constants
+      - enum with deriving(Bits, Bounded, Eq, FShow) for enumerations
+      - struct with deriving(Bits, Bounded, FShow) for data structures
+      - module with interface for RTL modules
+      - Use Bit#(n) for fixed-width types
+      - Use provisos for numeric type constraints
+      - Use TAdd#(), TLog#(), TDiv#(), TExp#(), TMul#() for compile-time arithmetic
+      - valueOf() to extract numeric values from types
+      - fromInteger() for integer-to-type conversion
+      - Methods: Action for side effects, ActionValue#(T) for value-returning, T for pure reads
+
+trees:
+  top:
+    description: "Top-level RDMA transport layer module tree"

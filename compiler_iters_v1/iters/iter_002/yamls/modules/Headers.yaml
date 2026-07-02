@@ -1,0 +1,206 @@
+meta:
+  name: "Headers"
+  description: "RDMA protocol header definitions including type widths, transport type enum, RDMA opcode enum, header structs (BTH, AETH, RETH, etc.), and helper functions for header length calculation and payload detection"
+
+behavior:
+  interface:
+    - name: "calcHeaderLenByTransTypeAndRdmaOpCode"
+      description: "Pure function that calculates total header byte length given transport type and RDMA opcode. Returns Integer."
+    - name: "rdmaOpCodeHasPayload"
+      description: "Pure function that returns Bool - True if the given RDMA opcode indicates a packet that carries payload data."
+
+  state_registers: []
+
+types_to_define:
+  - name: "ADDR_WIDTH"
+    description: "Address width constant = 64 bits"
+  - name: "LONG_WIDTH"
+    description: "Long integer width constant = 64 bits"
+  - name: "PSN_WIDTH"
+    description: "Packet Sequence Number width constant = 24 bits"
+  - name: "QPN_WIDTH"
+    description: "Queue Pair Number width constant = 24 bits"
+  - name: "RDMA_MAX_LEN_WIDTH"
+    description: "RDMA maximum length field width constant = 32 bits"
+  - name: "WR_ID_WIDTH"
+    description: "Work Request ID width constant = 64 bits"
+  - name: "PAD_WIDTH"
+    description: "Padding width constant = 2 bits"
+  - name: "PKEY_WIDTH"
+    description: "Partition Key width constant = 16 bits"
+  - name: "AETH_VALUE_WIDTH"
+    description: "AETH value field width constant = 5 bits"
+  - name: "MSN_WIDTH"
+    description: "Message Sequence Number width constant = 24 bits"
+  - name: "KEY_WIDTH"
+    description: "Key width (RKEY/LKEY/QKEY) constant = 32 bits"
+  - name: "IMM_WIDTH"
+    description: "Immediate data width constant = 32 bits"
+  - name: "MIN_PMTU"
+    description: "Minimum PMTU constant = 256 bytes"
+  - name: "MAX_PMTU"
+    description: "Maximum PMTU constant = 4096 bytes"
+  - name: "ADDR"
+    description: "Address type: Bit#(ADDR_WIDTH)"
+  - name: "Length"
+    description: "Byte length type: Bit#(RDMA_MAX_LEN_WIDTH)"
+  - name: "Long"
+    description: "Long integer type: Bit#(LONG_WIDTH)"
+  - name: "QPN"
+    description: "QP Number type: Bit#(QPN_WIDTH)"
+  - name: "PSN"
+    description: "PSN type: Bit#(PSN_WIDTH)"
+  - name: "PAD"
+    description: "Padding type: Bit#(PAD_WIDTH)"
+  - name: "PKEY"
+    description: "Partition Key type: Bit#(PKEY_WIDTH)"
+  - name: "AethValue"
+    description: "AETH value type: Bit#(AETH_VALUE_WIDTH)"
+  - name: "MSN"
+    description: "MSN type: Bit#(MSN_WIDTH)"
+  - name: "RKEY"
+    description: "Remote Key type: Bit#(KEY_WIDTH)"
+  - name: "LKEY"
+    description: "Local Key type: Bit#(KEY_WIDTH)"
+  - name: "QKEY"
+    description: "Queue Key type: Bit#(KEY_WIDTH)"
+  - name: "IMM"
+    description: "Immediate data type: Bit#(IMM_WIDTH)"
+
+  - name: "RC opcodes"
+    description: |
+      RC transport opcodes as 8-bit hex constants:
+      RC_SEND_FIRST=0x00, RC_SEND_MIDDLE=0x01, RC_SEND_LAST=0x02,
+      RC_SEND_LAST_WITH_IMMEDIATE=0x03, RC_SEND_ONLY=0x04,
+      RC_SEND_ONLY_WITH_IMMEDIATE=0x05, RC_RDMA_WRITE_FIRST=0x06,
+      RC_RDMA_WRITE_MIDDLE=0x07, RC_RDMA_WRITE_LAST=0x08,
+      RC_RDMA_WRITE_LAST_WITH_IMMEDIATE=0x09, RC_RDMA_WRITE_ONLY=0x0a,
+      RC_RDMA_WRITE_ONLY_WITH_IMMEDIATE=0x0b, RC_RDMA_READ_REQUEST=0x0c,
+      RC_RDMA_READ_RESPONSE_FIRST=0x0d, RC_RDMA_READ_RESPONSE_MIDDLE=0x0e,
+      RC_RDMA_READ_RESPONSE_LAST=0x0f, RC_RDMA_READ_RESPONSE_ONLY=0x10,
+      RC_ACKNOWLEDGE=0x11, RC_ATOMIC_ACKNOWLEDGE=0x12,
+      RC_COMPARE_SWAP=0x13, RC_FETCH_ADD=0x14,
+      RC_SEND_LAST_WITH_INVALIDATE=0x16, RC_SEND_ONLY_WITH_INVALIDATE=0x17
+
+  - name: "XRC opcodes"
+    description: |
+      XRC transport opcodes as 8-bit hex constants (similar to RC but with XRC_ prefix and offset 0xa0):
+      Same set of opcodes as RC but starting from 0xa0 instead of 0x00.
+      Also includes XRC_RDMA_READ_REQUEST(0xac), XRC_ATOMIC_ACKNOWLEDGE(0xb2),
+      XRC_COMPARE_SWAP(0xb3), XRC_FETCH_ADD(0xb4),
+      XRC_SEND_LAST_WITH_INVALIDATE(0xb6), XRC_SEND_ONLY_WITH_INVALIDATE(0xb7)
+
+  - name: "UD opcodes"
+    description: |
+      UD transport opcodes:
+      UD_SEND_ONLY=0x64, UD_SEND_ONLY_WITH_IMMEDIATE=0x65
+      Also ROCE_CNP=0x81
+
+  - name: "TransType"
+    description: |
+      Enum: RC=3'h0, UC=3'h1, RD=3'h2, UD=3'h3, CNP=3'h4, XRC=3'h5
+      With TRANS_TYPE_WIDTH = SizeOf#(TransType)
+
+  - name: "RdmaOpCode"
+    description: |
+      Enum with 5-bit encoding for 24 RDMA operations:
+      SEND_FIRST=0x00, SEND_MIDDLE=0x01, SEND_LAST=0x02, SEND_LAST_WITH_IMMEDIATE=0x03,
+      SEND_ONLY=0x04, SEND_ONLY_WITH_IMMEDIATE=0x05, RDMA_WRITE_FIRST=0x06,
+      RDMA_WRITE_MIDDLE=0x07, RDMA_WRITE_LAST=0x08, RDMA_WRITE_LAST_WITH_IMMEDIATE=0x09,
+      RDMA_WRITE_ONLY=0x0a, RDMA_WRITE_ONLY_WITH_IMMEDIATE=0x0b,
+      RDMA_READ_REQUEST=0x0c, RDMA_READ_RESPONSE_FIRST=0x0d,
+      RDMA_READ_RESPONSE_MIDDLE=0x0e, RDMA_READ_RESPONSE_LAST=0x0f,
+      RDMA_READ_RESPONSE_ONLY=0x10, ACKNOWLEDGE=0x11, ATOMIC_ACKNOWLEDGE=0x12,
+      COMPARE_SWAP=0x13, FETCH_ADD=0x14, RESYNC=0x15,
+      SEND_LAST_WITH_INVALIDATE=0x16, SEND_ONLY_WITH_INVALIDATE=0x17
+      With RDMA_OPCODE_WIDTH = SizeOf#(RdmaOpCode)
+
+  - name: "AETH types"
+    description: |
+      AethCode enum: ACK=2'b00, RNR=2'b01, RSVD=2'b10, NAK=2'b11
+      AethAckValueCreditCnt enum: INVALID_CREDIT_CNT=5'b11111
+      AethNakValue enum: SEQ_ERR=5'h0, INV_REQ=5'h1, RMT_ACC=5'h2, RMT_OP=5'h3, INV_RD=5'h4
+
+  - name: "BTH header"
+    description: |
+      12-byte Base Transport Header struct with fields:
+      trans (TransType), opcode (RdmaOpCode), solicited (Bool),
+      migReq (ReservedZero#(1)), padCnt (PAD), tver (ReservedZero#(4)),
+      pkey (PKEY), fecn (ReservedZero#(1)), becn (ReservedZero#(1)),
+      resv6 (ReservedZero#(6)), dqpn (QPN), ackReq (Bool),
+      resv7 (ReservedZero#(7)), psn (PSN)
+      All structs derive(Bits, Bounded, FShow)
+
+  - name: "AETH header"
+    description: |
+      4-byte AETH header struct: rsvd (ReservedZero#(1)), code (AethCode),
+      value (AethValue), msn (MSN)
+
+  - name: "RETH header"
+    description: |
+      16-byte RETH header struct: va (ADDR), rkey (RKEY), dlen (Length)
+
+  - name: "LETH header"
+    description: |
+      16-byte LETH header struct: va (ADDR), lkey (LKEY), dlen (Length)
+
+  - name: "AtomicEth header"
+    description: |
+      28-byte AtomicEth header struct: va (ADDR), rkey (RKEY), swap (Long), comp (Long)
+
+  - name: "AtomicAckEth header"
+    description: |
+      8-byte AtomicAckEth header struct: orig (Long)
+
+  - name: "ImmDt header"
+    description: |
+      4-byte ImmDt header struct: data (IMM)
+
+  - name: "IETH header"
+    description: |
+      4-byte IETH header struct: rkey (RKEY)
+
+  - name: "DETH header"
+    description: |
+      8-byte DETH header struct: qkey (QKEY), rsvd (ReservedZero#(8)), sqpn (QPN)
+
+  - name: "XRCETH header"
+    description: |
+      4-byte XRCETH header struct: rsvd (ReservedZero#(8)), srqn (QPN)
+
+  - name: "PayloadCNP header"
+    description: |
+      16-byte PayloadCNP header struct: rsvd1 (ReservedZero#(LONG_WIDTH)),
+      rsvd2 (ReservedZero#(LONG_WIDTH))
+
+  - name: "header size constants"
+    description: |
+      For each header struct, define width constants:
+      BTH_WIDTH=SizeOf#(BTH), BTH_BYTE_WIDTH=TDiv#(BTH_WIDTH,8)
+      Same pattern for AETH, RETH, LETH, AtomicEth, AtomicAckEth,
+      ImmDt, IETH, DETH, XRCETH, PayloadCNP
+
+knowledge:
+  bsv:
+    imports:
+      - "Reserved :: *"
+    additional_notes: |
+      The calcHeaderLenByTransTypeAndRdmaOpCode function computes header lengths:
+      - RC SEND variants: BTH only (=12 bytes) unless with IMMEDIATE (+4 for ImmDt) or INVALIDATE (+4 for IETH)
+      - RC RDMA_WRITE variants: BTH + RETH (=28 bytes) for FIRST/ONLY, BTH only for MIDDLE/LAST
+      - RC RDMA_WRITE with IMMEDIATE adds 4 bytes for ImmDt
+      - RC RDMA_READ_REQUEST: BTH + RETH (=28 bytes)
+      - RC COMPARE_SWAP/FETCH_ADD: BTH + AtomicEth (=40 bytes)
+      - RC/XRC responses (READ_RESPONSE, ACKNOWLEDGE): BTH + AETH (=16 bytes)
+      - RC/XRC ATOMIC_ACKNOWLEDGE: BTH + AETH + AtomicAckEth (=24 bytes)
+      - XRC requests: same as RC + 4 bytes for XRCETH
+      - UD requests: BTH + DETH (=20 bytes)
+      - UD with IMMEDIATE: BTH + DETH + ImmDt (=24 bytes)
+      - CNP: BTH + PayloadCNP (=28 bytes)
+      Use case statement with {pack(transType), pack(rdmaOpCode)} as selector.
+      Use valueOf() for BSV numeric expressions.
+      Use combined patterns for RC/XRC responses where header lengths are identical.
+
+    notes_on_payload_detection: |
+      rdmaOpCodeHasPayload returns True for SEND*, RDMA_WRITE*, and RDMA_READ_RESPONSE* opcodes.
+      Returns False for READ_REQUEST, ACKNOWLEDGE, ATOMIC_ACKNOWLEDGE, COMPARE_SWAP, FETCH_ADD.

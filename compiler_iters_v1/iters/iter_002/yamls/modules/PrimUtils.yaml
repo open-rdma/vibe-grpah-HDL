@@ -1,0 +1,100 @@
+meta:
+  name: "PrimUtils"
+  description: "Primitive utility functions including bit manipulation, tuple helpers, assertions, and a CountCF module"
+
+behavior:
+  interface: []
+
+utility_functions:
+  - name: "isZero"
+    description: "Returns True if all bits of the input are zero. Uses reduction OR (|bits) and negates the result."
+  - name: "isZeroR"
+    description: "Recursive version of isZero. Splits bits into halves, recursively checks each half. Base case: call isZero when half size <= 1."
+  - name: "isZeroByteEn"
+    description: "Checks if byte enable is zero by concatenating MSB and LSB then calling isZero."
+  - name: "isLessOrEqOne"
+    description: "Returns True if the input bit vector represents 0 or 1. Checks if bits >> 1 is zero."
+  - name: "isLessOrEqOneR"
+    description: "Recursive version of isLessOrEqOne using isZeroR on shifted bits."
+  - name: "isOne"
+    description: "Returns True if the input is exactly 1. Checks isLessOrEqOne AND LSB is set."
+  - name: "isOneR"
+    description: "Recursive version of isOne. Uses isLessOrEqOneR."
+  - name: "isTwo"
+    description: "Returns True if input is exactly 2. Checks bits>>2 is zero, bit[1] set, bit[0] clear. Provisos: Add#(2, anysize, nSz)"
+  - name: "isTwoR"
+    description: "Recursive version of isTwo. Same logic as isTwo."
+  - name: "isAllOnesR"
+    description: "Recursive check if all bits are 1. Uses reduction AND (&bits) at base case."
+  - name: "isLargerThanOne"
+    description: "Returns True if input > 1. Checks !isZero(bits >> 1)."
+  - name: "isZero4LargeBits"
+    description: "For bit widths between 32 and 64. Splits into low and high parts, checks each with isZero, returns tuple2. Has complex provisos using TDiv and TSub."
+  - name: "zeroExtendLSB"
+    description: "Zero-extends LSB by concatenating input with 0. Result width nSz = mSz + some padding."
+  - name: "removeMSB"
+    description: "Removes most significant bit by shifting left 1 then truncating LSB. Result width is nSz-1."
+  - name: "dontCareValue"
+    description: "Returns don't-care value (?) for any Bits type."
+  - name: "unwrapMaybe"
+    description: "Unwraps a Maybe type using fromMaybe(?, maybe)."
+  - name: "unwrapMaybeWithDefault"
+    description: "Unwraps Maybe with an explicit default value."
+  - name: "getTupleFirst/Second/Third/Fourth/Fifth/Sixth"
+    description: "Tuple element accessors using tpl_1 through tpl_6."
+  - name: "identityFunc"
+    description: "Identity function, returns input unchanged."
+  - name: "immAssert"
+    description: "Immediate assertion action. If condition false, prints error with position/name/message and calls $finish(1)."
+  - name: "immFail"
+    description: "Immediate failure action. Always prints error and calls $finish(1)."
+
+structs_and_types:
+  - name: "TWO"
+    description: "Constant typedef 2 TWO"
+  - name: "FOUR"
+    description: "Constant typedef 4 FOUR"
+  - name: "FlagsType#(type enumType)"
+    description: "Struct with single field 'flags' of type Bit#(SizeOf#(enumType)), deriving Bits, Bitwise, Eq"
+  - name: "CountCF#(type anytype)"
+    description: "Interface with methods: incrOne(Action), decrOne(Action), _write(Action, anytype), _read(anytype). The _write method has write priority; incr/decr use FIFOs for concurrency."
+  - name: "FShow instance for FlagsType"
+    description: "FShow instance that formats flags as 'FlagsType { flags: <bits> = <enum_names> }'. Iterates over each bit to find which enum values are set."
+
+typeclass:
+  - name: "Flags#(type enumType)"
+    description: "Typeclass with function isOneHotOrZero that checks if an enum value is one-hot or zero."
+
+conversion_functions:
+  - name: "enum2Flag"
+    description: "Converts an enum value to its FlagsType representation using pack/unpack."
+  - name: "containFlags"
+    description: "Checks if flags1 contains all flags in flags2: (flags1 & flags2) == flags2."
+  - name: "containEnum"
+    description: "Checks if flags contains a specific enum value: !isZero(pack(flags & enum2Flag(enumVal)))."
+
+pipeout_helper:
+  - name: "toPipeOut"
+    description: "Converts FIFOF to PipeOut using f_FIFOF_to_PipeOut."
+
+module_implementation:
+  - name: "mkCountCF"
+    description: |
+      Counter module with write priority. Uses:
+      - cntReg: main counter register
+      - incrQ/decrQ: FIFOs for increment/decrement requests
+      - writeReg[2]: CReg for write value (priority mechanism)
+      - incrReg[2]/decrReg[2]: CReg for tracking incr/decr
+
+      Rules:
+      - write rule (* no_implicit_conditions, fire_when_enabled *): When writeReg has valid value, write it to cntReg, clear FIFOs
+      - increment rule (* fire_when_enabled *): Sets incrReg when !hasWrite
+      - decrement rule (* fire_when_enabled *): Sets decrReg when !hasWrite
+      - incrAndDecr rule (* no_implicit_conditions, fire_when_enabled *): Updates cntReg (+1/-1) based on incrReg/decrReg
+
+knowledge:
+  bsv:
+    imports:
+      - "FIFOF :: *"
+      - "PAClib :: *"
+    styling: "Use standard BSV conventions. Functions should have provisos comments. Use anytype for generic type parameters."

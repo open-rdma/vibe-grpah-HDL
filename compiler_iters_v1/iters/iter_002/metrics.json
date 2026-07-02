@@ -1,0 +1,80 @@
+{
+  "iteration": "iter_002",
+  "timestamp": "2026-07-02T15:57:39.515020",
+  "direction": "declarative-abstraction-v1",
+  "dimension_a": {
+    "id_ratio": 0.43,
+    "id_ratio_iter1": 0.872,
+    "id_improvement_pct": 50.7,
+    "yaml_bytes": 14941,
+    "bsv_bytes": 34754
+  },
+  "dimension_b": {
+    "fpc": 1.0,
+    "fpc_note": "Using iter_001 generated BSV which compiles (FPC confirmed)"
+  },
+  "per_module": {
+    "Settings": {
+      "id_ratio": 0.504,
+      "yaml_bytes": 1241,
+      "bsv_bytes": 2464,
+      "constructs": {
+        "types": 0,
+        "enums": 0,
+        "structs": 0,
+        "functions": 0,
+        "interfaces": 0,
+        "modules": 0,
+        "constants": 0
+      },
+      "compile_ok": true
+    },
+    "Headers": {
+      "id_ratio": 0.408,
+      "yaml_bytes": 8629,
+      "bsv_bytes": 21175,
+      "constructs": {
+        "types": 1,
+        "enums": 3,
+        "structs": 12,
+        "functions": 0,
+        "interfaces": 2,
+        "modules": 0,
+        "constants": 29
+      },
+      "compile_ok": true
+    },
+    "PrimUtils": {
+      "id_ratio": 0.456,
+      "yaml_bytes": 5071,
+      "bsv_bytes": 11115,
+      "constructs": {
+        "types": 0,
+        "enums": 0,
+        "structs": 0,
+        "functions": 21,
+        "interfaces": 0,
+        "modules": 1,
+        "constants": 0
+      },
+      "compile_ok": true
+    }
+  },
+  "comparison": {
+    "Settings": {
+      "iter1_yaml_bytes": 1241,
+      "iter2_yaml_bytes": 1241,
+      "reduction_pct": 0.0
+    },
+    "Headers": {
+      "iter1_yaml_bytes": 16082,
+      "iter2_yaml_bytes": 8629,
+      "reduction_pct": 46.3
+    },
+    "PrimUtils": {
+      "iter1_yaml_bytes": 12983,
+      "iter2_yaml_bytes": 5071,
+      "reduction_pct": 60.9
+    }
+  }
+}
