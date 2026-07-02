@@ -19,6 +19,7 @@
 | 文件 | 内容 | 何时加载 |
 |------|------|---------|
 | `prompt_v2_architecture.md` | 系统总目标、三部分架构（compiler/frontend/backend）、技术栈 | 需要理解系统整体架构时 |
+| `prompt_v2_bsv2yaml_hints.md` | 如何用自然语言描述bsv源码功能的提示 | 需要从bsv文件生成yaml文件时 |
 | `prompt_v2_yaml_spec.md` | YAML 文件系统完整规范：节点属性、端口系统、类型定义、连线系统、子模块系统、6级知识模板层级 | 设计 YAML 格式、编写 YAML、理解字段含义时 |
 | `prompt_v2_compiler_flow.md` | compiler 内部运作流程：图遍历、知识收集、生成策略（Two-Phase/Bottom-Up/Top-Down/Parallel）、构建范围与模式 | 实现/修改 compiler 逻辑时 |
 | `prompt_v2_iteration_loop.md` | 自我验证与迭代闭环：bsv→yaml→bsv 流程、修改模式（CRITICAL）、Deli_AutoResearch 协议约束 | 执行迭代实验时 |
@@ -32,7 +33,7 @@
 | 场景 | 加载文件 |
 |------|---------|
 | 开始新迭代 | `prompt_v2_iteration_loop.md` + `prompt_v2_test_suite.md` |
-| 设计/修改 YAML 格式 | `prompt_v2_yaml_spec.md` + `prompt_v2_optimization.md` |
+| 设计/修改 YAML 格式 | `prompt_v2_yaml_spec.md` + `prompt_v2_optimization.md` + `prompt_v2_bsv2yaml_hints.md` |
 | 实现 compiler | `prompt_v2_compiler_flow.md` + `prompt_v2_yaml_spec.md` |
 | 分析实验结果 | `prompt_v2_metrics.md` + `prompt_v2_test_suite.md` |
 | 遇到设计冲突 | `prompt_v2_design_decisions.md` |
