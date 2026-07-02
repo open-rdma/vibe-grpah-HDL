@@ -1,0 +1,2 @@
+{"direction": "two_agent_blind_review", "fpc": 0.045454545454545456, "gen_ok": 3, "comp_ok": 1, "key_observation": "Blind reviewer adds second verification layer; generator+reviewer+fix three-phase pipeline"}
+{"direction": "minimal_declarative_prompt_l0_l1", "fpc": 0.22727272727272727, "gen_ok": 13, "comp_ok": 5, "key_observation": "L0-L1 minimal prompts to avoid timeout; no reference BSV; 1-round error fix"}

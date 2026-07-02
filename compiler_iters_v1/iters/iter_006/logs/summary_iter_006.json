@@ -1,0 +1,121 @@
+{
+  "iteration": "iter_006",
+  "strategy": "minimal_declarative_prompt_l0_l1",
+  "timestamp": "2026-07-02T18:56:06.313977",
+  "fpc": 0.22727272727272727,
+  "gen_ok": 13,
+  "comp_ok": 5,
+  "total": 22,
+  "per_module": {
+    "DataTypes": {
+      "compile_ok": false,
+      "gen_time": 90.0864646434784,
+      "fixed": false
+    },
+    "DupReadAtomicCache": {
+      "compile_ok": false,
+      "gen_time": 90.1855046749115,
+      "fixed": false
+    },
+    "Headers": {
+      "compile_ok": true,
+      "gen_time": 76.8517963886261,
+      "fixed": false
+    },
+    "Arbitration": {
+      "compile_ok": false,
+      "gen_time": 219.70034980773926,
+      "fixed": false
+    },
+    "ExtractAndPrependPipeOut": {
+      "compile_ok": true,
+      "gen_time": 140.34180617332458,
+      "fixed": false
+    },
+    "Controller": {
+      "compile_ok": false,
+      "gen_time": 233.826477766037,
+      "fixed": false
+    },
+    "MetaData": {
+      "compile_ok": false,
+      "gen_time": 90.14768981933594,
+      "fixed": false
+    },
+    "InputPktHandle": {
+      "compile_ok": true,
+      "gen_time": 143.15732789039612,
+      "fixed": false
+    },
+    "PayloadGen": {
+      "compile_ok": false,
+      "gen_time": 90.14914321899414,
+      "fixed": false
+    },
+    "PayloadConAndGen": {
+      "compile_ok": true,
+      "gen_time": 211.08753204345703,
+      "fixed": true
+    },
+    "ReqHandleRQ": {
+      "compile_ok": false,
+      "gen_time": 90.13153600692749,
+      "fixed": false
+    },
+    "PrimUtils": {
+      "compile_ok": false,
+      "gen_time": 251.28179907798767,
+      "fixed": false
+    },
+    "QueuePair": {
+      "compile_ok": false,
+      "gen_time": 250.70368719100952,
+      "fixed": false
+    },
+    "ReqGenSQ": {
+      "compile_ok": false,
+      "gen_time": 257.33733916282654,
+      "fixed": false
+    },
+    "RespHandleSQ": {
+      "compile_ok": false,
+      "gen_time": 90.08327507972717,
+      "fixed": false
+    },
+    "SendQ": {
+      "compile_ok": false,
+      "gen_time": 90.14843130111694,
+      "fixed": false
+    },
+    "Settings": {
+      "compile_ok": true,
+      "gen_time": 87.42527151107788,
+      "fixed": false
+    },
+    "TransportLayer": {
+      "compile_ok": false,
+      "gen_time": 90.06755113601685,
+      "fixed": false
+    },
+    "Utils": {
+      "compile_ok": false,
+      "gen_time": 90.1159017086029,
+      "fixed": false
+    },
+    "RetryHandleSQ": {
+      "compile_ok": false,
+      "gen_time": 255.14489722251892,
+      "fixed": false
+    },
+    "SpecialFIFOF": {
+      "compile_ok": false,
+      "gen_time": 230.96376872062683,
+      "fixed": false
+    },
+    "WorkCompGen": {
+      "compile_ok": false,
+      "gen_time": 278.59113097190857,
+      "fixed": false
+    }
+  }
+}

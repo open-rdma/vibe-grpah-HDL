@@ -1,0 +1,466 @@
+meta:
+  name: SendQ
+  description: SendQ
+module_type: module
+design_knowledge:
+  description: 'This module defines: SendQ.'
+  structural_info: 'Original BSV file: SendQ.bsv
+
+    Contains: 1 typedefs, 0 enums, 4 structs, 14 functions, 3 methods, 3 registers,
+    9 rules, 5 submodules'
+typedefs:
+- name: WQE_SLICE_MAX_SIZE
+  bsv_equivalent: typedef TMul#(32, 1024) WQE_SLICE_MAX_SIZE;
+  value: TMul#(32, 1024)
+structs:
+- name: PktInfo4UDP
+  deriving: Bits, FShow
+  fields:
+  - type: MAC
+    name: macAddr
+  - type: IP
+    name: ipAddr
+  - type: PktLen
+    name: pktLen
+  - type: Bool
+    name: isRawPkt
+- name: PktHeaderInfo
+  deriving: Bits, FShow
+  fields:
+  - type: HeaderData
+    name: headerData
+  - type: HeaderByteNum
+    name: headerLen
+  - type: Bool
+    name: hasPayload
+  - type: Bool
+    name: hasHeader
+- name: HeaderGenInfo
+  deriving: Bits, FShow
+  fields:
+  - type: ADDR
+    name: remoteAddr
+  - type: Length
+    name: totalLen
+  - type: PSN
+    name: curPSN
+  - type: PktLen
+    name: pktLen
+  - type: PAD
+    name: padCnt
+  - type: Bool
+    name: hasPayload
+  - type: Bool
+    name: ackReq
+  - type: Bool
+    name: solicited
+  - type: Bool
+    name: isFirstPkt
+  - type: Bool
+    name: isLastPkt
+  - type: Bool
+    name: isOnlyPkt
+  - type: Bool
+    name: isRawPkt
+- name: SendResp
+  deriving: Bits, FShow
+  fields:
+  - type: ReservedZero#(0)
+    name: rsvd
+functions:
+- name: unknown
+  bsv_equivalent: "function PktHeaderInfo genPktHeaderInfo(\n    HeaderData headerData,\
+    \ HeaderByteNum headerLen, Bool hasPayload\n);\n    return PktHeaderInfo {\n \
+    \       headerData: headerData,\n        headerLen : headerLen,\n        hasPayload:\
+    \ hasPayload,\n        hasHeader : True\n    };\nendfunction"
+- name: genEmptyPktHeaderInfo
+  return_type: PktHeaderInfo
+  args: Bool hasPayload
+  bsv_equivalent: "function PktHeaderInfo genEmptyPktHeaderInfo(Bool hasPayload);\n\
+    \    return PktHeaderInfo {\n        headerData: dontCareValue,\n        headerLen\
+    \ : 0,\n        hasPayload: hasPayload,\n        hasHeader : False\n    };\nendfunction"
+- name: genFirstOrOnlyRdmaOpCode
+  return_type: Maybe#(RdmaOpCode)
+  args: WorkReqOpCode wrOpCode, Bool isOnlyReqPkt
+  bsv_equivalent: "function Maybe#(RdmaOpCode) genFirstOrOnlyRdmaOpCode(WorkReqOpCode\
+    \ wrOpCode, Bool isOnlyReqPkt);\n    return case (wrOpCode)\n        IBV_WR_RDMA_WRITE\
+    \          : tagged Valid (isOnlyReqPkt ? RDMA_WRITE_ONLY                : RDMA_WRITE_FIRST);\n\
+    \        IBV_WR_RDMA_WRITE_WITH_IMM : tagged Valid (isOnlyReqPkt ? RDMA_WRITE_ONLY_WITH_IMMEDIATE\
+    \ : RDMA_WRITE_FIRST);\n        IBV_WR_SEND                : tagged Valid (isOnlyReqPkt\
+    \ ? SEND_ONLY                      : SEND_FIRST);\n        IBV_WR_SEND_WITH_IMM\
+    \       : tagged Valid (isOnlyReqPkt ? SEND_ONLY_WITH_IMMEDIATE       : SEND_FIRST);\n\
+    \        IBV_WR_SEND_WITH_INV       : tagged Valid (isOnlyReqPkt ? SEND_ONLY_WITH_INVALIDATE\
+    \      : SEND_FIRST);\n        IBV_WR_RDMA_READ_RESP      : tagged Valid (isOnlyReqPkt\
+    \ ? RDMA_READ_RESPONSE_ONLY        : RDMA_READ_RESPONSE_FIRST);\n        IBV_WR_RDMA_READ\
+    \           : tagged Valid RDMA_READ_REQUEST;\n        IBV_WR_ATOMIC_CMP_AND_SWP\
+    \  : tagged Valid COMPARE_SWAP;\n        IBV_WR_ATOMIC_FETCH_AND_ADD: tagged Valid\
+    \ FETCH_ADD;\n        default                    : tagged Invalid;\n    endcase;\n\
+    endfunction"
+- name: genMiddleOrLastRdmaOpCode
+  return_type: Maybe#(RdmaOpCode)
+  args: WorkReqOpCode wrOpCode, Bool isLastReqPkt
+  bsv_equivalent: "function Maybe#(RdmaOpCode) genMiddleOrLastRdmaOpCode(WorkReqOpCode\
+    \ wrOpCode, Bool isLastReqPkt);\n    return case (wrOpCode)\n        IBV_WR_RDMA_WRITE\
+    \         : tagged Valid (isLastReqPkt ? RDMA_WRITE_LAST                : RDMA_WRITE_MIDDLE);\n\
+    \        IBV_WR_RDMA_WRITE_WITH_IMM: tagged Valid (isLastReqPkt ? RDMA_WRITE_LAST_WITH_IMMEDIATE\
+    \ : RDMA_WRITE_MIDDLE);\n        IBV_WR_SEND               : tagged Valid (isLastReqPkt\
+    \ ? SEND_LAST                      : SEND_MIDDLE);\n        IBV_WR_SEND_WITH_IMM\
+    \      : tagged Valid (isLastReqPkt ? SEND_LAST_WITH_IMMEDIATE       : SEND_MIDDLE);\n\
+    \        IBV_WR_SEND_WITH_INV      : tagged Valid (isLastReqPkt ? SEND_LAST_WITH_INVALIDATE\
+    \      : SEND_MIDDLE);\n        IBV_WR_RDMA_READ_RESP     : tagged Valid (isLastReqPkt\
+    \ ? RDMA_READ_RESPONSE_LAST        : RDMA_READ_RESPONSE_MIDDLE);\n        default\
+    \                   : tagged Invalid;\n    endcase;\nendfunction"
+- name: genXRCETH
+  return_type: Maybe#(XRCETH)
+  args: WorkQueueElem wqe
+  bsv_equivalent: "function Maybe#(XRCETH) genXRCETH(WorkQueueElem wqe);\n    return\
+    \ case (wqe.qpType)\n        IBV_QPT_XRC_SEND: tagged Valid XRCETH {\n       \
+    \     srqn: unwrapMaybe(wqe.srqn),\n            rsvd: unpack(0)\n        };\n\
+    \        default: tagged Invalid;\n    endcase;\nendfunction"
+- name: genDETH
+  return_type: Maybe#(DETH)
+  args: WorkQueueElem wqe
+  bsv_equivalent: "function Maybe#(DETH) genDETH(WorkQueueElem wqe);\n    return case\
+    \ (wqe.qpType)\n        IBV_QPT_UD: tagged Valid DETH {\n            qkey: unwrapMaybe(wqe.qkey),\n\
+    \            sqpn: wqe.sqpn,\n            rsvd: unpack(0)\n        };\n      \
+    \  default: tagged Invalid;\n    endcase;\nendfunction"
+- name: unknown
+  bsv_equivalent: "function Maybe#(RETH) genRETH(\n    WorkReqOpCode wrOpCode, ADDR\
+    \ raddr, RKEY rkey, Length dlen\n);\n    return case (wrOpCode)\n        IBV_WR_RDMA_WRITE\
+    \         ,\n        IBV_WR_RDMA_WRITE_WITH_IMM,\n        IBV_WR_RDMA_READ   \
+    \       : tagged Valid RETH {\n            va  : raddr,\n            rkey: rkey,\n\
+    \            dlen: dlen\n        };\n        default                   : tagged\
+    \ Invalid;\n    endcase;\nendfunction"
+- name: genLETH
+  return_type: Maybe#(LETH)
+  args: WorkQueueElem wqe, Length dlen
+  bsv_equivalent: "function Maybe#(LETH) genLETH(WorkQueueElem wqe, Length dlen);\n\
+    \    let firstIdxSGE = 0;\n    return case (wqe.opcode)\n        IBV_WR_RDMA_READ:\
+    \ tagged Valid LETH {\n            va  : wqe.sgl[firstIdxSGE].laddr,\n       \
+    \     lkey: wqe.sgl[firstIdxSGE].lkey,\n            dlen: dlen\n        };\n \
+    \       default         : tagged Invalid;\n    endcase;\nendfunction"
+- name: genAtomicEth
+  return_type: Maybe#(AtomicEth)
+  args: WorkQueueElem wqe
+  bsv_equivalent: "function Maybe#(AtomicEth) genAtomicEth(WorkQueueElem wqe);\n \
+    \   if (wqe.swap matches tagged Valid .swap &&& wqe.comp matches tagged Valid\
+    \ .comp) begin\n        return case (wqe.opcode)\n            IBV_WR_ATOMIC_CMP_AND_SWP\
+    \  ,\n            IBV_WR_ATOMIC_FETCH_AND_ADD: tagged Valid AtomicEth {\n    \
+    \            va  : wqe.raddr,\n                rkey: wqe.rkey,\n             \
+    \   swap: swap,\n                comp: comp\n            };\n            default\
+    \                    : tagged Invalid;\n        endcase;\n    end\n    else begin\n\
+    \        return tagged Invalid;\n    end\nendfunction"
+- name: genImmDt
+  return_type: Maybe#(ImmDt)
+  args: WorkQueueElem wqe
+  bsv_equivalent: "function Maybe#(ImmDt) genImmDt(WorkQueueElem wqe);\n    case (wqe.opcode)\n\
+    \        IBV_WR_RDMA_WRITE_WITH_IMM,\n        IBV_WR_SEND_WITH_IMM      :\n  \
+    \          if (\n                wqe.immDtOrInvRKey matches tagged Valid .immDtOrInvRKey\
+    \ &&&\n                immDtOrInvRKey     matches tagged Imm   .immDt\n      \
+    \      ) begin\n                return tagged Valid ImmDt {\n                \
+    \    data: immDt\n                };\n            end\n            else begin\n\
+    \                return tagged Invalid;\n            end\n        default    \
+    \               : return tagged Invalid;\n    endcase\nendfunction"
+- name: genIETH
+  return_type: Maybe#(IETH)
+  args: WorkQueueElem wqe
+  bsv_equivalent: "function Maybe#(IETH) genIETH(WorkQueueElem wqe);\n    if (\n \
+    \       wqe.immDtOrInvRKey matches tagged Valid .immDtOrInvRKey &&&\n        immDtOrInvRKey\
+    \     matches tagged RKey  .rkey2Inv       &&&\n        wqe.opcode == IBV_WR_SEND_WITH_INV\n\
+    \    ) begin\n        return tagged Valid IETH {\n            rkey: rkey2Inv\n\
+    \        };\n    end\n    else begin\n        return tagged Invalid;\n    end\n\
+    endfunction"
+- name: unknown
+  bsv_equivalent: "function Maybe#(PktHeaderInfo) genFirstOrOnlyPktHeader(\n    WorkQueueElem\
+    \ wqe, Bool isOnlyReqPkt, Bool solicited, PSN psn, PAD padCnt,\n    Bool ackReq,\
+    \ ADDR remoteAddr, Length dlen, Bool hasPayload\n);\n    let maybeTrans  = qpType2TransType(wqe.qpType);\n\
+    \    let maybeOpCode = genFirstOrOnlyRdmaOpCode(wqe.opcode, isOnlyReqPkt);\n\n\
+    \    let isReadOrAtomicWR = isReadOrAtomicWorkReq(wqe.opcode);\n    if (\n   \
+    \     maybeTrans  matches tagged Valid .trans  &&&\n        maybeOpCode matches\
+    \ tagged Valid .opcode\n    ) begin\n        let bth = BTH {\n            trans\
+    \    : trans,\n            opcode   : opcode,\n            solicited: isOnlyReqPkt\
+    \ && solicited,\n            migReq   : unpack(0),\n            padCnt   : padCnt,\n\
+    \            tver     : unpack(0),\n            pkey     : dontCareValue, // wqe.pkey,\n\
+    \            fecn     : unpack(0),\n            becn     : unpack(0),\n      \
+    \      resv6    : unpack(0),\n            dqpn     : wqe.dqpn,\n            ackReq\
+    \   : isOnlyReqPkt && ackReq,\n            resv7    : unpack(0),\n           \
+    \ psn      : psn\n        };\n\n        let xrceth = genXRCETH(wqe);\n       \
+    \ let deth = genDETH(wqe);\n        let reth = genRETH(wqe.opcode, remoteAddr,\
+    \ wqe.rkey, dlen);\n        let leth = genLETH(wqe, dlen);\n        let atomicEth\
+    \ = genAtomicEth(wqe);\n        let immDt = genImmDt(wqe);\n        let ieth =\
+    \ genIETH(wqe);\n\n        // If WR has zero length, then no payload, no matter\
+    \ what kind of opcode\n        // let hasPayload = workReqHasPayload(wr);\n  \
+    \      case (wqe.opcode)\n            IBV_WR_RDMA_WRITE: begin\n             \
+    \   return case (wqe.qpType)\n                    IBV_QPT_RC,\n              \
+    \      IBV_QPT_UC: tagged Valid genPktHeaderInfo(\n                        zeroExtendLSB({\
+    \ pack(bth), pack(unwrapMaybe(reth)) }),\n                        fromInteger(valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(RETH_BYTE_WIDTH)),\n                        hasPayload\n         \
+    \           );\n                    IBV_QPT_XRC_SEND: tagged Valid genPktHeaderInfo(\n\
+    \                        zeroExtendLSB({ pack(bth), pack(unwrapMaybe(xrceth)),\
+    \ pack(unwrapMaybe(reth)) }),\n                        fromInteger(valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(XRCETH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH)),\n                \
+    \        hasPayload\n                    );\n                    default: tagged\
+    \ Invalid;\n                endcase;\n            end\n            IBV_WR_RDMA_WRITE_WITH_IMM:\
+    \ begin\n                return case (wqe.qpType)\n                    IBV_QPT_RC,\n\
+    \                    IBV_QPT_UC: tagged Valid genPktHeaderInfo(\n            \
+    \            isOnlyReqPkt ?\n                            zeroExtendLSB({ pack(bth),\
+    \ pack(unwrapMaybe(reth)), pack(unwrapMaybe(immDt))}) :\n                    \
+    \        zeroExtendLSB({ pack(bth), pack(unwrapMaybe(reth))}),\n             \
+    \           isOnlyReqPkt ?\n                            fromInteger(valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(RETH_BYTE_WIDTH) + valueOf(IMM_DT_BYTE_WIDTH)) :\n               \
+    \             fromInteger(valueOf(BTH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH)),\n\
+    \                        hasPayload\n                    );\n                \
+    \    IBV_QPT_XRC_SEND: tagged Valid genPktHeaderInfo(\n                      \
+    \  isOnlyReqPkt ?\n                            zeroExtendLSB({ pack(bth), pack(unwrapMaybe(xrceth)),\
+    \ pack(unwrapMaybe(reth)), pack(unwrapMaybe(immDt)) }) :\n                   \
+    \         zeroExtendLSB({ pack(bth), pack(unwrapMaybe(xrceth)), pack(unwrapMaybe(reth))\
+    \ }),\n                        isOnlyReqPkt ?\n                            fromInteger(valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(XRCETH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH) + valueOf(IMM_DT_BYTE_WIDTH))\
+    \ :\n                            fromInteger(valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH)\
+    \ + valueOf(RETH_BYTE_WIDTH)),\n                        hasPayload\n         \
+    \           );\n                    default: tagged Invalid;\n               \
+    \ endcase;\n            end\n            IBV_WR_SEND: begin\n                return\
+    \ case (wqe.qpType)\n                    IBV_QPT_RC,\n                    IBV_QPT_UC:\
+    \ tagged Valid genPktHeaderInfo(\n                        zeroExtendLSB(pack(bth)),\n\
+    \                        fromInteger(valueOf(BTH_BYTE_WIDTH)),\n             \
+    \           hasPayload\n                    );\n                    IBV_QPT_UD:\
+    \ tagged Valid genPktHeaderInfo(\n                        zeroExtendLSB({ pack(bth),\
+    \ pack(unwrapMaybe(deth)) }),\n                        fromInteger(valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(DETH_BYTE_WIDTH)),\n                        hasPayload\n         \
+    \           );\n                    IBV_QPT_XRC_SEND: tagged Valid genPktHeaderInfo(\n\
+    \                        zeroExtendLSB({ pack(bth), pack(unwrapMaybe(xrceth))\
+    \ }),\n                        fromInteger(valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH)),\n\
+    \                        hasPayload\n                    );\n                \
+    \    default: tagged Invalid;\n                endcase;\n            end\n   \
+    \         IBV_WR_SEND_WITH_IMM: begin\n                return case (wqe.qpType)\n\
+    \                    IBV_QPT_RC,\n                    IBV_QPT_UC: tagged Valid\
+    \ genPktHeaderInfo(\n                        isOnlyReqPkt ?\n                \
+    \            zeroExtendLSB({ pack(bth), pack(unwrapMaybe(immDt)) }) :\n      \
+    \                      zeroExtendLSB(pack(bth)),\n                        isOnlyReqPkt\
+    \ ?\n                            fromInteger(valueOf(BTH_BYTE_WIDTH) + valueOf(IMM_DT_BYTE_WIDTH))\
+    \ :\n                            fromInteger(valueOf(BTH_BYTE_WIDTH)),\n     \
+    \                   hasPayload\n                    );\n                    IBV_QPT_UD:\
+    \ tagged Valid genPktHeaderInfo(\n                        // UD always has only\
+    \ pkt\n                        zeroExtendLSB({ pack(bth), pack(unwrapMaybe(deth)),\
+    \ pack(unwrapMaybe(immDt)) }),\n                        fromInteger(valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(DETH_BYTE_WIDTH) + valueOf(IMM_DT_BYTE_WIDTH)),\n                \
+    \        hasPayload\n                    );\n                    IBV_QPT_XRC_SEND:\
+    \ tagged Valid genPktHeaderInfo(\n                        isOnlyReqPkt ?\n   \
+    \                         zeroExtendLSB({ pack(bth), pack(unwrapMaybe(xrceth)),\
+    \ pack(unwrapMaybe(immDt)) }) :\n                            zeroExtendLSB({ pack(bth),\
+    \ pack(unwrapMaybe(xrceth)) }),\n                        isOnlyReqPkt ?\n    \
+    \                        fromInteger(valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH)\
+    \ + valueOf(IMM_DT_BYTE_WIDTH)) :\n                            fromInteger(valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(XRCETH_BYTE_WIDTH)),\n                        hasPayload\n       \
+    \             );\n                    default: tagged Invalid;\n             \
+    \   endcase;\n            end\n            IBV_WR_SEND_WITH_INV: begin\n     \
+    \           return case (wqe.qpType)\n                    IBV_QPT_RC: tagged Valid\
+    \ genPktHeaderInfo(\n                        isOnlyReqPkt ?\n                \
+    \            zeroExtendLSB({ pack(bth), pack(unwrapMaybe(ieth)) }) :\n       \
+    \                     zeroExtendLSB(pack(bth)),\n                        isOnlyReqPkt\
+    \ ?\n                            fromInteger(valueOf(BTH_BYTE_WIDTH) + valueOf(IETH_BYTE_WIDTH))\
+    \ :\n                            fromInteger(valueOf(BTH_BYTE_WIDTH)),\n     \
+    \                   hasPayload\n                    );\n                    IBV_QPT_XRC_SEND:\
+    \ tagged Valid genPktHeaderInfo(\n                        isOnlyReqPkt ?\n   \
+    \                         zeroExtendLSB({ pack(bth), pack(unwrapMaybe(xrceth)),\
+    \ pack(unwrapMaybe(ieth)) }) :\n                            zeroExtendLSB({ pack(bth),\
+    \ pack(unwrapMaybe(xrceth)) }),\n                        isOnlyReqPkt ?\n    \
+    \                        fromInteger(valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH)\
+    \ + valueOf(IETH_BYTE_WIDTH)) :\n                            fromInteger(valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(XRCETH_BYTE_WIDTH)),\n                        hasPayload\n       \
+    \             );\n                    default: tagged Invalid;\n             \
+    \   endcase;\n            end\n            IBV_WR_RDMA_READ: begin\n         \
+    \       return case (wqe.qpType)\n                    IBV_QPT_RC: tagged Valid\
+    \ genPktHeaderInfo(\n                        zeroExtendLSB({ pack(bth), pack(unwrapMaybe(reth)),\
+    \ pack(unwrapMaybe(leth)) }),\n                        fromInteger(valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(RETH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH)),\n                  \
+    \      False // Read requests have no payload\n                    );\n      \
+    \              IBV_QPT_XRC_SEND: tagged Valid genPktHeaderInfo(\n            \
+    \            zeroExtendLSB({ pack(bth), pack(unwrapMaybe(xrceth)), pack(unwrapMaybe(reth)),\
+    \ pack(unwrapMaybe(leth)) }),\n                        fromInteger(valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(XRCETH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH)),\n\
+    \                        False // Read requests have no payload\n            \
+    \        );\n                    default: tagged Invalid;\n                endcase;\n\
+    \            end\n            IBV_WR_ATOMIC_CMP_AND_SWP  ,\n            IBV_WR_ATOMIC_FETCH_AND_ADD:\
+    \ begin\n                return case (wqe.qpType)\n                    IBV_QPT_RC:\
+    \ tagged Valid genPktHeaderInfo(\n                        zeroExtendLSB({ pack(bth),\
+    \ pack(unwrapMaybe(atomicEth)) }),\n                        fromInteger(valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(ATOMIC_ETH_BYTE_WIDTH)),\n                        False // Atomic\
+    \ requests have no payload\n                    );\n                    IBV_QPT_XRC_SEND:\
+    \ tagged Valid genPktHeaderInfo(\n                        zeroExtendLSB({ pack(bth),\
+    \ pack(unwrapMaybe(xrceth)), pack(unwrapMaybe(atomicEth)) }),\n              \
+    \          fromInteger(valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH) +\
+    \ valueOf(ATOMIC_ETH_BYTE_WIDTH)),\n                        False // Atomic requests\
+    \ have no payload\n                    );\n                    default: tagged\
+    \ Invalid;\n                endcase;\n            end\n            IBV_WR_RDMA_READ_RESP:\
+    \ begin\n                return case (wqe.qpType)\n                    IBV_QPT_RC\
+    \      ,\n                    IBV_QPT_XRC_SEND,\n                    IBV_QPT_XRC_RECV:\
+    \ tagged Valid genPktHeaderInfo(\n                        zeroExtendLSB({ pack(bth),\
+    \ pack(unwrapMaybe(reth)) }),\n                        fromInteger(valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(RETH_BYTE_WIDTH)),\n                        hasPayload\n         \
+    \           );\n                    default         : tagged Invalid;\n      \
+    \          endcase;\n            end\n            default: return tagged Invalid;\n\
+    \        endcase\n    end\n    else begin\n        return tagged Invalid;\n  \
+    \  end\nendfunction"
+- name: unknown
+  bsv_equivalent: "function Maybe#(PktHeaderInfo) genMiddleOrLastPktHeader(\n    WorkQueueElem\
+    \ wqe, Bool isLastReqPkt, Bool solicited, PSN psn,\n    PAD padCnt, Bool ackReq,\
+    \ ADDR remoteAddr, PktLen pktLen // , Bool hasPayload\n);\n    let maybeTrans\
+    \  = qpType2TransType(wqe.qpType);\n    let maybeOpCode = genMiddleOrLastRdmaOpCode(wqe.opcode,\
+    \ isLastReqPkt);\n\n    if (\n        maybeTrans  matches tagged Valid .trans\
+    \  &&&\n        maybeOpCode matches tagged Valid .opcode\n    ) begin\n      \
+    \  let bth = BTH {\n            trans    : trans,\n            opcode   : opcode,\n\
+    \            solicited: isLastReqPkt && solicited,\n            migReq   : unpack(0),\n\
+    \            padCnt   : padCnt,\n            tver     : unpack(0),\n         \
+    \   pkey     : dontCareValue, // wqe.pkey,\n            fecn     : unpack(0),\n\
+    \            becn     : unpack(0),\n            resv6    : unpack(0),\n      \
+    \      dqpn     : wqe.dqpn,\n            ackReq   : isLastReqPkt && ackReq,\n\
+    \            resv7    : unpack(0),\n            psn      : psn\n        };\n\n\
+    \        Length dlen = zeroExtend(pktLen);\n        let xrceth = genXRCETH(wqe);\n\
+    \        let reth = genRETH(wqe.opcode, remoteAddr, wqe.rkey, dlen);\n       \
+    \ let immDt = genImmDt(wqe);\n        let ieth = genIETH(wqe);\n\n        let\
+    \ hasPayload = True;\n        case (wqe.opcode)\n            IBV_WR_RDMA_WRITE:begin\n\
+    \                return case (wqe.qpType)\n                    IBV_QPT_RC,\n \
+    \                   IBV_QPT_UC: tagged Valid genPktHeaderInfo(\n             \
+    \           zeroExtendLSB({ pack(bth), pack(unwrapMaybe(reth)) }),\n         \
+    \               fromInteger(valueOf(BTH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH)),\n\
+    \                        hasPayload\n                    );\n                \
+    \    IBV_QPT_XRC_SEND: tagged Valid genPktHeaderInfo(\n                      \
+    \  zeroExtendLSB({ pack(bth), pack(unwrapMaybe(xrceth)), pack(unwrapMaybe(reth))\
+    \ }),\n                        fromInteger(valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH)\
+    \ + valueOf(RETH_BYTE_WIDTH)),\n                        hasPayload\n         \
+    \           );\n                    default: tagged Invalid;\n               \
+    \ endcase;\n            end\n            IBV_WR_RDMA_WRITE_WITH_IMM: begin\n \
+    \               return case (wqe.qpType)\n                    IBV_QPT_RC,\n  \
+    \                  IBV_QPT_UC: tagged Valid genPktHeaderInfo(\n              \
+    \          isLastReqPkt ?\n                            zeroExtendLSB({ pack(bth),\
+    \ pack(unwrapMaybe(reth)), pack(unwrapMaybe(immDt))}) :\n                    \
+    \        zeroExtendLSB({ pack(bth), pack(unwrapMaybe(reth)) }),\n            \
+    \            isLastReqPkt ?\n                            fromInteger(valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(RETH_BYTE_WIDTH) + valueOf(IMM_DT_BYTE_WIDTH)) :\n               \
+    \             fromInteger(valueOf(BTH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH)),\n\
+    \                        hasPayload\n                    );\n                \
+    \    IBV_QPT_XRC_SEND: tagged Valid genPktHeaderInfo(\n                      \
+    \  isLastReqPkt ?\n                            zeroExtendLSB({ pack(bth), pack(unwrapMaybe(xrceth)),\
+    \ pack(unwrapMaybe(reth)), pack(unwrapMaybe(immDt)) }) :\n                   \
+    \         zeroExtendLSB({ pack(bth), pack(unwrapMaybe(xrceth)), pack(unwrapMaybe(reth))\
+    \ }),\n                        isLastReqPkt ?\n                            fromInteger(valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(XRCETH_BYTE_WIDTH) + valueOf(RETH_BYTE_WIDTH) + valueOf(IMM_DT_BYTE_WIDTH))\
+    \ :\n                            fromInteger(valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH)\
+    \ + valueOf(RETH_BYTE_WIDTH)),\n                        hasPayload\n         \
+    \           );\n                    default: tagged Invalid;\n               \
+    \ endcase;\n            end\n            IBV_WR_SEND: begin\n                return\
+    \ case (wqe.qpType)\n                    IBV_QPT_RC,\n                    IBV_QPT_UC:\
+    \ tagged Valid genPktHeaderInfo(\n                        zeroExtendLSB(pack(bth)),\n\
+    \                        fromInteger(valueOf(BTH_BYTE_WIDTH)),\n             \
+    \           hasPayload\n                    );\n                    IBV_QPT_XRC_SEND:\
+    \ tagged Valid genPktHeaderInfo(\n                        zeroExtendLSB({ pack(bth),\
+    \ pack(unwrapMaybe(xrceth)) }),\n                        fromInteger(valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(XRCETH_BYTE_WIDTH)),\n                        hasPayload\n       \
+    \             );\n                    default: tagged Invalid;\n             \
+    \   endcase;\n            end\n            IBV_WR_SEND_WITH_IMM: begin\n     \
+    \           return case (wqe.qpType)\n                    IBV_QPT_RC,\n      \
+    \              IBV_QPT_UC: tagged Valid genPktHeaderInfo(\n                  \
+    \      isLastReqPkt ?\n                            zeroExtendLSB({ pack(bth),\
+    \ pack(unwrapMaybe(immDt)) }) :\n                            zeroExtendLSB(pack(bth)),\n\
+    \                        isLastReqPkt ?\n                            fromInteger(valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(IMM_DT_BYTE_WIDTH)) :\n                            fromInteger(valueOf(BTH_BYTE_WIDTH)),\n\
+    \                        hasPayload\n                    );\n                \
+    \    IBV_QPT_XRC_SEND: tagged Valid genPktHeaderInfo(\n                      \
+    \  isLastReqPkt ?\n                            zeroExtendLSB({ pack(bth), pack(unwrapMaybe(xrceth)),\
+    \ pack(unwrapMaybe(immDt)) }) :\n                            zeroExtendLSB({ pack(bth),\
+    \ pack(unwrapMaybe(xrceth)) }),\n                        isLastReqPkt ?\n    \
+    \                        fromInteger(valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH)\
+    \ + valueOf(IMM_DT_BYTE_WIDTH)) :\n                            fromInteger(valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(XRCETH_BYTE_WIDTH)),\n                        hasPayload\n       \
+    \             );\n                    default: tagged Invalid;\n             \
+    \   endcase;\n            end\n            IBV_WR_SEND_WITH_INV: begin\n     \
+    \           return case (wqe.qpType)\n                    IBV_QPT_RC: tagged Valid\
+    \ genPktHeaderInfo(\n                        isLastReqPkt ?\n                \
+    \            zeroExtendLSB({ pack(bth), pack(unwrapMaybe(ieth)) }) :\n       \
+    \                     zeroExtendLSB(pack(bth)),\n                        isLastReqPkt\
+    \ ?\n                            fromInteger(valueOf(BTH_BYTE_WIDTH) + valueOf(IETH_BYTE_WIDTH))\
+    \ :\n                            fromInteger(valueOf(BTH_BYTE_WIDTH)),\n     \
+    \                   hasPayload\n                    );\n                    IBV_QPT_XRC_SEND:\
+    \ tagged Valid genPktHeaderInfo(\n                        isLastReqPkt ?\n   \
+    \                         zeroExtendLSB({ pack(bth), pack(unwrapMaybe(xrceth)),\
+    \ pack(unwrapMaybe(ieth)) }) :\n                            zeroExtendLSB({ pack(bth),\
+    \ pack(unwrapMaybe(xrceth)) }),\n                        isLastReqPkt ?\n    \
+    \                        fromInteger(valueOf(BTH_BYTE_WIDTH) + valueOf(XRCETH_BYTE_WIDTH)\
+    \ + valueOf(IETH_BYTE_WIDTH)) :\n                            fromInteger(valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(XRCETH_BYTE_WIDTH)),\n                        hasPayload\n       \
+    \             );\n                    default: tagged Invalid;\n             \
+    \   endcase;\n            end\n            IBV_WR_RDMA_READ_RESP: begin\n    \
+    \            return case (wqe.qpType)\n                    IBV_QPT_RC      ,\n\
+    \                    IBV_QPT_XRC_SEND,\n                    IBV_QPT_XRC_RECV:\
+    \ tagged Valid genPktHeaderInfo(\n                        zeroExtendLSB({ pack(bth),\
+    \ pack(unwrapMaybe(reth)) }),\n                        fromInteger(valueOf(BTH_BYTE_WIDTH)\
+    \ + valueOf(RETH_BYTE_WIDTH)),\n                        hasPayload\n         \
+    \           );\n                    default         : tagged Invalid;\n      \
+    \          endcase;\n            end\n            default: return tagged Invalid;\n\
+    \        endcase\n    end\n    else begin\n        return tagged Invalid;\n  \
+    \  end\nendfunction"
+- name: workReqNeedPayloadGen
+  return_type: Bool
+  args: WorkReqOpCode opcode
+  bsv_equivalent: "function Bool workReqNeedPayloadGen(WorkReqOpCode opcode);\n  \
+    \  return case (opcode)\n        IBV_WR_RDMA_WRITE         ,\n        IBV_WR_RDMA_WRITE_WITH_IMM,\n\
+    \        IBV_WR_SEND               ,\n        IBV_WR_SEND_WITH_IMM      ,\n  \
+    \      IBV_WR_SEND_WITH_INV      ,\n        IBV_WR_RDMA_READ_RESP     : True;\n\
+    \        default                   : False;\n    endcase;\nendfunction"
+module_def:
+  name: mkSQ
+  interface_name: SendQ
+  methods:
+  - return_type: Bool
+    name: isEmpty
+    args: ''
+  - return_type: Bool
+    name: isEmpty
+    args: ''
+  - return_type: Action
+    name: clearAll
+    args: ''
+implementation:
+  registers:
+  - type: PSN
+    name: curPsnReg
+    array_size: null
+  - type: Bool
+    name: wqeFirstPktReg
+    array_size: null
+  - type: Bool
+    name: clearReg
+    array_size: null
+  rules:
+  - name: resetAndClear
+    attribute: null
+  - name: recvWQE
+    attribute: "conflict_free = \"recvWQE, \\\n                        recvTotalMetaData,\
+      \ \\\n                        updatePSN, \\\n                        prepareHeader,\
+      \ \\\n                        genPktHeader\""
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: rule
+    attribute: null
+  - name: interface
+    attribute: null
+  - name: resetAndClear
+    attribute: null
+  - name: interface
+    attribute: null
+  submodules:
+  - type: let
+    name: headerDataStreamAndMetaDataPipeOut
+  - type: let
+    name: rdmaPktDataStreamPipeOut
+  - type: let
+    name: dmaReadCntrl
+  - type: let
+    name: payloadGenerator
+  - type: let
+    name: sq
